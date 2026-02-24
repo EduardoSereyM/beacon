@@ -12,26 +12,41 @@
 
 /* ─── Theme Tokens ─── */
 :root {
-  /* Core Colors */
+  /* Core Colors (Deep Bunker) */
   --beacon-black: #0a0a0a;
   --beacon-dark: #111111;
   --beacon-surface: #1a1a1a;
   --beacon-border: #2a2a2a;
 
-  /* Rank Colors */
+  /* Paleta Beacon Sovereign (7 Tonos de Poder) */
   --beacon-gold: #d4af37;
+  /* Sovereign Gold — Ciudadanos de Oro */
   --beacon-gold-dim: rgba(212, 175, 55, 0.15);
   --beacon-silver: #c0c0c0;
+  /* Civic Silver — Verificados */
   --beacon-silver-dim: rgba(192, 192, 192, 0.15);
   --beacon-bronze: #cd7f32;
+  /* Bronze Mass — Masa crítica */
   --beacon-bronze-dim: rgba(205, 127, 50, 0.15);
   --beacon-diamond: #b9f2ff;
+  /* Diamond Auditor */
   --beacon-diamond-dim: rgba(185, 242, 255, 0.15);
 
-  /* Status */
-  --beacon-green: #22c55e;
-  --beacon-yellow: #eab308;
-  --beacon-red: #ef4444;
+  /* Semáforo de Seguridad (Panic Gate) */
+  --beacon-green: #00FF41;
+  /* Integrity Pulse — Sistema estable */
+  --beacon-yellow: #FFD700;
+  /* Alerta Moderada — CAPTCHA selectivo */
+  --beacon-red: #FF0000;
+  /* Panic Flash — Emergencia total */
+
+  /* Colores Especiales Sovereign */
+  --beacon-cyan: #00E5FF;
+  /* Data Stream — Metadatos forenses */
+  --beacon-purple: #8A2BE2;
+  /* Master Overlord — Admin absoluto */
+  --beacon-neon: #39FF14;
+  /* Integrity Pulse alternativo */
 
   /* Text */
   --foreground: #ededed;
@@ -61,6 +76,9 @@
   --color-beacon-green: var(--beacon-green);
   --color-beacon-yellow: var(--beacon-yellow);
   --color-beacon-red: var(--beacon-red);
+  --color-beacon-cyan: var(--beacon-cyan);
+  --color-beacon-purple: var(--beacon-purple);
+  --color-beacon-neon: var(--beacon-neon);
 
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -134,12 +152,28 @@ body {
 /* ─── Gold Glow Effect ─── */
 .glow-gold {
   box-shadow: 0 0 15px rgba(212, 175, 55, 0.3),
-              0 0 30px rgba(212, 175, 55, 0.1);
+    0 0 30px rgba(212, 175, 55, 0.1);
 }
 
 .glow-gold-hover:hover {
   box-shadow: 0 0 20px rgba(212, 175, 55, 0.4),
-              0 0 40px rgba(212, 175, 55, 0.15);
+    0 0 40px rgba(212, 175, 55, 0.15);
+}
+
+/* ─── Security Level Glows ─── */
+.glow-green {
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.4),
+    0 0 24px rgba(0, 255, 65, 0.15);
+}
+
+.glow-yellow {
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.4),
+    0 0 24px rgba(255, 215, 0, 0.15);
+}
+
+.glow-red {
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.5),
+    0 0 35px rgba(255, 0, 0, 0.2);
 }
 
 /* ─── Sharp Buttons (bordes afilados, transiciones suaves) ─── */
@@ -202,10 +236,192 @@ body {
 
 /* ─── Pulse Animation (for live indicators) ─── */
 @keyframes beacon-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .pulse-live {
   animation: beacon-pulse 2s ease-in-out infinite;
+}
+
+/* ════════════════════════════════════════════════
+ * PANIC GATE — Animaciones de Emergencia
+ * ════════════════════════════════════════════════
+ * Cuando security_level = RED, el dashboard completo
+ * entra en "modo guerra" con efectos visuales que
+ * comunican urgencia sin necesidad de texto.
+ */
+
+/* ─── RED: Border Pulsante de Emergencia ─── */
+@keyframes panic-border-pulse {
+  0% {
+    border-color: rgba(255, 0, 0, 0.3);
+  }
+
+  50% {
+    border-color: rgba(255, 0, 0, 0.9);
+  }
+
+  100% {
+    border-color: rgba(255, 0, 0, 0.3);
+  }
+}
+
+.panic-border {
+  border: 2px solid rgba(255, 0, 0, 0.5);
+  animation: panic-border-pulse 1.5s ease-in-out infinite;
+}
+
+/* ─── RED: Overlay de Emergencia (backdrop-blur) ─── */
+.panic-overlay {
+  position: relative;
+}
+
+.panic-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 0, 0, 0.03);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+/* ─── RED: Vignette de Peligro ─── */
+.panic-vignette {
+  box-shadow: inset 0 0 80px rgba(255, 0, 0, 0.08),
+    inset 0 0 160px rgba(255, 0, 0, 0.04);
+}
+
+/* ─── Semáforo: LED individual ─── */
+@keyframes semaphore-glow {
+
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.5);
+  }
+}
+
+.semaphore-active {
+  animation: semaphore-glow 2s ease-in-out infinite;
+}
+
+/* ─── RED: Semáforo urgente (parpadeo rápido) ─── */
+@keyframes semaphore-urgent {
+
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1.8);
+  }
+
+  50% {
+    opacity: 0.6;
+    filter: brightness(1);
+  }
+}
+
+.semaphore-urgent {
+  animation: semaphore-urgent 0.8s ease-in-out infinite;
+}
+
+/* ─── Overlord Purple Glow ─── */
+.glow-purple {
+  box-shadow: 0 0 15px rgba(138, 43, 226, 0.4),
+    0 0 30px rgba(138, 43, 226, 0.15);
+}
+
+/* ─── Cyan Data Stream ─── */
+.glow-cyan {
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.4),
+    0 0 24px rgba(0, 229, 255, 0.15);
+}
+
+/* ════════════════════════════════════════════════
+ * NEON DROP-SHADOW — Efectos de Rango Activo
+ * ════════════════════════════════════════════════
+ * Los usuarios Gold y Diamond brillan. Los Desplazados
+ * viven en el vacío. El contraste visual es poder.
+ */
+
+/* ─── Gold Neon Drop-Shadow (Élite activa) ─── */
+.neon-gold {
+  filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.6)) drop-shadow(0 0 14px rgba(212, 175, 55, 0.3));
+  transition: filter 0.3s ease;
+}
+
+.neon-gold:hover {
+  filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.8)) drop-shadow(0 0 20px rgba(212, 175, 55, 0.4)) drop-shadow(0 0 40px rgba(212, 175, 55, 0.2));
+}
+
+/* ─── Diamond Neon ─── */
+.neon-diamond {
+  filter: drop-shadow(0 0 6px rgba(185, 242, 255, 0.6)) drop-shadow(0 0 14px rgba(185, 242, 255, 0.3));
+}
+
+/* ─── Pulse Neon (Integrity Pulse verde) ─── */
+.neon-pulse {
+  filter: drop-shadow(0 0 6px rgba(57, 255, 20, 0.5)) drop-shadow(0 0 14px rgba(57, 255, 20, 0.2));
+}
+
+/* ─── Panic Neon (#FF073A Flash rojo) ─── */
+.neon-panic {
+  filter: drop-shadow(0 0 8px rgba(255, 7, 58, 0.6)) drop-shadow(0 0 18px rgba(255, 7, 58, 0.3));
+}
+
+/* ─── Overlord Purple Neon ─── */
+.neon-overlord {
+  filter: drop-shadow(0 0 8px rgba(138, 43, 226, 0.5)) drop-shadow(0 0 16px rgba(138, 43, 226, 0.25));
+}
+
+/* ════════════════════════════════════════════════
+ * DISPLACED ZONE — Transparencias de Vacío (5%)
+ * ════════════════════════════════════════════════
+ * Los Desplazados ven una interfaz fantasma:
+ * cajas al 5% de opacidad, sin brillo, sin glow.
+ * Esto crea una sensación de "estar fuera mirando
+ * hacia dentro", motivando el ascenso de rango.
+ */
+
+.displaced-box {
+  background: rgba(26, 26, 26, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  opacity: 0.6;
+  filter: grayscale(0.3);
+  transition: all 0.5s ease;
+}
+
+.displaced-box:hover {
+  opacity: 0.75;
+  filter: grayscale(0.15);
+}
+
+.displaced-text {
+  color: rgba(136, 136, 136, 0.5);
+  font-style: italic;
+}
+
+/* ─── Tarjeta Élite (contraste máximo vs Desplazado) ─── */
+.elite-card {
+  background: rgba(26, 26, 26, 0.8);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  transition: all 0.3s ease;
+}
+
+.elite-card:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  transform: translateY(-2px);
 }
