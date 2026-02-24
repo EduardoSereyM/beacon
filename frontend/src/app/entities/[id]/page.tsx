@@ -55,6 +55,7 @@ const DEMO_ENTITY = {
         role: "Presidente de la República de Chile",
         party: "Convergencia Social",
         bio: "Abogado y político. Presidente desde 2022.",
+        sector: "",
     },
     service_tags: [] as string[],
     reputation_score: 3.72,
@@ -305,8 +306,7 @@ export default function EntityPage({ params }: EntityPageProps) {
                                                     backgroundColor: isCurrentRank
                                                         ? `${v.color}10`
                                                         : "transparent",
-                                                    borderColor: isCurrentRank ? v.color : "transparent",
-                                                    ringColor: isCurrentRank ? `${v.color}40` : undefined,
+                                                    border: isCurrentRank ? `1px solid ${v.color}40` : "none",
                                                 }}
                                             >
                                                 <div>
