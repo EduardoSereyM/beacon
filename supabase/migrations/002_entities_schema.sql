@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS entities (
 
     -- Métricas de Integridad
     reputation_score FLOAT DEFAULT 3.0,          -- Nota base (Shrinkage bayesiano)
+    integrity_index  FLOAT DEFAULT 0.0,          -- Nivel de transparencia (0-100%)
     total_reviews   INT DEFAULT 0,               -- Cantidad de reseñas/votos
     is_verified     BOOLEAN DEFAULT false,        -- Verificado por el Overlord
 
@@ -36,6 +37,9 @@ CREATE TABLE IF NOT EXISTS entities (
     start_date      TIMESTAMPTZ,                 -- Inicio del evento
     end_date        TIMESTAMPTZ,                 -- Fin del evento
     is_active       BOOLEAN DEFAULT true,         -- Evento abierto/cerrado
+
+    -- Trazabilidad Forense
+    created_by      UUID,                        -- Usuario proponente (FK → users.id)
 
     -- Timestamps
     created_at      TIMESTAMPTZ DEFAULT now(),
