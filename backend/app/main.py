@@ -87,11 +87,18 @@ async def health_check():
 
 # ─── Registro de Routers ───
 from app.api.v1.user.auth import router as auth_router
+from app.api.v1.endpoints.realtime import router as realtime_router
 
 app.include_router(
     auth_router,
     prefix=f"{settings.API_V1_PREFIX}/user/auth",
     tags=["Auth & Identity"],
+)
+
+app.include_router(
+    realtime_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Real-Time Pulse"],
 )
 
 # Routers pendientes (se activarán en fases posteriores):
