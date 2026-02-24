@@ -1,0 +1,75 @@
+# ════════════════════════════════════════════════
+# BEACON PROTOCOL — .gitignore
+# ════════════════════════════════════════════════
+# Protección de llaves, credenciales y artefactos
+# generados. "Lo que no debe verse, no se sube."
+# ════════════════════════════════════════════════
+
+# ─── Python ───
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+
+# ─── Entornos Virtuales ───
+.venv/
+venv/
+ENV/
+env/
+
+# ─── Credenciales y Secretos (CRÍTICO) ───
+.env
+.env.local
+.env.production
+.env.*.local
+*.pem
+*.key
+
+# ─── Node.js / Next.js ───
+node_modules/
+.next/
+out/
+.turbo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── IDEs y Editores ───
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── OS ───
+.DS_Store
+desktop.ini
+ehthumbs.db
+
+# ─── Logs y Dumps ───
+*.log
+logs/
+dump.rdb
+
+# ─── Testing ───
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+.tox/
+
+# ─── Build artifacts ───
+*.whl
+*.tar.gz
+
+# ─── Documentos internos (no subir al repo público) ───
+bbdd_connection.md
+Directives 2026.md
+playbook.md
+app.md

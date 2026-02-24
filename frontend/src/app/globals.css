@@ -1,0 +1,211 @@
+/*
+ * ════════════════════════════════════════════════
+ * BEACON PROTOCOL — Design System (Dark Premium)
+ * ════════════════════════════════════════════════
+ * Terminal financiera de Bloomberg + bóveda suiza.
+ * Glassmorphism, JetBrains Mono, colores dorados.
+ * "Lo que vale, brilla. Lo que no, desaparece."
+ */
+
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ─── Theme Tokens ─── */
+:root {
+  /* Core Colors */
+  --beacon-black: #0a0a0a;
+  --beacon-dark: #111111;
+  --beacon-surface: #1a1a1a;
+  --beacon-border: #2a2a2a;
+
+  /* Rank Colors */
+  --beacon-gold: #d4af37;
+  --beacon-gold-dim: rgba(212, 175, 55, 0.15);
+  --beacon-silver: #c0c0c0;
+  --beacon-silver-dim: rgba(192, 192, 192, 0.15);
+  --beacon-bronze: #cd7f32;
+  --beacon-bronze-dim: rgba(205, 127, 50, 0.15);
+  --beacon-diamond: #b9f2ff;
+  --beacon-diamond-dim: rgba(185, 242, 255, 0.15);
+
+  /* Status */
+  --beacon-green: #22c55e;
+  --beacon-yellow: #eab308;
+  --beacon-red: #ef4444;
+
+  /* Text */
+  --foreground: #ededed;
+  --foreground-muted: #888888;
+  --background: var(--beacon-black);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+
+  --color-beacon-black: var(--beacon-black);
+  --color-beacon-dark: var(--beacon-dark);
+  --color-beacon-surface: var(--beacon-surface);
+  --color-beacon-border: var(--beacon-border);
+
+  --color-beacon-gold: var(--beacon-gold);
+  --color-beacon-gold-dim: var(--beacon-gold-dim);
+  --color-beacon-silver: var(--beacon-silver);
+  --color-beacon-silver-dim: var(--beacon-silver-dim);
+  --color-beacon-bronze: var(--beacon-bronze);
+  --color-beacon-bronze-dim: var(--beacon-bronze-dim);
+  --color-beacon-diamond: var(--beacon-diamond);
+  --color-beacon-diamond-dim: var(--beacon-diamond-dim);
+
+  --color-beacon-green: var(--beacon-green);
+  --color-beacon-yellow: var(--beacon-yellow);
+  --color-beacon-red: var(--beacon-red);
+
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* ─── Base Styles ─── */
+body {
+  background: var(--beacon-black);
+  color: var(--foreground);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Glassmorphism Utility ─── */
+.glass {
+  background: rgba(26, 26, 26, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-strong {
+  background: rgba(26, 26, 26, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Rank Badges ─── */
+.badge-gold {
+  background: linear-gradient(135deg, #d4af37, #f5d374);
+  color: #0a0a0a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.badge-silver {
+  background: linear-gradient(135deg, #8e8e8e, #c0c0c0);
+  color: #0a0a0a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.badge-bronze {
+  background: linear-gradient(135deg, #8b5e3c, #cd7f32);
+  color: #0a0a0a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.badge-diamond {
+  background: linear-gradient(135deg, #7dd3fc, #b9f2ff);
+  color: #0a0a0a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ─── Integrity Score Display ─── */
+.score-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Gold Glow Effect ─── */
+.glow-gold {
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3),
+              0 0 30px rgba(212, 175, 55, 0.1);
+}
+
+.glow-gold-hover:hover {
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.4),
+              0 0 40px rgba(212, 175, 55, 0.15);
+}
+
+/* ─── Sharp Buttons (bordes afilados, transiciones suaves) ─── */
+.btn-beacon {
+  background: transparent;
+  border: 1px solid var(--beacon-gold);
+  color: var(--beacon-gold);
+  padding: 0.625rem 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.btn-beacon:hover {
+  background: var(--beacon-gold);
+  color: var(--beacon-black);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+}
+
+.btn-beacon-solid {
+  background: var(--beacon-gold);
+  color: var(--beacon-black);
+  padding: 0.625rem 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.btn-beacon-solid:hover {
+  background: #f5d374;
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ─── Scrollbar Custom ─── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--beacon-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--beacon-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--beacon-gold);
+}
+
+/* ─── Pulse Animation (for live indicators) ─── */
+@keyframes beacon-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.pulse-live {
+  animation: beacon-pulse 2s ease-in-out infinite;
+}

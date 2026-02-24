@@ -1,0 +1,39 @@
+# ─── Beacon Protocol — .gitignore ───
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Redis dump
+dump.rdb
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
