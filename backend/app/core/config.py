@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
+    # ─── Forensic Identity (Salt para hashing de RUT) ───
+    RUT_HASH_SALT: str = "beacon-forensic-salt-default"
+
     # ─── Aplicación ───
     APP_NAME: str = "Beacon Protocol"
     APP_VERSION: str = "0.1.0"

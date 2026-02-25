@@ -115,7 +115,9 @@ app.include_router(
 async def startup_event():
     """
     Inicialización al arrancar el servidor.
-    Aquí se conectarán Redis, Supabase y otros servicios.
+    1. Conectar a Redis (El Demonio de la Pre-gestión)
+    2. Inyectar Redis en el Panic Gate (propagación instantánea)
+    3. Verificar conexión con ping
     """
     logger.info("=" * 60)
     logger.info(f"🛡️  {settings.APP_NAME} v{settings.APP_VERSION}")
@@ -123,11 +125,50 @@ async def startup_event():
     logger.info("   'Lo que no es íntegro, no existe.'")
     logger.info("=" * 60)
 
+    # ─── Redis: El Demonio de la Pre-gestión ───
+    try:
+        import redis.asyncio as aioredis
+
+        redis_client = aioredis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=3,
+        )
+        # Verificar conexión
+        await redis_client.ping()
+
+        # Guardar referencia global
+        app.state.redis = redis_client
+
+        # Inyectar en Panic Gate (propagación instantánea)
+        from app.core.security.panic_gate_extreme import panic_gate
+        panic_gate.set_redis_client(redis_client)
+
+        logger.info("🔴 Redis conectado → Panic Gate ARMADO (propagación <2ms)")
+
+    except Exception as e:
+        # Modo degradado: sin Redis, Panic Gate opera en YELLOW (fail-safe)
+        app.state.redis = None
+        logger.warning(
+            f"⚠️  Redis no disponible → Modo degradado (YELLOW fail-safe). "
+            f"Detalle interno: {e}"
+        )
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """
     Limpieza al detener el servidor.
-    Cierra conexiones a Redis, DB, etc.
+    Cierra conexiones a Redis de forma limpia.
     """
     logger.info("🛑 Beacon Protocol — Apagando el búnker...")
+
+    # ─── Cerrar Redis ───
+    redis_client = getattr(app.state, "redis", None)
+    if redis_client:
+        try:
+            await redis_client.close()
+            logger.info("🔴 Redis desconectado limpiamente.")
+        except Exception as e:
+            logger.warning(f"⚠️  Error cerrando Redis: {e}")
+

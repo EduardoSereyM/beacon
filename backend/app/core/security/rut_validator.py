@@ -71,14 +71,20 @@ def validate_rut(rut: str) -> bool:
         return False
 
 
-def hash_rut(rut: str) -> str:
+def hash_rut(rut: str, salt: str | None = None) -> str:
     """
-    Genera un hash SHA-256 para almacenamiento inmutable y privado.
+    Genera un hash SHA-256 con salt para almacenamiento inmutable y privado.
     El RUT se normaliza antes de hashear para garantizar consistencia.
 
+    Formato del hash: SHA-256(salt:RUT_NORMALIZADO)
+      → La salt proviene de settings.RUT_HASH_SALT
+      → El RUT se normaliza con format_rut() (sin puntos, uppercase)
+      → Esto evita colisiones falsas por diferencia de formato
+
     Args:
-        rut: RUT en cualquier formato
-    
+        rut: RUT en cualquier formato (ej: "12.345.678-9")
+        salt: Salt explícita para tests. Si es None, usa settings.
+
     Returns:
         Hash SHA-256 hexadecimal de 64 caracteres
 
@@ -87,4 +93,9 @@ def hash_rut(rut: str) -> str:
         Esto nos permite decir: "Sabemos que es un humano real y único"
         sin poseer el dato sensible. Blindaje legal total.
     """
-    return hashlib.sha256(format_rut(rut).encode()).hexdigest()
+    from app.core.config import settings
+
+    effective_salt = salt if salt is not None else settings.RUT_HASH_SALT
+    normalized = format_rut(rut)
+    payload = f"{effective_salt}:{normalized}"
+    return hashlib.sha256(payload.encode()).hexdigest()
