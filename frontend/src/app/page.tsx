@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import EntityCard from "@/components/status/EntityCard";
 
@@ -207,7 +207,7 @@ const ALL_ENTITIES = [
   },
 ];
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -663,5 +663,28 @@ export default function Home() {
         </div>
       </section>
     </div>
+  );
+}
+
+/** Wrapper con Suspense para useSearchParams (Next.js static prerender fix) */
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div
+              className="w-8 h-8 rounded-lg mx-auto mb-3 animate-pulse"
+              style={{ background: "linear-gradient(135deg, #D4AF37, #8A2BE2)" }}
+            />
+            <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#00E5FF" }}>
+              Cargando el búnker...
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

@@ -30,8 +30,13 @@ class UserCreate(UserBase):
     """
     Schema de entrada para registrar un nuevo ciudadano.
     El password se hasheará con bcrypt antes de tocar la BBDD.
+    Los campos demográficos son opcionales en el registro inicial
+    y alimentan la 'Mina de Oro' desde el primer momento.
     """
     password: str = Field(..., min_length=8, description="Contraseña mínima de 8 caracteres")
+    commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
+    region: Optional[str] = Field(None, description="Región (ej: Metropolitana)")
+    age_range: Optional[str] = Field(None, description="Rango etario (ej: 25-34)")
 
 
 # ─── Verificación de RUT ───

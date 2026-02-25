@@ -82,6 +82,29 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         "created_at": datetime.utcnow().isoformat(),
     }
 
+    # Campos demográficos extendidos (Mina de Oro desde el registro)
+    if hasattr(user_data, "commune") and user_data.commune:
+        new_user["commune"] = user_data.commune
+    if hasattr(user_data, "region") and user_data.region:
+        new_user["region"] = user_data.region
+    if hasattr(user_data, "age_range") and user_data.age_range:
+        new_user["age_range"] = user_data.age_range
+
+    # ─── Audit: Intento de registro ───
+    audit_bus.log_event(
+        actor_id="ANONYMOUS",
+        action="IDENTITY_REGISTRATION_ATTEMPT",
+        entity_type="USER",
+        entity_id=user_data.email,
+        details={
+            "dna_score": dna_result["score"],
+            "dna_classification": dna_result["classification"],
+            "ip": request_metadata.get("ip", "unknown") if request_metadata else "unknown",
+            "has_commune": bool(new_user.get("commune")),
+            "has_region": bool(new_user.get("region")),
+        },
+    )
+
     # ─── 3. Insertar en Supabase ───
     result = supabase.table("users").insert(new_user).execute()
 
