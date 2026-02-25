@@ -27,7 +27,7 @@ interface EntityData {
     id: string;
     name: string;
     type: EntityType;
-    metadata?: Record<string, string>;
+    metadata?: Record<string, unknown>;
     service_tags?: string[];
     reputation_score: number;
     total_reviews: number;
@@ -103,8 +103,8 @@ export default function EntityCard({ entity }: EntityCardProps) {
         <a
             href={`/${entity.type === "EVENT" ? "events" : "entities"}/${entity.id}`}
             className={`block rounded-xl overflow-hidden transition-all duration-300 ${entity.rank === "GOLD" || entity.rank === "DIAMOND"
-                    ? "elite-card"
-                    : ""
+                ? "elite-card"
+                : ""
                 }`}
             style={{
                 border: `1px solid ${isHovered ? rankStyle.borderColor : `${rankStyle.borderColor}25`
@@ -124,8 +124,8 @@ export default function EntityCard({ entity }: EntityCardProps) {
                     {/* Avatar (escala de grises → color al hover) */}
                     <div
                         className={`w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-500 ${entity.rank === "GOLD" || entity.rank === "DIAMOND"
-                                ? rankStyle.neonClass
-                                : ""
+                            ? rankStyle.neonClass
+                            : ""
                             }`}
                         style={{
                             background: isHovered
@@ -157,9 +157,9 @@ export default function EntityCard({ entity }: EntityCardProps) {
 
                         {/* Subtítulo según tipo */}
                         <p className="text-[10px] text-foreground-muted truncate mt-0.5">
-                            {entity.type === "PERSON" && entity.metadata?.role}
-                            {entity.type === "COMPANY" && entity.metadata?.sector}
-                            {entity.type === "EVENT" && entity.metadata?.location}
+                            {entity.type === "PERSON" && String(entity.metadata?.role || "")}
+                            {entity.type === "COMPANY" && String(entity.metadata?.sector || "")}
+                            {entity.type === "EVENT" && String(entity.metadata?.location || "")}
                             {entity.type === "POLL" && "Encuesta activa"}
                         </p>
 

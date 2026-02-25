@@ -8,7 +8,6 @@
  */
 
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ─── Theme Tokens ─── */
 :root {
@@ -424,4 +423,27 @@ body {
 .elite-card:hover {
   border-color: rgba(212, 175, 55, 0.4);
   transform: translateY(-2px);
+}
+
+/* ─── Animación de entrada para cards (Category Switcher) ─── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ─── Ocultar scrollbar en tabs móviles ─── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
