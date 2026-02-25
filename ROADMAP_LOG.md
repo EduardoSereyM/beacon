@@ -73,8 +73,8 @@
 ## 🔲 Pendientes Inmediatos — Fase 2
 
 ### Vínculo Territorial
-- [ ] Lógica de `is_local_vote` para ponderación de **1.5x** en votos locales
-- [ ] Matching `user.commune` vs `entity.commune` para coherencia territorial
+- [x] Lógica de `is_local_vote` para ponderación de **1.5x** en votos locales
+- [x] Matching `user.commune` vs `entity.commune` para coherencia territorial
 - [ ] Detección de brigadas coordinadas por análisis geográfico
 
 ### Mina de Oro
