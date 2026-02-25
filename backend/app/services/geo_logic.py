@@ -6,7 +6,13 @@ es "local" respecto a la jurisdicción de la entidad evaluada.
 
 Regla de Oro:
   - Si user.comuna_id == entity.jurisdiction_id → is_local = True
-  - Voto local recibe bonus de 1.5x en el ranking.
+  - Voto local recibe bonus dinámico (default 1.5x) en el ranking.
+
+Configuración Dinámica:
+  El multiplicador se lee desde config_params (Supabase):
+    key = 'TERRITORIAL_BONUS_WEIGHT'
+    value = '1.5' (ajustable por el Overlord desde el Dashboard)
+  Cada cambio queda registrado en audit_logs (trigger SQL automático).
 
 Restricciones de Privacidad (Directives 2026 §7):
   - PROHIBIDO almacenar coordenadas (Lat/Lon).
@@ -28,13 +34,56 @@ from dataclasses import dataclass
 logger = logging.getLogger("beacon.geo")
 
 
-# ─── Constantes ───
-LOCAL_VOTE_BONUS = 1.5
+# ─── Constantes (fallback si config_params no responde) ───
+LOCAL_VOTE_BONUS_DEFAULT = 1.5
 """
-Multiplicador de voto local.
+Multiplicador fallback de voto local.
+En producción, se lee desde config_params.TERRITORIAL_BONUS_WEIGHT.
 Un ciudadano GOLD votando en su comuna:
   peso_base = 2.5x (GOLD) × 1.5x (local) = 3.75x total
 """
+
+# Alias retrocompatible
+LOCAL_VOTE_BONUS = LOCAL_VOTE_BONUS_DEFAULT
+
+
+def get_territorial_bonus_weight() -> float:
+    """
+    Lee el multiplicador territorial desde config_params en Supabase.
+
+    Cascada:
+      1. Leer 'TERRITORIAL_BONUS_WEIGHT' de config_params
+      2. Si falla → fallback a LOCAL_VOTE_BONUS_DEFAULT (1.5)
+
+    Returns:
+        Multiplicador float (ej: 1.5)
+
+    Nota: Cada cambio del admin a este valor genera automáticamente
+    un registro en audit_logs (trigger SQL trg_config_audit).
+    """
+    try:
+        from app.core.database import get_supabase_client
+        supabase = get_supabase_client()
+
+        result = (
+            supabase.table("config_params")
+            .select("value")
+            .eq("key", "TERRITORIAL_BONUS_WEIGHT")
+            .execute()
+        )
+
+        if result.data and len(result.data) > 0:
+            bonus = float(result.data[0]["value"])
+            logger.debug(f"[GeoLogic] TERRITORIAL_BONUS_WEIGHT = {bonus} (desde config_params)")
+            return bonus
+
+    except Exception as e:
+        logger.warning(
+            f"[GeoLogic] No se pudo leer config_params: {e} "
+            f"→ usando fallback {LOCAL_VOTE_BONUS_DEFAULT}"
+        )
+
+    return LOCAL_VOTE_BONUS_DEFAULT
 
 
 @dataclass
@@ -112,7 +161,7 @@ def verify_territoriality(
 
     # ─── Comparación territorial ───
     is_local = effective_comuna == entity_jurisdiction_id
-    bonus = LOCAL_VOTE_BONUS if is_local else 1.0
+    bonus = get_territorial_bonus_weight() if is_local else 1.0
 
     logger.info(
         f"[GeoLogic] user_comuna={effective_comuna} "
@@ -135,19 +184,20 @@ def apply_territorial_bonus(
 ) -> float:
     """
     Aplica el bonus territorial al peso de reputación.
+    Lee el multiplicador dinámicamente desde config_params.
 
     Args:
         reputation_weight: Peso base por rango (ej: GOLD = 2.5)
         is_local: True si el voto es local.
 
     Returns:
-        Peso ajustado: reputation_weight × 1.5 si local, × 1.0 si no.
+        Peso ajustado: reputation_weight × bonus si local, × 1.0 si no.
 
-    Ejemplo:
+    Ejemplo (con bonus=1.5):
         GOLD (2.5) + local → 2.5 × 1.5 = 3.75
         GOLD (2.5) + no local → 2.5 × 1.0 = 2.5
     """
-    bonus = LOCAL_VOTE_BONUS if is_local else 1.0
+    bonus = get_territorial_bonus_weight() if is_local else 1.0
     adjusted = reputation_weight * bonus
 
     logger.debug(
