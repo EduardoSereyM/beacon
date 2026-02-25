@@ -141,20 +141,28 @@ class BayesianRankingEngine:
         n_votes: int,
         raw_average: float,
         reputation_weight: float = 1.0,
+        is_local: bool = False,
     ) -> Dict[str, Any]:
         """
         Calcula la nota final de una entidad combinando Shrinkage + Volumen.
 
         Fórmula final:
-          final = shrinkage_score × volume_factor × reputation_weight
+          effective_weight = reputation_weight × territorial_bonus
+          final = shrinkage_score × volume_factor × effective_weight
 
         El reputation_weight permite que votos de usuarios GOLD/DIAMOND
         tengan más peso que los de BRONZE (peso del voto por rango).
+
+        El is_local aplica un bonus territorial de 1.5x cuando el
+        votante pertenece a la misma comuna que la entidad evaluada.
+        Esto implementa el Vínculo Territorial (Directives 2026 §7).
 
         Args:
             n_votes: Total de votos válidos (is_counted=True)
             raw_average: Promedio aritmético de los votos válidos
             reputation_weight: Multiplicador de reputación (default 1.0)
+            is_local: True si el voto proviene de la misma jurisdicción
+                      de la entidad (bonus 1.5x). Default: False.
 
         Returns:
             Diccionario con el desglose completo del cálculo.
@@ -164,9 +172,12 @@ class BayesianRankingEngine:
         shrinkage = self.calculate_shrinkage(n_votes, raw_average)
         volume = self.calculate_volume_factor(n_votes)
 
-        # Nota final: shrinkage ajustado por volumen y reputación
-        # Si volume = 0.5, la nota se acerca 50% al prior
-        final = shrinkage * volume * reputation_weight
+        # ─── Bonus territorial: voto local pesa 1.5x más ───
+        territorial_bonus = 1.5 if is_local else 1.0
+        effective_weight = reputation_weight * territorial_bonus
+
+        # Nota final: shrinkage ajustado por volumen y reputación territorial
+        final = shrinkage * volume * effective_weight
 
         # Nivel de confianza cualitativo (para la UI)
         if n_votes == 0:
@@ -185,6 +196,9 @@ class BayesianRankingEngine:
             "shrinkage_score": shrinkage,
             "volume_factor": volume,
             "reputation_weight": reputation_weight,
+            "is_local": is_local,
+            "territorial_bonus": territorial_bonus,
+            "effective_weight": round(effective_weight, 4),
             "n_votes": n_votes,
             "raw_average": raw_average,
             "confidence_threshold_m": self.m,
