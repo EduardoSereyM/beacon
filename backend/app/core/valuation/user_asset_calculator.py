@@ -1,15 +1,18 @@
 """
-BEACON PROTOCOL — User Asset Calculator (La Caja Registradora)
+BEACON PROTOCOL — User Asset Calculator (La Mina de Oro)
 ================================================================
 Motor que le da valor de mercado a tu imperio de ciudadanos.
 Cada usuario tiene un precio basado en su rango, comportamiento
 y densidad de datos demográficos.
 
 Tiers de valor (USD):
-  - BRONZE:  $1.00   → Valor de masa crítica
-  - SILVER:  $15.00  → Humano verificado (RUT validado)
-  - GOLD:    $150.00 → Referente de integridad
-  - DIAMOND: $500.00 → Auditor de la verdad
+  - BRONZE:  $0.50   → Valor de masa crítica
+  - SILVER:  $5.00   → Humano verificado (RUT validado)
+  - GOLD:    $25.00  → Referente de integridad
+  - DIAMOND: $100.00 → Auditor de la verdad
+
+Ajuste por Integridad:
+  valor_final = base_tier × integrity_score (0.0 a 1.0) + bonos
 
 "Cada humano verificado es una mina de oro.
  Cada dato demográfico, una pepita extra."
@@ -25,17 +28,17 @@ class UserAssetCalculator:
 
     Factores del cálculo:
       1. Valor base del tier (rango)
-      2. Multiplicador por pureza de comportamiento (integrity_score)
+      2. Multiplicador por integridad (integrity_score × base)
       3. Bono por datos demográficos (Data B2B: commune + age_range)
       4. Bono por verificación de identidad (RUT hash presente)
     """
 
-    # Valor base en USD por rango
+    # Valor base en USD por rango (Directives 2026 — La Mina de Oro)
     TIER_VALUES = {
-        "BRONZE": 1.00,     # Masa crítica — muchos, pero sin confirmar
-        "SILVER": 15.00,    # Humano verificado — RUT validado, identidad real
-        "GOLD": 150.00,     # Referente de integridad — voz con peso
-        "DIAMOND": 500.00,  # Auditor de la verdad — verificación presencial
+        "BRONZE": 0.50,     # Masa crítica — muchos, pero sin confirmar
+        "SILVER": 5.00,     # Humano verificado — RUT validado, identidad real
+        "GOLD": 25.00,      # Referente de integridad — voz con peso
+        "DIAMOND": 100.00,  # Auditor de la verdad — verificación presencial
     }
 
     def calculate_usd_value(self, user) -> float:

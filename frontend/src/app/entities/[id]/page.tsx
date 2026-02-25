@@ -76,6 +76,9 @@ export default function EntityPage({ params }: EntityPageProps) {
     const entity = DEMO_ENTITY;
     const userRank = DEMO_USER_RANK;
 
+    /** Indicador de voto local (en producción vendrá del backend via verify_territoriality) */
+    const isLocalVote = entity.entity_type === "PERSON"; // Demo: true para PERSON
+
     /** Estado de los sliders de evaluación */
     const [sliderValues, setSliderValues] = useState<Record<string, number>>(() => {
         const initial: Record<string, number> = {};
@@ -352,15 +355,29 @@ export default function EntityPage({ params }: EntityPageProps) {
                                     Desliza cada criterio para emitir tu veredicto con precisión
                                 </p>
                             </div>
-                            <span
-                                className="text-[9px] px-2 py-1 rounded font-mono uppercase tracking-wider"
-                                style={{
-                                    backgroundColor: `${VERDICT_LABELS[userRank].color}15`,
-                                    color: VERDICT_LABELS[userRank].color,
-                                }}
-                            >
-                                Tu rango: {userRank}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                {isLocalVote && (
+                                    <span
+                                        className="text-[9px] px-2 py-1 rounded font-mono uppercase tracking-wider flex items-center gap-1"
+                                        style={{
+                                            backgroundColor: "rgba(212, 175, 55, 0.15)",
+                                            color: "#D4AF37",
+                                            border: "1px solid rgba(212, 175, 55, 0.3)",
+                                        }}
+                                    >
+                                        📍 Voto Local · 1.5x
+                                    </span>
+                                )}
+                                <span
+                                    className="text-[9px] px-2 py-1 rounded font-mono uppercase tracking-wider"
+                                    style={{
+                                        backgroundColor: `${VERDICT_LABELS[userRank].color}15`,
+                                        color: VERDICT_LABELS[userRank].color,
+                                    }}
+                                >
+                                    Tu rango: {userRank}
+                                </span>
+                            </div>
                         </div>
 
                         {/* Sliders */}
