@@ -56,11 +56,11 @@ def create_access_token(user_id: str) -> str:
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-# ─── Helper: Extraer usuario del JWT ───
+# ─── Helper: Extraer usuario del JWT y Validar RBAC ───
 async def get_current_user(request: Request) -> dict:
     """
-    Dependency de FastAPI: extrae y valida el JWT del header Authorization.
-    Retorna los datos del usuario autenticado.
+    Dependency de FastAPI: extrae y valida el JWT (emitido por Supabase o Custom).
+    Retorna los datos del usuario e inyecta el role para validaciones RBAC.
     """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -75,14 +75,18 @@ async def get_current_user(request: Request) -> dict:
             algorithms=[settings.JWT_ALGORITHM],
         )
         user_id = payload.get("sub")
+        role = payload.get("user_role", payload.get("role", "user"))
         if not user_id:
             raise HTTPException(status_code=401, detail="Token inválido")
     except Exception:
-        raise HTTPException(status_code=401, detail="Token expirado o inválido")
+        raise HTTPException(status_code=401, detail="Token expirado o inválido (Asegúrese de enviar el código de Supabase Auth)")
 
     user = await get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Ciudadano no encontrado")
+    
+    # Inyectar dict con rol RBAC validado
+    user["role"] = role
 
     return user
 
@@ -131,8 +135,8 @@ async def register(user_in: UserCreate, request: Request):
 @router.post("/login", summary="Iniciar sesión")
 async def login(request: Request):
     """
-    Autentica un ciudadano y devuelve un JWT.
-    El token será necesario para votar, comentar y acceder al Dashboard.
+    Autentica un ciudadano vía Supabase Auth (OTP/Password) y devuelve el JWT de Supabase.
+    El token contiene los claims RBAC.
     """
     body = await request.json()
     email = body.get("email", "")
@@ -141,24 +145,50 @@ async def login(request: Request):
     if not email or not password:
         raise HTTPException(status_code=400, detail="Email y contraseña son obligatorios")
 
+    # ─── 1. Análisis Forense (Gatekeeper Velocity) ───
+    metadata = {
+        "ip": request.client.host if request.client else "unknown",
+        "user_agent": request.headers.get("user-agent", ""),
+        "fill_duration": float(request.headers.get("x-fill-duration", "10")),
+    }
+    analysis = gatekeeper.scan_request(metadata)
+    if analysis["classification"] == "DISPLACED":
+        # Simular credenciales inválidas para no alertar a la botnet
+        raise HTTPException(status_code=401, detail="Error de autenticación: Credenciales inválidas")
+
     try:
-        user = await login_user(email, password)
-        token = create_access_token(user["id"])
+        from app.core.database import get_supabase_client
+        supabase = get_supabase_client()
+        
+        # Iniciar sesión vía Supabase Auth (esto genera el JWT con claims RBAC)
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": email,
+            "password": password
+        })
+        
+        if not auth_response.user:
+            raise ValueError("Credenciales inválidas o cuenta no verificada")
+
+        # Recuperar datos extra del perfil en tabla users
+        user_db = await get_user_by_id(auth_response.user.id)
+        if not user_db:
+             raise ValueError("Perfil de ciudadano no encontrado en el Búnker")
 
         return {
-            "access_token": token,
+            "access_token": auth_response.session.access_token,
             "token_type": "bearer",
             "user": {
-                "id": user["id"],
-                "email": user["email"],
-                "full_name": user["full_name"],
-                "rank": user["rank"],
-                "integrity_score": user["integrity_score"],
-                "is_verified": user["is_verified"],
+                "id": user_db["id"],
+                "email": auth_response.user.email,
+                "full_name": f"{user_db.get('first_name', '')} {user_db.get('last_name', '')}".strip() or "Ciudadano",
+                "rank": "DIAMOND" if user_db.get("role") == "admin" else "BRONZE",
+                "integrity_score": float(user_db.get("reputation_score", 0.1)),
+                "is_verified": user_db.get("is_rut_verified", False),
+                "role": user_db.get("role", "user")
             },
         }
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Error de autenticación: {str(e)}")
 
 
 @router.post("/verify-identity", summary="Verificar RUT (Ascensión a SILVER)")
@@ -190,17 +220,17 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     """
     return {
         "id": current_user["id"],
-        "email": current_user["email"],
-        "full_name": current_user["full_name"],
-        "rank": current_user["rank"],
-        "integrity_score": current_user["integrity_score"],
-        "reputation_score": current_user.get("reputation_score", 0.0),
-        "verification_level": current_user.get("verification_level", 1),
-        "is_verified": current_user["is_verified"],
-        "commune": current_user.get("commune"),
-        "region": current_user.get("region"),
-        "age_range": current_user.get("age_range"),
-        "created_at": current_user.get("created_at"),
+        "email": current_user.get("email", ""), 
+        "full_name": f"{current_user.get('first_name', '')} {current_user.get('last_name', '')}".strip() or "Ciudadano",
+        "rank": "DIAMOND" if current_user.get("role") == "admin" else "BRONZE",
+        "integrity_score": float(current_user.get("reputation_score", 0.1)),
+        "reputation_score": float(current_user.get("reputation_score", 0.0)),
+        "verification_level": 3 if current_user.get("role") == "admin" else (2 if current_user.get("is_rut_verified") else 1),
+        "is_verified": current_user.get("is_rut_verified", False),
+        "commune": current_user.get("comuna_id"),
+        "region": None,
+        "age_range": None,
+        "created_at": None,
     }
 
 

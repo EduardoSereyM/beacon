@@ -3,31 +3,91 @@
  * =====================================================
  * Modal de Login/Registro con estética Dark Premium.
  *
- * Características:
- *   - Fondo cristal oscuro (backdrop-blur)
- *   - Bordes Cian (#00E5FF) para foco
- *   - Bordes Oro (#D4AF37) para campos de identidad verificada
- *   - Animación Fade-in-scale
- *   - Validación local RUT Módulo 11 con feedback visual
- *   - Toggle Login ↔ Registro sin recargar
+ * UX Features:
+ *   - Máscara RUT en tiempo real (XX.XXX.XXX-X)
+ *   - Validación Módulo 11 con borde Oro/Rojo
+ *   - Toggle visibilidad contraseña (icono ojo)
+ *   - Selectores en cascada: País → Región → Comuna
+ *   - Botón deshabilitado hasta campos requeridos OK
+ *   - Backdrop-blur + fade-in-scale animation
+ *   - Bordes Cian (#00E5FF) foco / Oro (#D4AF37) identidad
  *
  * "El que quiera hablar, primero debe demostrar que es real."
  */
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
-// ─── Validación RUT Módulo 11 (local, sin servidor) ───
-function validateRutMod11(rut: string): { valid: boolean; formatted: string } {
-    // Limpiar: solo números y K/k
-    const clean = rut.replace(/[^0-9kK]/g, "").toUpperCase();
-    if (clean.length < 2) return { valid: false, formatted: "" };
+// ═══════════════════════════════════════════
+//  DATOS GEOGRÁFICOS (Cascada País → Región → Comuna)
+// ═══════════════════════════════════════════
+
+/** Países disponibles y sus regiones */
+const GEOGRAPHY: Record<string, Record<string, string[]>> = {
+    Chile: {
+        "Arica y Parinacota": ["Arica", "Camarones", "Putre", "General Lagos"],
+        "Tarapacá": ["Iquique", "Alto Hospicio", "Pozo Almonte", "Pica", "Huara"],
+        "Antofagasta": ["Antofagasta", "Calama", "Mejillones", "Tocopilla", "San Pedro de Atacama"],
+        "Atacama": ["Copiapó", "Vallenar", "Caldera", "Chañaral", "Tierra Amarilla"],
+        "Coquimbo": ["La Serena", "Coquimbo", "Ovalle", "Illapel", "Vicuña"],
+        "Valparaíso": ["Valparaíso", "Viña del Mar", "Quilpué", "Villa Alemana", "San Antonio", "Quillota", "La Calera"],
+        "Metropolitana": [
+            "Santiago", "Providencia", "Las Condes", "Ñuñoa", "La Florida",
+            "Maipú", "Puente Alto", "Vitacura", "Lo Barnechea", "Peñalolén",
+            "La Reina", "Macul", "San Miguel", "San Bernardo", "Recoleta",
+            "Independencia", "Estación Central", "Cerrillos", "Quilicura",
+        ],
+        "O'Higgins": ["Rancagua", "San Fernando", "Rengo", "Machalí", "Graneros"],
+        "Maule": ["Talca", "Curicó", "Linares", "Constitución", "Cauquenes"],
+        "Ñuble": ["Chillán", "San Carlos", "Bulnes", "Quirihue"],
+        "Biobío": ["Concepción", "Los Ángeles", "Chiguayante", "Talcahuano", "Coronel", "Hualpén"],
+        "La Araucanía": ["Temuco", "Padre Las Casas", "Villarrica", "Angol", "Pucón"],
+        "Los Ríos": ["Valdivia", "La Unión", "Panguipulli", "Río Bueno"],
+        "Los Lagos": ["Puerto Montt", "Osorno", "Castro", "Puerto Varas", "Ancud"],
+        "Aysén": ["Coyhaique", "Puerto Aysén", "Chile Chico"],
+        "Magallanes": ["Punta Arenas", "Puerto Natales", "Porvenir"],
+    },
+};
+
+const COUNTRIES = Object.keys(GEOGRAPHY);
+
+// ═══════════════════════════════════════════
+//  VALIDACIÓN + MÁSCARA RUT MÓDULO 11
+// ═══════════════════════════════════════════
+
+/** Limpia un RUT a solo dígitos + K */
+function cleanRut(rut: string): string {
+    return rut.replace(/[^0-9kK]/g, "").toUpperCase();
+}
+
+/** Aplica máscara XX.XXX.XXX-X mientras se escribe */
+function formatRutMask(raw: string): string {
+    const clean = cleanRut(raw);
+    if (clean.length <= 1) return clean;
 
     const body = clean.slice(0, -1);
     const dv = clean.slice(-1);
 
-    // Calcular dígito verificador
+    // Insertar puntos cada 3 dígitos desde la derecha
+    const reversed = body.split("").reverse();
+    const groups: string[] = [];
+    for (let i = 0; i < reversed.length; i += 3) {
+        groups.push(reversed.slice(i, i + 3).reverse().join(""));
+    }
+    const formatted = groups.reverse().join(".");
+
+    return `${formatted}-${dv}`;
+}
+
+/** Valida un RUT chileno con Módulo 11 */
+function validateRutMod11(rut: string): boolean {
+    const clean = cleanRut(rut);
+    if (clean.length < 2) return false;
+
+    const body = clean.slice(0, -1);
+    const dv = clean.slice(-1);
+
     let sum = 0;
     let multiplier = 2;
     for (let i = body.length - 1; i >= 0; i--) {
@@ -41,11 +101,36 @@ function validateRutMod11(rut: string): { valid: boolean; formatted: string } {
     else if (remainder === 10) expectedDV = "K";
     else expectedDV = remainder.toString();
 
-    // Formatear: 12.345.678-5
-    const formatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "-" + dv;
-
-    return { valid: dv === expectedDV, formatted };
+    return dv === expectedDV;
 }
+
+// ═══════════════════════════════════════════
+//  ICONOS SVG MINIMALISTAS
+// ═══════════════════════════════════════════
+
+function EyeIcon({ open }: { open: boolean }) {
+    if (open) {
+        return (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+        );
+    }
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+            <line x1="1" y1="1" x2="23" y2="23" />
+        </svg>
+    );
+}
+
+// ═══════════════════════════════════════════
+//  COMPONENTE AUTHMODAL
+// ═══════════════════════════════════════════
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -55,24 +140,71 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const [mode, setMode] = useState<"login" | "register">("login");
     const [isAnimating, setIsAnimating] = useState(false);
+    const [showAdminInterstitial, setShowAdminInterstitial] = useState(false);
 
     // ─── Form State ───
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [fullName, setFullName] = useState("");
-    const [commune, setCommune] = useState("");
-    const [region, setRegion] = useState("");
-    const [ageRange, setAgeRange] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    // ─── Validación Contraseña ───
+    const [pwdValidations, setPwdValidations] = useState({
+        length: false,
+        upper: false,
+        number: false,
+        special: false,
+    });
+
+    useEffect(() => {
+        setPwdValidations({
+            length: password.length >= 8,
+            upper: /[A-Z]/.test(password),
+            number: /[0-9]/.test(password),
+            special: /[@#$%&*]/.test(password),
+        });
+    }, [password]);
 
     // ─── RUT State ───
-    const [rut, setRut] = useState("");
+    const [rutRaw, setRutRaw] = useState("");        // Lo que el usuario ve (formateado)
+    const [rutClean, setRutClean] = useState("");     // Limpio para validar/enviar
     const [rutValid, setRutValid] = useState<boolean | null>(null);
-    const [rutFormatted, setRutFormatted] = useState("");
+
+    // ─── Geografía Cascada (País → Región → Comuna) ───
+    const [country, setCountry] = useState("Chile"); // Preseleccionado
+    const [region, setRegion] = useState("");
+    const [commune, setCommune] = useState("");
+    const [ageRange, setAgeRange] = useState("");
 
     // ─── UI State ───
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+
+    // Regiones disponibles según país seleccionado
+    const availableRegiones = useMemo(() => {
+        if (!country) return [];
+        return Object.keys(GEOGRAPHY[country] || {});
+    }, [country]);
+
+    // Comunas disponibles según región seleccionada
+    const availableCommunas = useMemo(() => {
+        if (!country || !region) return [];
+        return GEOGRAPHY[country]?.[region] || [];
+    }, [country, region]);
+
+    // Reset cascada: país cambia → resetear región y comuna
+    useEffect(() => {
+        setRegion("");
+        setCommune("");
+    }, [country]);
+
+    // Reset comuna cuando cambia la región
+    useEffect(() => {
+        setCommune("");
+    }, [region]);
 
     // Animación de entrada
     useEffect(() => {
@@ -92,34 +224,67 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         return () => window.removeEventListener("keydown", handleEsc);
     }, [onClose]);
 
-    // Validación RUT en tiempo real
+    // ─── Máscara RUT en tiempo real ───
     const handleRutChange = useCallback((value: string) => {
-        setRut(value);
-        if (value.length >= 2) {
-            const result = validateRutMod11(value);
-            setRutValid(result.valid);
-            setRutFormatted(result.formatted);
+        const clean = cleanRut(value);
+        // Limitar a 9 chars (RUT máximo chileno: 99.999.999-K)
+        if (clean.length > 9) return;
+
+        setRutClean(clean);
+
+        if (clean.length >= 2) {
+            setRutRaw(formatRutMask(clean));
+            setRutValid(validateRutMod11(clean));
         } else {
+            setRutRaw(clean);
             setRutValid(null);
-            setRutFormatted("");
         }
     }, []);
+
+    // ─── Validación de formulario completo ───
+    const isFormValid = useMemo(() => {
+        const isPwdValid = pwdValidations.length && pwdValidations.upper && pwdValidations.number && pwdValidations.special;
+        if (mode === "login") {
+            return email.length > 0 && password.length >= 8; // En login no bloqueamos por complejidad para evitar revelar reglas a atacantes en cuentas viejas
+        }
+        // Registro: email, nombre, password válida, confirmPassword, región, comuna
+        const baseValid =
+            email.length > 0 &&
+            fullName.length >= 2 &&
+            isPwdValid &&
+            confirmPassword === password &&
+            region.length > 0 &&
+            commune.length > 0;
+
+        // RUT es opcional, pero si se escribe debe ser válido
+        if (rutClean.length > 0 && !rutValid) return false;
+
+        return baseValid;
+    }, [mode, email, password, confirmPassword, fullName, region, commune, rutClean, rutValid, pwdValidations]);
+
+    // Timestamp de inicio para DNA Scanner (fill_duration)
+    const [formStartTime] = useState(() => performance.now());
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         setSuccess("");
-        setLoading(true);
 
-        const startTime = performance.now();
+        if (!isFormValid) return;
+
+        setLoading(true);
 
         try {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const fillDuration = (performance.now() - formStartTime) / 1000;
 
             if (mode === "login") {
-                const res = await fetch(`${API_URL}/api/v1/auth/login`, {
+                const res = await fetch(`${API_URL}/api/v1/user/auth/login`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-fill-duration": fillDuration.toString(),
+                    },
                     body: JSON.stringify({ email, password }),
                 });
 
@@ -129,16 +294,29 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 }
 
                 const data = await res.json();
-                // Guardar token (en producción usar httpOnly cookies)
                 localStorage.setItem("beacon_token", data.access_token);
                 localStorage.setItem("beacon_user", JSON.stringify(data.user));
-                setSuccess(`Bienvenido, ${data.user.full_name}. Rango: ${data.user.rank}`);
-                setTimeout(() => onClose(), 1500);
-            } else {
-                // Registro
-                const fillDuration = (performance.now() - startTime) / 1000;
 
-                const res = await fetch(`${API_URL}/api/v1/auth/register`, {
+                // Notificar a otras pestañas
+                window.dispatchEvent(new StorageEvent("storage", {
+                    key: "beacon_user",
+                    newValue: JSON.stringify(data.user),
+                }));
+
+                if (data.user.role === "admin") {
+                    setShowAdminInterstitial(true);
+                    setSuccess(`Bienvenido, Overlord ${data.user.full_name}.`);
+                } else {
+                    setSuccess(`Bienvenido, ${data.user.full_name}. Rango: ${data.user.rank}`);
+                    setTimeout(() => onClose(), 1500);
+                }
+            } else {
+                // ─── Registro ───
+                if (password !== confirmPassword) {
+                    throw new Error("Las contraseñas no coinciden");
+                }
+
+                const res = await fetch(`${API_URL}/api/v1/user/auth/register`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -148,6 +326,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         email,
                         full_name: fullName,
                         password,
+                        country: country || undefined,
                         commune: commune || undefined,
                         region: region || undefined,
                         age_range: ageRange || undefined,
@@ -160,7 +339,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 }
 
                 setSuccess("Ciudadano registrado. Rango inicial: BRONZE. Verifica tu email.");
-                setTimeout(() => setMode("login"), 2000);
+                setTimeout(() => {
+                    setMode("login");
+                    setSuccess("");
+                }, 2500);
             }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Error interno del servidor");
@@ -171,8 +353,31 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     if (!isOpen) return null;
 
-    const cianColor = "#00E5FF";
-    const goldColor = "#D4AF37";
+    const CYAN = "#00E5FF";
+    const GOLD = "#D4AF37";
+    const RED = "#FF073A";
+
+    // Estilo de input reutilizable
+    const inputStyle = (focused?: boolean): React.CSSProperties => ({
+        border: `1px solid ${focused ? `${CYAN}60` : "rgba(255,255,255,0.1)"}`,
+        caretColor: CYAN,
+        backgroundColor: "transparent",
+    });
+
+    // Estilo de RUT según validación
+    const rutBorderColor =
+        rutValid === null
+            ? "rgba(255,255,255,0.1)"
+            : rutValid
+                ? `${GOLD}80`
+                : `${RED}80`;
+
+    const rutGlow =
+        rutValid === null
+            ? "none"
+            : rutValid
+                ? `0 0 12px ${GOLD}30`
+                : `0 0 12px ${RED}25`;
 
     return (
         <div
@@ -188,11 +393,11 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="relative w-full max-w-md mx-4 rounded-2xl overflow-hidden"
+                className="relative w-full max-w-md mx-4 rounded-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
                 style={{
                     background: "rgba(15, 15, 15, 0.95)",
-                    border: `1px solid ${mode === "register" ? goldColor : cianColor}30`,
-                    boxShadow: `0 0 40px ${mode === "register" ? goldColor : cianColor}10,
+                    border: `1px solid ${mode === "register" ? GOLD : CYAN}30`,
+                    boxShadow: `0 0 40px ${mode === "register" ? GOLD : CYAN}10,
                       0 24px 48px rgba(0, 0, 0, 0.5)`,
                     transform: isAnimating ? "scale(1)" : "scale(0.95)",
                     opacity: isAnimating ? 1 : 0,
@@ -203,7 +408,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <div
                     className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[2px]"
                     style={{
-                        background: `linear-gradient(90deg, transparent, ${mode === "register" ? goldColor : cianColor}, transparent)`,
+                        background: `linear-gradient(90deg, transparent, ${mode === "register" ? GOLD : CYAN}, transparent)`,
                     }}
                 />
 
@@ -212,8 +417,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     <div
                         className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4"
                         style={{
-                            background: `linear-gradient(135deg, ${goldColor}, #8A2BE2)`,
-                            boxShadow: `0 0 20px ${goldColor}40`,
+                            background: `linear-gradient(135deg, ${GOLD}, #8A2BE2)`,
+                            boxShadow: `0 0 20px ${GOLD}40`,
                         }}
                     >
                         <span className="text-lg font-black text-[#0A0A0A]">B</span>
@@ -229,246 +434,403 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </div>
 
                 {/* ─── Toggle Login/Register ─── */}
-                <div className="px-8 pb-4">
-                    <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                        {(["login", "register"] as const).map((m) => (
-                            <button
-                                key={m}
-                                onClick={() => { setMode(m); setError(""); setSuccess(""); }}
-                                className="flex-1 py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-300"
-                                style={{
-                                    backgroundColor: mode === m ? `${cianColor}15` : "transparent",
-                                    color: mode === m ? cianColor : "#666",
-                                    borderBottom: mode === m ? `2px solid ${cianColor}` : "2px solid transparent",
-                                }}
-                            >
-                                {m === "login" ? "Iniciar Sesión" : "Registrarse"}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* ─── Form ─── */}
-                <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-4">
-                    {/* Nombre (solo registro) */}
-                    {mode === "register" && (
-                        <div>
-                            <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                                Nombre Completo
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
-                                placeholder="Tu nombre público en Beacon"
-                                className="w-full bg-transparent text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                                style={{
-                                    border: `1px solid rgba(255,255,255,0.1)`,
-                                    caretColor: cianColor,
-                                }}
-                                onFocus={(e) => e.target.style.borderColor = `${cianColor}60`}
-                                onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
-                            />
+                {!showAdminInterstitial && (
+                    <div className="px-8 pb-4">
+                        <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                            {(["login", "register"] as const).map((m) => (
+                                <button
+                                    key={m}
+                                    onClick={() => { setMode(m); setError(""); setSuccess(""); }}
+                                    className="flex-1 py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-300"
+                                    style={{
+                                        backgroundColor: mode === m ? `${CYAN}15` : "transparent",
+                                        color: mode === m ? CYAN : "#666",
+                                        borderBottom: mode === m ? `2px solid ${CYAN}` : "2px solid transparent",
+                                    }}
+                                >
+                                    {m === "login" ? "Iniciar Sesión" : "Registrarse"}
+                                </button>
+                            ))}
                         </div>
-                    )}
-
-                    {/* Email */}
-                    <div>
-                        <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                            Email
-                        </label>
-                        <input
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="tu@correo.cl"
-                            className="w-full bg-transparent text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                            style={{
-                                border: `1px solid rgba(255,255,255,0.1)`,
-                                caretColor: cianColor,
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = `${cianColor}60`}
-                            onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
-                        />
                     </div>
+                )}
 
-                    {/* Password */}
-                    <div>
-                        <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                            Contraseña
-                        </label>
-                        <input
-                            type="password"
-                            required
-                            minLength={8}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Mínimo 8 caracteres"
-                            className="w-full bg-transparent text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                            style={{
-                                border: `1px solid rgba(255,255,255,0.1)`,
-                                caretColor: cianColor,
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = `${cianColor}60`}
-                            onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
-                        />
-                    </div>
+                {/* ═══ FORM ═══ */}
+                {!showAdminInterstitial && (
+                    <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-4">
 
-                    {/* Campos extendidos (solo registro) */}
-                    {mode === "register" && (
-                        <>
-                            {/* RUT con validación Módulo 11 */}
+                        {/* ─── Nombre (solo registro) ─── */}
+                        {mode === "register" && (
                             <div>
-                                <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: goldColor }}>
-                                    RUT (Opcional — verifica después)
+                                <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                    Nombre Completo *
                                 </label>
                                 <input
                                     type="text"
-                                    value={rut}
-                                    onChange={(e) => handleRutChange(e.target.value)}
-                                    placeholder="12.345.678-5"
-                                    className="w-full bg-transparent text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                                    style={{
-                                        border: `1px solid ${rutValid === null
-                                                ? "rgba(255,255,255,0.1)"
-                                                : rutValid
-                                                    ? `${goldColor}80`
-                                                    : "#FF073A80"
-                                            }`,
-                                        caretColor: goldColor,
-                                    }}
+                                    required
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    placeholder="Tu nombre público en Beacon"
+                                    className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
+                                    style={inputStyle()}
+                                    onFocus={(e) => e.target.style.borderColor = `${CYAN}60`}
+                                    onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
                                 />
-                                {/* Feedback visual RUT */}
-                                {rut.length >= 2 && (
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span
-                                            className="text-[9px] font-mono"
-                                            style={{ color: rutValid ? goldColor : "#FF073A" }}
-                                        >
-                                            {rutValid ? `✓ ${rutFormatted} — Módulo 11 válido` : "✗ Dígito verificador inválido"}
-                                        </span>
-                                    </div>
-                                )}
                             </div>
+                        )}
 
-                            {/* Comuna y Región en fila */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                                        Comuna
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={commune}
-                                        onChange={(e) => setCommune(e.target.value)}
-                                        placeholder="Providencia"
-                                        className="w-full bg-transparent text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                                        style={{
-                                            border: "1px solid rgba(255,255,255,0.1)",
-                                            caretColor: cianColor,
-                                        }}
-                                        onFocus={(e) => e.target.style.borderColor = `${cianColor}60`}
-                                        onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                                        Región
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={region}
-                                        onChange={(e) => setRegion(e.target.value)}
-                                        placeholder="Metropolitana"
-                                        className="w-full bg-transparent text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                                        style={{
-                                            border: "1px solid rgba(255,255,255,0.1)",
-                                            caretColor: cianColor,
-                                        }}
-                                        onFocus={(e) => e.target.style.borderColor = `${cianColor}60`}
-                                        onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
-                                    />
-                                </div>
+                        {/* ─── Email ─── */}
+                        <div>
+                            <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                Email *
+                            </label>
+                            <input
+                                type="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="tu@correo.cl"
+                                className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
+                                style={inputStyle()}
+                                onFocus={(e) => e.target.style.borderColor = `${CYAN}60`}
+                                onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                            />
+                        </div>
+
+                        {/* ─── Contraseña con toggle ojo ─── */}
+                        <div>
+                            <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                Contraseña *
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    required
+                                    minLength={8}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Mínimo 8 caracteres"
+                                    className="w-full text-sm text-white px-3 py-2.5 pr-10 rounded-lg outline-none font-mono transition-all duration-200"
+                                    style={inputStyle()}
+                                    onFocus={(e) => e.target.style.borderColor = `${CYAN}60`}
+                                    onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity duration-200"
+                                    style={{ color: showPassword ? CYAN : "#555", opacity: showPassword ? 1 : 0.6 }}
+                                    tabIndex={-1}
+                                >
+                                    <EyeIcon open={showPassword} />
+                                </button>
                             </div>
+                            {mode === "register" && (
+                                <div className="mt-2 text-[9px] font-mono grid grid-cols-2 gap-1 text-gray-500">
+                                    <span style={{ color: pwdValidations.length ? CYAN : "#555" }}>
+                                        {pwdValidations.length ? "✓" : "○"} Min 8 caracteres
+                                    </span>
+                                    <span style={{ color: pwdValidations.upper ? CYAN : "#555" }}>
+                                        {pwdValidations.upper ? "✓" : "○"} Una mayúscula
+                                    </span>
+                                    <span style={{ color: pwdValidations.number ? CYAN : "#555" }}>
+                                        {pwdValidations.number ? "✓" : "○"} Un número
+                                    </span>
+                                    <span style={{ color: pwdValidations.special ? CYAN : "#555" }}>
+                                        {pwdValidations.special ? "✓" : "○"} Carácter especial (@#$%&*)
+                                    </span>
+                                </div>
+                            )}
+                        </div>
 
-                            {/* Rango etario */}
+                        {/* ─── Confirmar Contraseña (solo registro) ─── */}
+                        {mode === "register" && (
                             <div>
                                 <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                                    Rango Etario
+                                    Confirmar Contraseña *
                                 </label>
-                                <select
-                                    value={ageRange}
-                                    onChange={(e) => setAgeRange(e.target.value)}
-                                    className="w-full bg-[#0F0F0F] text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                                    style={{
-                                        border: "1px solid rgba(255,255,255,0.1)",
-                                    }}
-                                >
-                                    <option value="">Seleccionar</option>
-                                    <option value="18-24">18 - 24</option>
-                                    <option value="25-34">25 - 34</option>
-                                    <option value="35-44">35 - 44</option>
-                                    <option value="45-54">45 - 54</option>
-                                    <option value="55-64">55 - 64</option>
-                                    <option value="65+">65+</option>
-                                </select>
+                                <div className="relative">
+                                    <input
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        required
+                                        minLength={8}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        placeholder="Repite tu contraseña"
+                                        className="w-full text-sm text-white px-3 py-2.5 pr-10 rounded-lg outline-none font-mono transition-all duration-200"
+                                        style={{
+                                            ...inputStyle(),
+                                            borderColor: confirmPassword.length > 0 && confirmPassword !== password
+                                                ? `${RED}60`
+                                                : confirmPassword.length > 0 && confirmPassword === password
+                                                    ? `${GOLD}40`
+                                                    : "rgba(255,255,255,0.1)",
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity duration-200"
+                                        style={{ color: showConfirmPassword ? CYAN : "#555", opacity: showConfirmPassword ? 1 : 0.6 }}
+                                        tabIndex={-1}
+                                    >
+                                        <EyeIcon open={showConfirmPassword} />
+                                    </button>
+                                </div>
+                                {confirmPassword.length > 0 && confirmPassword !== password && (
+                                    <p className="text-[9px] font-mono mt-1" style={{ color: RED }}>
+                                        Las contraseñas no coinciden
+                                    </p>
+                                )}
                             </div>
-                        </>
-                    )}
+                        )}
 
-                    {/* Error / Success */}
-                    {error && (
-                        <div
-                            className="text-[10px] font-mono px-3 py-2 rounded-lg"
+                        {/* ═══ CAMPOS EXTENDIDOS (solo registro) ═══ */}
+                        {mode === "register" && (
+                            <>
+                                {/* ─── RUT con máscara en tiempo real ─── */}
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
+                                        RUT (Opcional — verificar después)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={rutRaw}
+                                        onChange={(e) => handleRutChange(e.target.value)}
+                                        placeholder="12.345.678-5"
+                                        maxLength={12}
+                                        className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
+                                        style={{
+                                            border: `1px solid ${rutBorderColor}`,
+                                            boxShadow: rutGlow,
+                                            caretColor: GOLD,
+                                            backgroundColor: "transparent",
+                                        }}
+                                    />
+                                    {/* Feedback visual RUT */}
+                                    {rutClean.length >= 2 && (
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <div
+                                                className="w-1.5 h-1.5 rounded-full"
+                                                style={{ backgroundColor: rutValid ? GOLD : RED }}
+                                            />
+                                            <span
+                                                className="text-[9px] font-mono"
+                                                style={{ color: rutValid ? GOLD : RED }}
+                                            >
+                                                {rutValid
+                                                    ? `Módulo 11 válido — ${rutRaw}`
+                                                    : "RUT no válido — dígito verificador incorrecto"}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* ─── Selectores en Cascada: País → Región → Comuna ─── */}
+
+                                {/* País */}
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                        País *
+                                    </label>
+                                    <select
+                                        value={country}
+                                        onChange={(e) => setCountry(e.target.value)}
+                                        required
+                                        className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200 appearance-none"
+                                        style={{
+                                            backgroundColor: "#0F0F0F",
+                                            border: `1px solid ${country ? `${CYAN}30` : "rgba(255,255,255,0.1)"}`,
+                                        }}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        {COUNTRIES.map((c) => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Región (dependiente de País) */}
+                                    <div>
+                                        <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                            Región *
+                                        </label>
+                                        <select
+                                            value={region}
+                                            onChange={(e) => setRegion(e.target.value)}
+                                            required
+                                            disabled={!country}
+                                            className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200 appearance-none disabled:opacity-40"
+                                            style={{
+                                                backgroundColor: "#0F0F0F",
+                                                border: `1px solid ${region ? `${CYAN}30` : "rgba(255,255,255,0.1)"}`,
+                                            }}
+                                        >
+                                            <option value="">{country ? "Seleccionar" : "Elige país"}</option>
+                                            {availableRegiones.map((r) => (
+                                                <option key={r} value={r}>{r}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Comuna (dependiente de Región) */}
+                                    <div>
+                                        <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                            Comuna *
+                                        </label>
+                                        <select
+                                            value={commune}
+                                            onChange={(e) => setCommune(e.target.value)}
+                                            required
+                                            disabled={!region}
+                                            className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200 appearance-none disabled:opacity-40"
+                                            style={{
+                                                backgroundColor: "#0F0F0F",
+                                                border: `1px solid ${commune ? `${CYAN}30` : "rgba(255,255,255,0.1)"}`,
+                                            }}
+                                        >
+                                            <option value="">{region ? "Seleccionar" : "Elige región"}</option>
+                                            {availableCommunas.map((c) => (
+                                                <option key={c} value={c}>{c}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* ─── Rango Etario ─── */}
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                        Rango Etario
+                                    </label>
+                                    <select
+                                        value={ageRange}
+                                        onChange={(e) => setAgeRange(e.target.value)}
+                                        className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200 appearance-none"
+                                        style={{
+                                            backgroundColor: "#0F0F0F",
+                                            border: "1px solid rgba(255,255,255,0.1)",
+                                        }}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        <option value="18-24">18 - 24</option>
+                                        <option value="25-34">25 - 34</option>
+                                        <option value="35-44">35 - 44</option>
+                                        <option value="45-54">45 - 54</option>
+                                        <option value="55-64">55 - 64</option>
+                                        <option value="65+">65+</option>
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        {/* ─── Error / Success ─── */}
+                        {error && (
+                            <div
+                                className="text-[10px] font-mono px-3 py-2 rounded-lg"
+                                style={{
+                                    backgroundColor: `${RED}10`,
+                                    color: RED,
+                                    border: `1px solid ${RED}20`,
+                                }}
+                            >
+                                {error}
+                            </div>
+                        )}
+                        {success && (
+                            <div
+                                className="text-[10px] font-mono px-3 py-2 rounded-lg"
+                                style={{
+                                    backgroundColor: `${GOLD}15`,
+                                    color: GOLD,
+                                    border: `1px solid ${GOLD}30`,
+                                }}
+                            >
+                                {success}
+                            </div>
+                        )}
+
+                        {/* ─── Submit Button (deshabilitado si formulario incompleto) ─── */}
+                        <button
+                            type="submit"
+                            disabled={loading || !isFormValid}
+                            className="w-full py-3 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-xl disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                             style={{
-                                backgroundColor: "rgba(255, 7, 58, 0.1)",
-                                color: "#FF073A",
-                                border: "1px solid rgba(255, 7, 58, 0.2)",
+                                background: isFormValid
+                                    ? `linear-gradient(135deg, ${GOLD}, #8A2BE2)`
+                                    : "rgba(50,50,50,0.5)",
+                                boxShadow: isFormValid
+                                    ? `0 0 20px ${GOLD}20, 0 0 20px rgba(138, 43, 226, 0.2)`
+                                    : "none",
                             }}
                         >
-                            {error}
-                        </div>
-                    )}
-                    {success && (
-                        <div
-                            className="text-[10px] font-mono px-3 py-2 rounded-lg"
-                            style={{
-                                backgroundColor: `${goldColor}15`,
-                                color: goldColor,
-                                border: `1px solid ${goldColor}30`,
-                            }}
-                        >
-                            {success}
-                        </div>
-                    )}
+                            {loading
+                                ? "Procesando..."
+                                : mode === "login"
+                                    ? "Entrar al Búnker"
+                                    : "Registrar Ciudadano"
+                            }
+                        </button>
 
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-3 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                            background: `linear-gradient(135deg, ${goldColor}, #8A2BE2)`,
-                            boxShadow: `0 0 20px ${goldColor}20, 0 0 20px rgba(138, 43, 226, 0.2)`,
-                        }}
-                    >
-                        {loading
-                            ? "Procesando..."
-                            : mode === "login"
-                                ? "Entrar al Búnker"
-                                : "Registrar Ciudadano"
-                        }
-                    </button>
+                        {/* Footer hint */}
+                        <p className="text-center text-[9px] text-gray-600 font-mono">
+                            {mode === "login"
+                                ? "¿No tienes cuenta? Cambia a «Registrarse» arriba."
+                                : "Al registrarte aceptas el Protocolo de Integridad."}
+                        </p>
+                    </form>
+                )}
 
-                    {/* Footer hint */}
-                    <p className="text-center text-[9px] text-gray-600 font-mono">
-                        {mode === "login"
-                            ? "¿No tienes cuenta? Cambia a «Registrarse» arriba."
-                            : "Al registrarte aceptas el Protocolo de Integridad."}
-                    </p>
-                </form>
+                {/* ═══ ADMIN INTERSTITIAL ═══ */}
+                {showAdminInterstitial && (
+                    <div className="px-8 pb-8 animate-fade-in text-center">
+                        <p className="text-sm text-gray-300 mb-6 font-mono leading-relaxed">
+                            Detectada llave de acceso de <span style={{ color: GOLD }}>Seguridad Nivel 5</span>.
+                            <br />
+                            Selecciona tu vector de entrada:
+                        </p>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            {/* Modo Búnker (Admin) */}
+                            <a
+                                href="/admin"
+                                className="relative p-5 rounded-xl border transition-all duration-300 group overflow-hidden"
+                                style={{
+                                    borderColor: `${GOLD}40`,
+                                    background: `linear-gradient(135deg, rgba(212,175,55,0.05), rgba(212,175,55,0.1))`,
+                                }}
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(212,175,55,0.1)] to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                                <div className="relative z-10 flex items-center justify-between">
+                                    <div className="text-left">
+                                        <h3 className="text-sm font-bold tracking-wider uppercase mb-1" style={{ color: GOLD }}>Modo Admin</h3>
+                                        <p className="text-[10px] text-gray-400 font-mono">Sovereign Dashboard · Gestión Total</p>
+                                    </div>
+                                    <span className="text-2xl filter grayscale group-hover:grayscale-0 transition-all duration-300">🛡️</span>
+                                </div>
+                            </a>
+
+                            {/* Modo Pruebas (Usuario Elite) */}
+                            <button
+                                onClick={onClose}
+                                className="relative p-5 rounded-xl border transition-all duration-300 group text-left overflow-hidden"
+                                style={{
+                                    borderColor: `${CYAN}40`,
+                                    background: `linear-gradient(135deg, rgba(0,229,255,0.05), rgba(0,229,255,0.1))`,
+                                }}
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(0,229,255,0.1)] to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                                <div className="relative z-10 flex items-center justify-between">
+                                    <div className="text-left">
+                                        <h3 className="text-sm font-bold tracking-wider uppercase mb-1" style={{ color: CYAN }}>Modo Pruebas</h3>
+                                        <p className="text-[10px] text-gray-400 font-mono">Vista de Ciudadano · Diamond Rank</p>
+                                    </div>
+                                    <span className="text-2xl filter grayscale group-hover:grayscale-0 transition-all duration-300">💎</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* ─── Close button ─── */}
                 <button

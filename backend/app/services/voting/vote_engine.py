@@ -49,13 +49,14 @@ class VotePayload:
     """Estructura de un voto entrante."""
     user_id: str
     entity_id: str
-    entity_type: str  # PERSON, COMPANY, EVENT, POLL
+    entity_type: str  # POLITICO, PERSONA_PUBLICA, COMPANY, EVENT
     sliders: Dict[str, int]  # {"transparencia": 4, "gestion": 3, "coherencia": 5}
     user_rank: str = "BRONZE"
     user_comuna_id: Optional[int] = None
     entity_jurisdiction_id: Optional[int] = None
     dna_score: int = 100
     fill_duration: float = 10.0
+    concrete_fact: Optional[str] = None # Para Fricción Inteligente
 
 
 @dataclass
@@ -133,6 +134,14 @@ class VoteEngine:
                 f"(DNA score: {payload.dna_score})"
             )
 
+        # ─── 1.5 Fricción Inteligente (MVP) ───
+        if payload.fill_duration < 3.0 and all(v == 1 for v in payload.sliders.values()):
+            if not payload.concrete_fact or len(payload.concrete_fact.strip()) < 10:
+                raise ValueError(
+                    "Parece que tienes una opinión firme. Para que tu voto 1.0 uniforme tenga peso, "
+                    "asegúrate de justificar con un 'Hecho Concreto' válido."
+                )
+
         # ─── 2. Verificación Territorial Quirúrgica ───
         is_local = False
         territorial_bonus = 1.0
@@ -152,8 +161,17 @@ class VoteEngine:
                     f"para {vote_key} (PERSON + jurisdicción + {payload.user_rank})"
                 )
 
-        # ─── 3. Calcular promedio de sliders ───
-        raw_average = self._calculate_slider_average(payload.sliders)
+        # ─── 3. Calcular promedio de sliders (Pivot Axis si es POLITICO) ───
+        if payload.entity_type == "POLITICO":
+             # Aquí asumo la importación ficticia/dinámica de pivot_axis. Si no existe aún
+             # se calculará el raw_average regular u otro ponderado.
+             try:
+                 from app.services.voting.pivot_axis_engine import calculate_political_score
+                 raw_average = calculate_political_score(payload.sliders)
+             except ImportError:
+                 raw_average = self._calculate_slider_average(payload.sliders)
+        else:
+             raw_average = self._calculate_slider_average(payload.sliders)
 
         # ─── 4. Peso efectivo ───
         rank_weights = {

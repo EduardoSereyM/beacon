@@ -2,16 +2,13 @@
  * BEACON PROTOCOL — EntityCard (Tarjeta de Entidad)
  * ===================================================
  * Componente reutilizable que muestra una entidad evaluada.
+ * Usa los campos EXACTOS de la tabla 'entities' de Supabase.
  *
- * Borde Dinámico:
- *   - Ciudadano Oro → borde #D4AF37 con neon-gold
- *   - Plata → borde #C0C0C0
- *   - Bronce → borde #cd7f32
- *   - Diamond → borde #b9f2ff con neon-diamond
- *
- * Indicador de Integridad:
- *   - Barra de progreso en la base (#39FF14)
- *   - Score en JetBrains Mono
+ * Mapeo BBDD → UI:
+ *   first_name + last_name → Nombre mostrado
+ *   position               → Subtítulo (ej: "Senador")
+ *   party                  → Badge de partido
+ *   region                 → Tooltip territorial
  *
  * "Cada card es una sentencia visual. El brillo no miente."
  */
@@ -20,14 +17,26 @@
 
 import { useState } from "react";
 
-type EntityType = "PERSON" | "COMPANY" | "EVENT" | "POLL";
+type EntityType = "POLITICO" | "PERSONA_PUBLICA" | "COMPANY" | "EVENT" | "POLL";
 type RankType = "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
 
+/** Interface sincronizada con la tabla 'entities' de Supabase */
 interface EntityData {
     id: string;
-    name: string;
-    type: EntityType;
-    metadata?: Record<string, unknown>;
+    first_name: string;
+    last_name: string;
+    second_last_name?: string;
+    category: string;
+    position?: string;
+    region?: string;
+    district?: string;
+    bio?: string;
+    photo_path?: string;
+    official_links?: Record<string, unknown>;
+    party?: string;
+    email?: string;
+    // Campos calculados por el motor
+    type?: EntityType;
     service_tags?: string[];
     reputation_score: number;
     total_reviews: number;
@@ -71,13 +80,15 @@ const RANK_STYLES: Record<
     },
 };
 
-/** Configuración por tipo de entidad */
-const TYPE_CONFIG: Record<EntityType, { label: string; icon: string; color: string }> = {
-    PERSON: { label: "Persona", icon: "👤", color: "#D4AF37" },
-    COMPANY: { label: "Empresa", icon: "🏢", color: "#00E5FF" },
-    EVENT: { label: "Evento", icon: "🎪", color: "#39FF14" },
-    POLL: { label: "Encuesta", icon: "📊", color: "#8A2BE2" },
+/** Mapeo de category (BBDD) → tipo visual */
+const CATEGORY_MAP: Record<string, { type: EntityType; label: string; icon: string; color: string }> = {
+    politico: { type: "POLITICO", label: "Político", icon: "⚖️", color: "#D4AF37" },
+    periodista: { type: "PERSONA_PUBLICA", label: "Persona", icon: "👤", color: "#C0C0C0" },
+    empresario: { type: "COMPANY", label: "Empresa", icon: "🏢", color: "#00E5FF" },
 };
+
+/** Fallback para tipos de entidad */
+const TYPE_FALLBACK = { type: "POLITICO" as EntityType, label: "Político", icon: "⚖️", color: "#D4AF37" };
 
 interface EntityCardProps {
     entity: EntityData;
@@ -85,8 +96,20 @@ interface EntityCardProps {
 
 export default function EntityCard({ entity }: EntityCardProps) {
     const [isHovered, setIsHovered] = useState(false);
-    const rankStyle = RANK_STYLES[entity.rank];
-    const typeConfig = TYPE_CONFIG[entity.type];
+    const rankStyle = RANK_STYLES[entity.rank] || RANK_STYLES.BRONZE;
+
+    // Resolver tipo visual desde la categoría de BBDD
+    const cat = (entity.category || "politico").toLowerCase();
+    const typeConfig = CATEGORY_MAP[cat] || TYPE_FALLBACK;
+    const entityType = entity.type || typeConfig.type;
+
+    // Nombre completo desde campos de BBDD
+    const displayName = [entity.first_name, entity.last_name]
+        .filter(Boolean)
+        .join(" ");
+
+    // Subtítulo: position (BBDD) o fallback
+    const subtitle = entity.position || typeConfig.label;
 
     /** Color del score según valor */
     const scoreColor =
@@ -101,7 +124,7 @@ export default function EntityCard({ entity }: EntityCardProps) {
 
     return (
         <a
-            href={`/${entity.type === "EVENT" ? "events" : "entities"}/${entity.id}`}
+            href={`/${entityType === "EVENT" ? "events" : "entities"}/${entity.id}`}
             className={`block rounded-xl overflow-hidden transition-all duration-300 ${entity.rank === "GOLD" || entity.rank === "DIAMOND"
                 ? "elite-card"
                 : ""
@@ -121,7 +144,7 @@ export default function EntityCard({ entity }: EntityCardProps) {
             {/* ─── Header: Avatar + Info ─── */}
             <div className="p-4 pb-3">
                 <div className="flex items-start gap-3">
-                    {/* Avatar (escala de grises → color al hover) */}
+                    {/* Avatar */}
                     <div
                         className={`w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-500 ${entity.rank === "GOLD" || entity.rank === "DIAMOND"
                             ? rankStyle.neonClass
@@ -144,27 +167,24 @@ export default function EntityCard({ entity }: EntityCardProps) {
                         </span>
                     </div>
 
-                    {/* Nombre y metadata */}
+                    {/* Nombre y metadata (campos de BBDD) */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                             <h3 className="text-sm font-semibold text-foreground truncate">
-                                {entity.name}
+                                {displayName}
                             </h3>
                             {entity.is_verified && (
                                 <span title="Verificado por el Protocolo">✓</span>
                             )}
                         </div>
 
-                        {/* Subtítulo según tipo */}
+                        {/* Subtítulo: position de la BBDD */}
                         <p className="text-[10px] text-foreground-muted truncate mt-0.5">
-                            {entity.type === "PERSON" && String(entity.metadata?.role || "")}
-                            {entity.type === "COMPANY" && String(entity.metadata?.sector || "")}
-                            {entity.type === "EVENT" && String(entity.metadata?.location || "")}
-                            {entity.type === "POLL" && "Encuesta activa"}
+                            {subtitle}
                         </p>
 
-                        {/* Tags de tipo + rango */}
-                        <div className="flex items-center gap-2 mt-1.5">
+                        {/* Tags de tipo + rango + partido */}
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             <span
                                 className="text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-medium"
                                 style={{
@@ -183,10 +203,22 @@ export default function EntityCard({ entity }: EntityCardProps) {
                             >
                                 {rankStyle.emoji} {rankStyle.label}
                             </span>
+                            {entity.party && (
+                                <span
+                                    className="text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider"
+                                    style={{
+                                        backgroundColor: "rgba(138, 43, 226, 0.12)",
+                                        color: "#B388FF",
+                                        border: "1px solid rgba(138, 43, 226, 0.2)",
+                                    }}
+                                >
+                                    {entity.party}
+                                </span>
+                            )}
                         </div>
                     </div>
 
-                    {/* Score (esquina superior derecha) */}
+                    {/* Score */}
                     <div className="text-right flex-shrink-0">
                         <span
                             className="text-xl font-mono score-display font-bold"
@@ -220,7 +252,7 @@ export default function EntityCard({ entity }: EntityCardProps) {
                 )}
             </div>
 
-            {/* ─── Barra de Integridad (base de la card) ─── */}
+            {/* ─── Barra de Integridad ─── */}
             <div className="px-4 pb-3">
                 <div className="flex items-center justify-between mb-1">
                     <span className="text-[9px] text-foreground-muted uppercase tracking-wider">

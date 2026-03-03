@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS users (
     reputation_score  FLOAT DEFAULT 0.0,
 
     -- Segmentación Demográfica (Mina de Oro)
+    country           TEXT,                    -- Ej: "Chile"
     commune           TEXT,                    -- Ej: "Providencia"
     region            TEXT,                    -- Ej: "Metropolitana"
     age_range         TEXT,                    -- Ej: "25-34"

@@ -7,11 +7,22 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AuthModal from "./AuthModal";
+import usePermissions from "@/hooks/usePermissions";
+import Image from "next/image";
+import logoDorado from "@/asset/brand/LogoBeaconCian.png";
 
 export default function NavbarClient() {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const { user, isAuthenticated, logout } = usePermissions();
+
+    // Escuchar evento custom desde usePermissions.openAuthModal()
+    useEffect(() => {
+        const handler = () => setIsModalOpen(true);
+        window.addEventListener("beacon:open-auth-modal", handler);
+        return () => window.removeEventListener("beacon:open-auth-modal", handler);
+    }, []);
 
     return (
         <>
@@ -28,16 +39,11 @@ export default function NavbarClient() {
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     {/* ─── Logo (Oro Líquido) ─── */}
                     <a href="/" className="flex items-center gap-3 group">
-                        <div
-                            className="w-9 h-9 rounded-lg flex items-center justify-center neon-gold transition-all duration-300 group-hover:scale-105"
-                            style={{
-                                background: "linear-gradient(135deg, #D4AF37, #f5d374)",
-                            }}
-                        >
-                            <span className="text-[#0A0A0A] text-sm font-black tracking-tighter">
-                                B
-                            </span>
-                        </div>
+                        <Image
+                            src={logoDorado}
+                            alt="Beacon Protocol Logo"
+                            className="w-9 h-9 object-contain transition-all duration-300 group-hover:scale-105"
+                        />
                         <div>
                             <h1
                                 className="text-sm font-bold tracking-wide uppercase"
@@ -99,18 +105,41 @@ export default function NavbarClient() {
                             Empresas
                         </a>
 
-                        {/* Botón Acceso al Búnker → abre AuthModal */}
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
-                            style={{
-                                background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
-                                boxShadow:
-                                    "0 0 12px rgba(212, 175, 55, 0.2), 0 0 12px rgba(138, 43, 226, 0.2)",
-                            }}
-                        >
-                            Acceso al Búnker
-                        </button>
+                        {/* Botón Acceso al Búnker — adaptativo */}
+                        {isAuthenticated ? (
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-mono text-foreground-muted">
+                                    {user.full_name}
+                                    <span
+                                        className="ml-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase"
+                                        style={{
+                                            backgroundColor: "rgba(212, 175, 55, 0.15)",
+                                            color: "#D4AF37",
+                                        }}
+                                    >
+                                        {user.rank}
+                                    </span>
+                                </span>
+                                <button
+                                    onClick={logout}
+                                    className="text-[10px] text-foreground-muted hover:text-white transition-colors font-mono"
+                                >
+                                    Salir
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                                style={{
+                                    background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
+                                    boxShadow:
+                                        "0 0 12px rgba(212, 175, 55, 0.2), 0 0 12px rgba(138, 43, 226, 0.2)",
+                                }}
+                            >
+                                Acceso al Búnker
+                            </button>
+                        )}
                     </div>
                 </div>
             </nav>

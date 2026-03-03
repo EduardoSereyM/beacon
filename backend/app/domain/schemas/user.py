@@ -11,7 +11,8 @@ Reglas de oro:
 "Lo que no pasa por Pydantic, no existe."
 """
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+import re
 from typing import Optional
 from datetime import datetime
 
@@ -34,9 +35,27 @@ class UserCreate(UserBase):
     y alimentan la 'Mina de Oro' desde el primer momento.
     """
     password: str = Field(..., min_length=8, description="Contraseña mínima de 8 caracteres")
+    country: Optional[str] = Field(None, description="País (ej: Chile)")
     commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
     region: Optional[str] = Field(None, description="Región (ej: Metropolitana)")
     age_range: Optional[str] = Field(None, description="Rango etario (ej: 25-34)")
+
+    @field_validator('password')
+    @classmethod
+    def validate_password_complexity(cls, v: str) -> str:
+        """
+        Valida:
+        - Al menos una mayúscula.
+        - Al menos un número.
+        - Al menos un carácter especial (@, #, $, %, &, *).
+        """
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('La contraseña debe contener al menos una mayúscula.')
+        if not re.search(r'[0-9]', v):
+            raise ValueError('La contraseña debe contener al menos un número.')
+        if not re.search(r'[@#$%&*]', v):
+            raise ValueError('La contraseña debe contener al menos un carácter especial (@, #, $, %, &, *).')
+        return v
 
 
 # ─── Verificación de RUT ───
@@ -58,6 +77,7 @@ class UserProfileUpdate(BaseModel):
     Estos campos alimentan la "Mina de Oro":
     segmentación de alta fidelidad para conglomerados.
     """
+    country: Optional[str] = Field(None, description="País (ej: Chile)")
     commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
     region: Optional[str] = Field(None, description="Región (ej: Metropolitana)")
     age_range: Optional[str] = Field(None, description="Rango etario (ej: 25-34)")
@@ -77,6 +97,7 @@ class UserResponse(UserBase):
     reputation_score: float = 0.0
     verification_level: int = 1
     is_verified: bool
+    country: Optional[str] = None
     commune: Optional[str] = None
     region: Optional[str] = None
     age_range: Optional[str] = None

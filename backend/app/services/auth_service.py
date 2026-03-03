@@ -67,22 +67,39 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     if request_metadata:
         dna_result = gatekeeper.scan_request(request_metadata)
 
-    # ─── 2. Preparar datos para inserción ───
+    if dna_result["classification"] == "DISPLACED":
+        raise Exception("Error en la validación de seguridad (DISPLACED).")
+
+    # ─── 2. Registro en Supabase Auth ───
+    # Registramos al usuario en autenticación para activar el flujo OTP/Password
+    auth_response = supabase.auth.sign_up({
+        "email": user_data.email,
+        "password": user_data.password,
+    })
+    
+    if not auth_response.user:
+         raise Exception("Falla al generar identidad en Supabase Auth")
+         
+    auth_user_id = auth_response.user.id
+
+    # ─── 3. Preparar datos para inserción en schema público ───
     new_user = {
+        "id": auth_user_id,
         "email": user_data.email,
         "full_name": user_data.full_name,
-        "hashed_password": hash_password(user_data.password),
+        "hashed_password": hash_password(user_data.password), # Fallback interno
+        "password_history": [hash_password(user_data.password)], # Control de rotación (fase 2)
         "rank": UserRank.BRONZE,
         "integrity_score": 0.5,
         "reputation_score": 0.0,
         "verification_level": VerificationLevel.EMAIL,
-        "is_verified": False,
-        "is_active": True,
-        "is_shadow_banned": dna_result["classification"] == "DISPLACED",
         "created_at": datetime.utcnow().isoformat(),
+        "role": "user"
     }
 
     # Campos demográficos extendidos (Mina de Oro desde el registro)
+    if hasattr(user_data, "country") and user_data.country:
+        new_user["country"] = user_data.country
     if hasattr(user_data, "commune") and user_data.commune:
         new_user["commune"] = user_data.commune
     if hasattr(user_data, "region") and user_data.region:
@@ -160,12 +177,13 @@ async def login_user(email: str, password: str) -> dict:
     """
     supabase = get_supabase_client()
 
-    # Buscar usuario por email
+    # Buscar usuario por email (NOTA: el email real no está en 'users',
+    # pero este método ahora parece ser legacy si usamos sign_in de Auth.
+    # Aún así, quitamos is_active para evitar crasheos si se llama).
     result = (
         supabase.table("users")
         .select("*")
         .eq("email", email)
-        .eq("is_active", True)
         .execute()
     )
 
@@ -192,8 +210,46 @@ async def get_user_by_id(user_id: str) -> Optional[dict]:
         supabase.table("users")
         .select("*")
         .eq("id", user_id)
-        .eq("is_active", True)
         .execute()
     )
 
     return result.data[0] if result.data else None
+
+
+async def change_citizen_password(user_id: str, new_password: str) -> bool:
+    """
+    Cambia la contraseña de un usuario, asegurando que no reutilice las últimas 3.
+    (Llamado desde el Flow de Recovery o Cambio interno).
+    """
+    supabase = get_supabase_client()
+
+    user = await get_user_by_id(user_id)
+    if not user:
+        raise ValueError("Usuario no encontrado")
+        
+    history = user.get("password_history", [])
+    
+    # Verificar si la nueva contraseña ha sido usada recientemente
+    for past_hash in history[-3:]: # Comprobar las últimas 3
+        if verify_password(new_password, past_hash):
+            raise ValueError("Directiva de Seguridad: No puedes reutilizar tus últimas 3 contraseñas.")
+            
+    # Registrar en BBDD (y en auth idealmente, pero eso lo hace Supabase por su lado)
+    new_hash = hash_password(new_password)
+    new_history = history + [new_hash]
+    
+    result = supabase.table("users").update({
+        "hashed_password": new_hash,
+        "password_history": new_history
+    }).eq("id", user_id).execute()
+    
+    # Audit log (jamás registrar contraseña en plano)
+    audit_bus.log_event(
+        actor_id=user_id,
+        action="IDENTITY_PASSWORD_CHANGED",
+        entity_type="USER",
+        entity_id=user_id,
+        details={"rotated": True}
+    )
+    
+    return True

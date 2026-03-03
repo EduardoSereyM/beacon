@@ -6,15 +6,16 @@ Endpoints exclusivos para el administrador del sistema.
 /admin/aum → Valor total de la red (Assets Under Management)
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.core.valuation.user_asset_calculator import asset_calculator
+from app.api.v1.admin.require_admin import require_admin_role
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/aum")
-async def get_total_aum():
+async def get_total_aum(admin: dict = Depends(require_admin_role)):
     """
     Assets Under Management — Valor total de la red Beacon.
 

@@ -101,14 +101,29 @@ app.include_router(
     tags=["Real-Time Pulse"],
 )
 
-# Routers pendientes (se activarán en fases posteriores):
-# from app.api.v1.public import router as public_router
-# from app.api.v1.events import router as events_router
-# from app.api.v1.admin import router as admin_router
-#
-# app.include_router(public_router, prefix=f"{settings.API_V1_PREFIX}/public", tags=["Public"])
-# app.include_router(events_router, prefix=f"{settings.API_V1_PREFIX}/events", tags=["Events"])
-# app.include_router(admin_router, prefix=f"{settings.API_V1_PREFIX}/admin", tags=["Admin"])
+from app.api.v1.endpoints.entities import router as entities_router
+
+app.include_router(
+    entities_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Entities"],
+)
+
+# ─── Admin Routers (Aislamiento de Responsabilidades) ───
+from app.api.v1.admin.entities_admin import router as admin_entities_router
+from app.api.v1.admin.aum_endpoint import router as admin_aum_router
+
+app.include_router(
+    admin_entities_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — Entities"],
+)
+
+app.include_router(
+    admin_aum_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — AUM"],
+)
 
 
 @app.on_event("startup")

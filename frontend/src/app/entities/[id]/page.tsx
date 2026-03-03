@@ -18,16 +18,22 @@
 import { use, useState } from "react";
 import TruthMeter from "@/components/status/TruthMeter";
 import VerdictButton from "@/components/status/VerdictButton";
+import usePermissions from "@/hooks/usePermissions";
 
-type EntityType = "PERSON" | "COMPANY" | "EVENT" | "POLL";
+type EntityType = "POLITICO" | "PERSONA_PUBLICA" | "COMPANY" | "EVENT" | "POLL";
 type UserRank = "DISPLACED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
 
 /** Sliders por tipo de entidad */
 const SLIDERS_BY_TYPE: Record<EntityType, { key: string; label: string; icon: string }[]> = {
-    PERSON: [
-        { key: "probidad", label: "Probidad", icon: "⚖️" },
+    POLITICO: [
+        { key: "transparencia", label: "Transparencia", icon: "⚖️" },
         { key: "gestion", label: "Gestión", icon: "📊" },
-        { key: "cumplimiento", label: "Cumplimiento", icon: "✅" },
+        { key: "coherencia", label: "Coherencia", icon: "✅" },
+    ],
+    PERSONA_PUBLICA: [
+        { key: "probidad", label: "Probidad", icon: "💎" },
+        { key: "confianza", label: "Confianza", icon: "🤝" },
+        { key: "influencia", label: "Influencia", icon: "⭐" },
     ],
     COMPANY: [
         { key: "servicio_cliente", label: "Servicio al Cliente", icon: "🎧" },
@@ -50,7 +56,7 @@ const SLIDERS_BY_TYPE: Record<EntityType, { key: string; label: string; icon: st
 const DEMO_ENTITY = {
     id: "e-001",
     name: "Gabriel Boric",
-    entity_type: "PERSON" as EntityType,
+    entity_type: "POLITICO" as EntityType,
     metadata: {
         role: "Presidente de la República de Chile",
         party: "Convergencia Social",
@@ -74,10 +80,15 @@ interface EntityPageProps {
 export default function EntityPage({ params }: EntityPageProps) {
     const { id } = use(params);
     const entity = DEMO_ENTITY;
-    const userRank = DEMO_USER_RANK;
+    const { user, permissions, isAuthenticated, openAuthModal } = usePermissions();
+
+    // Rango dinámico desde ACM (en producción vendrá del token JWT)
+    const userRank: UserRank = isAuthenticated
+        ? (user.rank as UserRank)
+        : "DISPLACED";
 
     /** Indicador de voto local (en producción vendrá del backend via verify_territoriality) */
-    const isLocalVote = entity.entity_type === "PERSON"; // Demo: true para PERSON
+    const isLocalVote = isAuthenticated && (entity.entity_type === "POLITICO" || entity.entity_type === "PERSONA_PUBLICA");
 
     /** Estado de los sliders de evaluación */
     const [sliderValues, setSliderValues] = useState<Record<string, number>>(() => {
@@ -164,7 +175,7 @@ export default function EntityPage({ params }: EntityPageProps) {
                             }}
                         >
                             <span className="text-3xl">
-                                {entity.entity_type === "PERSON" ? "👤" : entity.entity_type === "COMPANY" ? "🏢" : "🎪"}
+                                {entity.entity_type === "POLITICO" ? "⚖️" : entity.entity_type === "PERSONA_PUBLICA" ? "👤" : entity.entity_type === "COMPANY" ? "🏢" : "🎪"}
                             </span>
                         </div>
 
@@ -345,7 +356,7 @@ export default function EntityPage({ params }: EntityPageProps) {
        * ═══════════════════════════════════════════ */}
             <section className="px-6 py-10">
                 <div className="max-w-4xl mx-auto">
-                    <div className="glass rounded-xl p-6">
+                    <div className="glass rounded-xl p-6 relative">
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
@@ -438,6 +449,37 @@ export default function EntityPage({ params }: EntityPageProps) {
                                 </div>
                             ))}
                         </div>
+
+                        {/* ── ACM: Overlay de bloqueo para anónimos ── */}
+                        {!permissions.evaluate && (
+                            <div
+                                className="absolute inset-0 z-20 rounded-xl flex items-center justify-center cursor-pointer"
+                                onClick={openAuthModal}
+                                style={{
+                                    background: "rgba(10, 10, 10, 0.6)",
+                                    backdropFilter: "blur(6px)",
+                                    WebkitBackdropFilter: "blur(6px)",
+                                }}
+                            >
+                                <div className="text-center">
+                                    <div
+                                        className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center"
+                                        style={{
+                                            background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
+                                            boxShadow: "0 0 20px rgba(212, 175, 55, 0.3)",
+                                        }}
+                                    >
+                                        <span className="text-lg">🔒</span>
+                                    </div>
+                                    <p className="text-xs font-bold text-white tracking-wide">
+                                        Tu voz requiere identidad
+                                    </p>
+                                    <p className="text-[9px] text-gray-400 mt-1 font-mono">
+                                        Regístrate para evaluar
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Resumen promedio */}
                         <div className="mt-6 pt-4 border-t border-beacon-border flex items-center justify-between">

@@ -1,14 +1,14 @@
 /**
- * BEACON PROTOCOL — Index Page con Universal Category Switcher
- * ==============================================================
- * Hero Section + Tabs de Poder + Sub-filtros dinámicos + Grid filtrado
+ * BEACON PROTOCOL — Index Page con Buscador de Integridad
+ * ========================================================
+ * Hero Section + Buscador Dinámico + Filtros DISTINCT
+ * + Tabs de Poder + Grid filtrado con datos reales
  *
- * Arquitectura del Selector:
- *   - 4 categorías: Personajes Públicos, Empresas, Eventos Live, Encuestas Élite
- *   - Sub-filtros por service_tags (Empresas: Bancos, Retail, etc.)
- *   - Filtrado por URL params (?category=COMPANY&tag=BANCO)
- *   - Animación de desvanecimiento al cambiar categoría
- *   - Estado de carga #00E5FF ("amigos bits filtrando")
+ * Datos sincronizados con la tabla 'entities' de Supabase:
+ *   first_name, last_name, position, region, party
+ *
+ * Filtros dinámicos cargados via GET /entities/filters (DISTINCT)
+ * Se auto-actualizan al cargar nuevas entidades en la BBDD.
  *
  * "La primera impresión es el primer juicio. Hazle sentir el poder."
  */
@@ -19,216 +19,141 @@ import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import EntityCard from "@/components/status/EntityCard";
 
-type EntityType = "PERSON" | "COMPANY" | "EVENT" | "POLL";
+/** URL de la API del Búnker */
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-/** Categorías principales con su estética */
+type EntityType = "POLITICO" | "PERSONA_PUBLICA" | "COMPANY" | "EVENT" | "POLL";
+
+/** Categorías principales */
 const CATEGORIES: {
   key: EntityType | "ALL";
   label: string;
   icon: string;
-  subFilters?: { key: string; label: string }[];
+  dbCategory?: string; // mapeo a la BBDD
 }[] = [
     { key: "ALL", label: "Todas", icon: "🌐" },
-    {
-      key: "PERSON",
-      label: "Personajes Públicos",
-      icon: "👤",
-    },
-    {
-      key: "COMPANY",
-      label: "Empresas",
-      icon: "🏢",
-      subFilters: [
-        { key: "BANCO", label: "Bancos" },
-        { key: "RETAIL", label: "Retail" },
-        { key: "ENERGIA", label: "Energía" },
-        { key: "SALUD", label: "Salud" },
-        { key: "TELECOM", label: "Telecom" },
-      ],
-    },
-    {
-      key: "EVENT",
-      label: "Eventos Live",
-      icon: "🎪",
-      subFilters: [
-        { key: "FESTIVAL", label: "Festivales" },
-        { key: "ELECCION", label: "Elecciones" },
-        { key: "TV", label: "Programas TV" },
-      ],
-    },
-    {
-      key: "POLL",
-      label: "Encuestas Élite",
-      icon: "📊",
-    },
+    { key: "POLITICO", label: "Política", icon: "⚖️", dbCategory: "politico" },
+    { key: "PERSONA_PUBLICA", label: "Personajes Públicos", icon: "👤", dbCategory: "periodista" },
+    { key: "COMPANY", label: "Empresas", icon: "🏢", dbCategory: "empresario" },
+    { key: "EVENT", label: "Eventos Live", icon: "🎪" },
+    { key: "POLL", label: "Encuestas Élite", icon: "📊" },
   ];
 
-/** Demo: entidades para el grid (en producción vendrán del backend) */
-const ALL_ENTITIES = [
-  {
-    id: "e-001",
-    name: "Gabriel Boric",
-    type: "PERSON" as const,
-    metadata: { role: "Presidente de Chile", party: "Convergencia Social" },
-    reputation_score: 3.72,
-    total_reviews: 1842,
-    is_verified: true,
-    rank: "GOLD" as const,
-    integrity_index: 78,
-  },
-  {
-    id: "e-002",
-    name: "Banco Estado",
-    type: "COMPANY" as const,
-    metadata: { sector: "Banca Estatal" },
-    service_tags: ["BANCO", "MICROFINANZAS"],
-    reputation_score: 2.41,
-    total_reviews: 3290,
-    is_verified: true,
-    rank: "SILVER" as const,
-    integrity_index: 52,
-  },
-  {
-    id: "e-003",
-    name: "Lollapalooza Chile 2026",
-    type: "EVENT" as const,
-    metadata: { location: "Parque O'Higgins", date: "Marzo 2026" },
-    service_tags: ["FESTIVAL"],
-    reputation_score: 4.58,
-    total_reviews: 892,
-    is_verified: false,
-    rank: "GOLD" as const,
-    integrity_index: 91,
-  },
-  {
-    id: "e-004",
-    name: "Evelyn Matthei",
-    type: "PERSON" as const,
-    metadata: { role: "Ex Ministra del Trabajo", party: "UDI" },
-    reputation_score: 3.15,
-    total_reviews: 2105,
-    is_verified: true,
-    rank: "SILVER" as const,
-    integrity_index: 65,
-  },
-  {
-    id: "e-005",
-    name: "Entel",
-    type: "COMPANY" as const,
-    metadata: { sector: "Telecomunicaciones" },
-    service_tags: ["TELECOM", "INTERNET", "FIBRA"],
-    reputation_score: 2.89,
-    total_reviews: 1567,
-    is_verified: true,
-    rank: "BRONZE" as const,
-    integrity_index: 44,
-  },
-  {
-    id: "e-006",
-    name: "Festival de Viña 2026",
-    type: "EVENT" as const,
-    metadata: { location: "Quinta Vergara, Viña del Mar" },
-    service_tags: ["FESTIVAL", "TV"],
-    reputation_score: 4.12,
-    total_reviews: 3401,
-    is_verified: true,
-    rank: "GOLD" as const,
-    integrity_index: 85,
-  },
-  {
-    id: "e-007",
-    name: "Falabella",
-    type: "COMPANY" as const,
-    metadata: { sector: "Retail y Servicios Financieros" },
-    service_tags: ["RETAIL", "BANCO"],
-    reputation_score: 2.65,
-    total_reviews: 4102,
-    is_verified: true,
-    rank: "SILVER" as const,
-    integrity_index: 38,
-  },
-  {
-    id: "e-008",
-    name: "José Antonio Kast",
-    type: "PERSON" as const,
-    metadata: { role: "Diputado", party: "Partido Republicano" },
-    reputation_score: 2.94,
-    total_reviews: 2891,
-    is_verified: true,
-    rank: "BRONZE" as const,
-    integrity_index: 57,
-  },
-  {
-    id: "e-009",
-    name: "Enel Chile",
-    type: "COMPANY" as const,
-    metadata: { sector: "Energía Eléctrica" },
-    service_tags: ["ENERGIA"],
-    reputation_score: 1.87,
-    total_reviews: 2340,
-    is_verified: true,
-    rank: "BRONZE" as const,
-    integrity_index: 29,
-  },
-  {
-    id: "e-010",
-    name: "Elecciones Municipales 2026",
-    type: "EVENT" as const,
-    metadata: { location: "Nacional" },
-    service_tags: ["ELECCION"],
-    reputation_score: 3.95,
-    total_reviews: 5210,
-    is_verified: true,
-    rank: "GOLD" as const,
-    integrity_index: 88,
-  },
-  {
-    id: "e-011",
-    name: "Isapre Consalud",
-    type: "COMPANY" as const,
-    metadata: { sector: "Salud" },
-    service_tags: ["SALUD"],
-    reputation_score: 1.45,
-    total_reviews: 1890,
-    is_verified: true,
-    rank: "BRONZE" as const,
-    integrity_index: 22,
-  },
-  {
-    id: "e-012",
-    name: "¿Debería ser legal la marihuana?",
-    type: "POLL" as const,
-    metadata: { topic: "Legislación" },
-    reputation_score: 4.21,
-    total_reviews: 8901,
-    is_verified: true,
-    rank: "GOLD" as const,
-    integrity_index: 92,
-  },
-];
+/** Interfaz sincronizada con la tabla 'entities' de Supabase */
+interface BackendEntity {
+  id: string;
+  first_name: string;
+  last_name: string;
+  second_last_name?: string;
+  category: string;
+  position?: string;
+  region?: string;
+  district?: string;
+  bio?: string;
+  party?: string;
+  official_links?: Record<string, unknown>;
+  reputation_score: number;
+  total_reviews: number;
+  is_verified: boolean;
+  rank: "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+  integrity_index: number;
+  service_tags?: string[];
+}
+
+/** Estilos de los selectores glassmorphism */
+const selectStyle: React.CSSProperties = {
+  backgroundColor: "rgba(255, 255, 255, 0.03)",
+  color: "#aaa",
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  borderRadius: "8px",
+  padding: "6px 10px",
+  fontSize: "11px",
+  fontFamily: "'JetBrains Mono', monospace",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.05em",
+  outline: "none",
+  cursor: "pointer",
+  minWidth: "140px",
+};
 
 function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Estado del buscador
+  // ─── Estado del Buscador ───
   const [searchQuery, setSearchQuery] = useState("");
   const [searchGlow, setSearchGlow] = useState(false);
 
-  // Estado del Category Switcher
+  // ─── Entidades desde la API ───
+  const [allEntities, setAllEntities] = useState<BackendEntity[]>([]);
+  const [loadingEntities, setLoadingEntities] = useState(true);
+
+  // ─── Filtros DISTINCT (cargados de la BBDD) ───
+  const [availableRegions, setAvailableRegions] = useState<string[]>([]);
+  const [availableParties, setAvailableParties] = useState<string[]>([]);
+  const [filterRegion, setFilterRegion] = useState("");
+  const [filterParty, setFilterParty] = useState("");
+
+  // ─── Category Switcher ───
   const [activeCategory, setActiveCategory] = useState<EntityType | "ALL">(
     (searchParams.get("category") as EntityType | "ALL") || "ALL"
-  );
-  const [activeTag, setActiveTag] = useState<string>(
-    searchParams.get("tag") || ""
   );
   const [isFiltering, setIsFiltering] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
 
-  /** Categoría activa con sus sub-filtros */
+  // ─── Cargar filtros DISTINCT desde la BBDD (1 sola vez) ───
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/entities/filters`);
+        if (res.ok) {
+          const data = await res.json();
+          setAvailableRegions(data.regions || []);
+          setAvailableParties(data.parties || []);
+        }
+      } catch (err) {
+        console.error("Error cargando filtros:", err);
+      }
+    };
+    loadFilters();
+  }, []);
+
+  // ─── Fetch entidades desde el backend ───
+  useEffect(() => {
+    const fetchEntities = async () => {
+      try {
+        setLoadingEntities(true);
+
+        const catData = CATEGORIES.find(c => c.key === activeCategory);
+        const params = new URLSearchParams();
+        params.set("limit", "200");
+
+        if (catData?.dbCategory) {
+          params.set("category", catData.dbCategory);
+        }
+
+        const res = await fetch(`${API_URL}/api/v1/entities?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAllEntities(data.entities || []);
+        } else {
+          console.error("Error fetching entities:", res.status);
+          setAllEntities([]);
+        }
+      } catch (err) {
+        console.error("Error de conexión con el Búnker:", err);
+        setAllEntities([]);
+      } finally {
+        setLoadingEntities(false);
+      }
+    };
+    fetchEntities();
+  }, [activeCategory]);
+
+  /** Categoría activa */
   const activeCategoryData = CATEGORIES.find((c) => c.key === activeCategory);
 
-  /** Simula la detección de un humano real al escribir */
+  /** Detecta humano escribiendo */
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
@@ -239,23 +164,20 @@ function HomeContent() {
   const handleCategoryChange = useCallback(
     (category: EntityType | "ALL") => {
       if (category === activeCategory) return;
-
-      // Fase 1: Desvanecer cards actuales
       setIsVisible(false);
       setIsFiltering(true);
+      // Reset filtros al cambiar categoría
+      setFilterRegion("");
+      setFilterParty("");
+      setSearchQuery("");
 
-      // Fase 2: Cambiar categoría y URL after fade
       setTimeout(() => {
         setActiveCategory(category);
-        setActiveTag(""); // Reset sub-filtro
-
-        // Actualizar URL sin recargar
         const params = new URLSearchParams();
         if (category !== "ALL") params.set("category", category);
         const url = params.toString() ? `?${params.toString()}` : "/";
         router.push(url, { scroll: false });
 
-        // Fase 3: Simular carga de "amigos bits"
         setTimeout(() => {
           setIsFiltering(false);
           setIsVisible(true);
@@ -265,80 +187,60 @@ function HomeContent() {
     [activeCategory, router]
   );
 
-  /** Cambia el sub-filtro (service_tag) */
-  const handleTagChange = useCallback(
-    (tag: string) => {
-      const newTag = tag === activeTag ? "" : tag;
-
-      setIsVisible(false);
-      setIsFiltering(true);
-
-      setTimeout(() => {
-        setActiveTag(newTag);
-
-        // Actualizar URL
-        const params = new URLSearchParams();
-        if (activeCategory !== "ALL") params.set("category", activeCategory);
-        if (newTag) params.set("tag", newTag);
-        const url = params.toString() ? `?${params.toString()}` : "/";
-        router.push(url, { scroll: false });
-
-        setTimeout(() => {
-          setIsFiltering(false);
-          setIsVisible(true);
-        }, 350);
-      }, 200);
-    },
-    [activeCategory, activeTag, router]
-  );
-
-  /** Filtrado de entidades */
+  /** Filtrado de entidades en cliente (instantáneo) */
   const filteredEntities = useMemo(() => {
-    let results = ALL_ENTITIES;
+    let results = allEntities;
 
-    // Filtrar por categoría
-    if (activeCategory !== "ALL") {
-      results = results.filter((e) => e.type === activeCategory);
-    }
-
-    // Filtrar por sub-tag
-    if (activeTag) {
+    // Filtro por región (desde selector DISTINCT)
+    if (filterRegion) {
       results = results.filter(
-        (e) =>
-          "service_tags" in e &&
-          (e.service_tags as string[])?.includes(activeTag)
+        (e) => e.region === filterRegion
       );
     }
 
-    // Filtrar por búsqueda
-    if (searchQuery.length > 2) {
+    // Filtro por partido (desde selector DISTINCT)
+    if (filterParty) {
+      results = results.filter(
+        (e) => e.party && e.party.toLowerCase().includes(filterParty.toLowerCase())
+      );
+    }
+
+    // Filtro por búsqueda de texto (first_name / last_name)
+    if (searchQuery.length > 1) {
       const q = searchQuery.toLowerCase();
       results = results.filter(
         (e) =>
-          e.name.toLowerCase().includes(q) ||
-          JSON.stringify(e.metadata).toLowerCase().includes(q)
+          e.first_name.toLowerCase().includes(q) ||
+          e.last_name.toLowerCase().includes(q) ||
+          (e.position || "").toLowerCase().includes(q)
       );
     }
 
     return results;
-  }, [activeCategory, activeTag, searchQuery]);
+  }, [allEntities, filterRegion, filterParty, searchQuery]);
 
   // Sincronizar URL params al cargar
   useEffect(() => {
     const cat = searchParams.get("category") as EntityType | null;
-    const tag = searchParams.get("tag");
     if (cat) setActiveCategory(cat);
-    if (tag) setActiveTag(tag);
   }, [searchParams]);
+
+  /** Resetear todos los filtros */
+  const clearAllFilters = () => {
+    setFilterRegion("");
+    setFilterParty("");
+    setSearchQuery("");
+    setSearchGlow(false);
+  };
+
+  const hasActiveFilters = filterRegion || filterParty || searchQuery.length > 1;
 
   return (
     <div className="min-h-screen">
       {/* ═══════════════════════════════════════════
        *  HERO SECTION
-       *  Fondo #0A0A0A. Título con gradiente cian → púrpura.
        * ═══════════════════════════════════════════ */}
       <section className="relative pt-20 pb-16 px-6 overflow-hidden">
-        {/* Glow radial de fondo */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -393,7 +295,7 @@ function HomeContent() {
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchChange}
-                placeholder="Busca un político, empresa, evento o encuesta..."
+                placeholder="Busca por nombre, apellido o cargo..."
                 className="w-full bg-beacon-dark px-6 py-4 text-base text-foreground placeholder-foreground-muted outline-none"
                 style={{
                   fontFamily: "'JetBrains Mono', monospace",
@@ -425,9 +327,9 @@ function HomeContent() {
 
             <p className="text-[10px] text-foreground-muted mt-3 font-mono tracking-wider">
               <span style={{ color: "#00E5FF" }}>DNA SCANNER</span> activo ·
-              Fuzzy search con{" "}
-              <span style={{ color: "#D4AF37" }}>pg_trgm</span> · 4 tipos de
-              entidad
+              Búsqueda por{" "}
+              <span style={{ color: "#D4AF37" }}>first_name, last_name, position</span> ·{" "}
+              {allEntities.length} entidades en la BBDD
             </p>
           </div>
         </div>
@@ -435,14 +337,11 @@ function HomeContent() {
 
       {/* ═══════════════════════════════════════════
        *  UNIVERSAL CATEGORY SWITCHER
-       *  Tabs de Poder con sub-filtros dinámicos.
-       *  Acento #D4AF37 con glow hacia el contenido.
        * ═══════════════════════════════════════════ */}
       <section className="px-6 pb-4">
         <div className="max-w-7xl mx-auto">
           {/* ─── Tabs Principales ─── */}
           <div className="relative">
-            {/* Scrollable tabs */}
             <div className="flex items-center gap-1 overflow-x-auto pb-3 scrollbar-hide">
               {CATEGORIES.map((cat) => {
                 const isActive = activeCategory === cat.key;
@@ -471,7 +370,7 @@ function HomeContent() {
               })}
             </div>
 
-            {/* Glow dorado debajo del tab activo */}
+            {/* Glow dorado */}
             {activeCategory !== "ALL" && (
               <div
                 className="absolute bottom-0 left-0 right-0 h-[1px] transition-opacity duration-500"
@@ -484,48 +383,56 @@ function HomeContent() {
             )}
           </div>
 
-          {/* ─── Sub-filtros Dinámicos (Service Tags) ─── */}
-          {activeCategoryData?.subFilters && (
-            <div
-              className="flex items-center gap-2 mt-3 overflow-x-auto pb-2 scrollbar-hide transition-all duration-300"
-              style={{
-                opacity: activeCategoryData.subFilters ? 1 : 0,
-                transform: activeCategoryData.subFilters
-                  ? "translateY(0)"
-                  : "translateY(-8px)",
-              }}
+          {/* ─── Filtros Dinámicos (Región + Partido desde DISTINCT) ─── */}
+          <div className="flex items-center gap-3 mt-4 flex-wrap">
+            <span className="text-[9px] text-foreground-muted uppercase tracking-wider font-mono flex-shrink-0">
+              Filtros:
+            </span>
+
+            {/* Selector de Región (DISTINCT) */}
+            <select
+              value={filterRegion}
+              onChange={(e) => setFilterRegion(e.target.value)}
+              style={selectStyle}
             >
-              <span className="text-[9px] text-foreground-muted uppercase tracking-wider font-mono flex-shrink-0 mr-1">
-                Filtrar:
-              </span>
-              {activeCategoryData.subFilters.map((sub) => {
-                const isTagActive = activeTag === sub.key;
-                return (
-                  <button
-                    key={sub.key}
-                    onClick={() => handleTagChange(sub.key)}
-                    className="px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap transition-all duration-200 flex-shrink-0"
-                    style={{
-                      backgroundColor: isTagActive
-                        ? "rgba(0, 229, 255, 0.12)"
-                        : "rgba(255, 255, 255, 0.03)",
-                      color: isTagActive ? "#00E5FF" : "rgba(136, 136, 136, 0.6)",
-                      border: isTagActive
-                        ? "1px solid rgba(0, 229, 255, 0.3)"
-                        : "1px solid rgba(255, 255, 255, 0.05)",
-                    }}
-                  >
-                    {sub.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+              <option value="">Todas las regiones</option>
+              {availableRegions.map((r) => (
+                <option key={r} value={r}>{r.replace("Región de ", "").replace("Región del ", "").replace("Región ", "")}</option>
+              ))}
+            </select>
+
+            {/* Selector de Partido (DISTINCT) */}
+            <select
+              value={filterParty}
+              onChange={(e) => setFilterParty(e.target.value)}
+              style={selectStyle}
+            >
+              <option value="">Todos los partidos</option>
+              {availableParties.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+
+            {/* Botón limpiar filtros */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                className="text-[9px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all duration-200"
+                style={{
+                  backgroundColor: "rgba(255, 7, 58, 0.08)",
+                  color: "#FF073A",
+                  border: "1px solid rgba(255, 7, 58, 0.2)",
+                }}
+              >
+                ✕ Limpiar
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════
-       *  GRID DE ENTIDADES (Filtrado + Animación)
+       *  GRID DE ENTIDADES
        * ═══════════════════════════════════════════ */}
       <section className="px-6 pb-20">
         <div className="max-w-7xl mx-auto">
@@ -539,7 +446,8 @@ function HomeContent() {
               <h2 className="text-xs tracking-[0.2em] uppercase text-foreground-muted font-medium">
                 {activeCategory === "ALL"
                   ? "Entidades en Tendencia"
-                  : `${activeCategoryData?.label || "Resultados"}${activeTag ? ` · ${activeTag}` : ""}`}
+                  : `${activeCategoryData?.label || "Resultados"}`}
+                {hasActiveFilters && " · Filtrado"}
               </h2>
               <span className="text-[9px] font-mono text-foreground-muted">
                 ({filteredEntities.length})
@@ -554,8 +462,8 @@ function HomeContent() {
             </a>
           </div>
 
-          {/* Estado de carga: amigos bits filtrando */}
-          {isFiltering && (
+          {/* Estado de carga */}
+          {(loadingEntities || isFiltering) && (
             <div className="flex items-center justify-center py-12 gap-3">
               <div
                 className="w-2 h-2 rounded-full animate-pulse"
@@ -568,7 +476,7 @@ function HomeContent() {
                 className="text-xs font-mono uppercase tracking-[0.2em]"
                 style={{ color: "#00E5FF" }}
               >
-                Amigos bits filtrando la base de datos...
+                {loadingEntities ? "Conectando con el Búnker..." : "Amigos bits filtrando..."}
               </span>
               <div
                 className="w-2 h-2 rounded-full animate-pulse"
@@ -581,8 +489,8 @@ function HomeContent() {
             </div>
           )}
 
-          {/* Grid con animación de desvanecimiento */}
-          {!isFiltering && (
+          {/* Grid */}
+          {!isFiltering && !loadingEntities && (
             <div
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 transition-all duration-500"
               style={{
@@ -594,9 +502,9 @@ function HomeContent() {
                 <div
                   key={entity.id}
                   style={{
-                    animationDelay: `${idx * 60}ms`,
+                    animationDelay: `${idx * 40}ms`,
                     animation: isVisible
-                      ? `fadeInUp 0.4s ease-out ${idx * 60}ms both`
+                      ? `fadeInUp 0.4s ease-out ${idx * 40}ms both`
                       : "none",
                   }}
                 >
@@ -607,7 +515,7 @@ function HomeContent() {
           )}
 
           {/* Sin resultados */}
-          {!isFiltering && filteredEntities.length === 0 && (
+          {!isFiltering && !loadingEntities && filteredEntities.length === 0 && (
             <div className="text-center py-16">
               <p className="text-foreground-muted text-sm">
                 No se encontraron entidades
@@ -615,6 +523,19 @@ function HomeContent() {
               <p className="text-[10px] text-foreground-muted mt-1 font-mono">
                 Prueba con otra categoría o limpia los filtros
               </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearAllFilters}
+                  className="mt-4 text-xs font-mono uppercase tracking-wider px-4 py-2 rounded-lg transition-all"
+                  style={{
+                    backgroundColor: "rgba(0, 229, 255, 0.08)",
+                    color: "#00E5FF",
+                    border: "1px solid rgba(0, 229, 255, 0.2)",
+                  }}
+                >
+                  Limpiar todos los filtros
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -622,31 +543,14 @@ function HomeContent() {
 
       {/* ═══════════════════════════════════════════
        *  STATS FOOTER
-       *  Métricas rápidas del protocolo
        * ═══════════════════════════════════════════ */}
       <section className="border-t border-beacon-border px-6 py-8">
         <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6">
           {[
-            {
-              label: "Ciudadanos Activos",
-              value: "1,646",
-              color: "#D4AF37",
-            },
-            {
-              label: "Entidades Evaluadas",
-              value: "248",
-              color: "#00E5FF",
-            },
-            {
-              label: "Votos Procesados",
-              value: "18,403",
-              color: "#39FF14",
-            },
-            {
-              label: "Bots Silenciados",
-              value: "214",
-              color: "#FF073A",
-            },
+            { label: "Ciudadanos Activos", value: "1,646", color: "#D4AF37" },
+            { label: "Entidades en BBDD", value: allEntities.length.toString(), color: "#00E5FF" },
+            { label: "Votos Procesados", value: "18,403", color: "#39FF14" },
+            { label: "Bots Silenciados", value: "214", color: "#FF073A" },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <p
@@ -666,7 +570,7 @@ function HomeContent() {
   );
 }
 
-/** Wrapper con Suspense para useSearchParams (Next.js static prerender fix) */
+/** Wrapper con Suspense */
 export default function Home() {
   return (
     <Suspense
