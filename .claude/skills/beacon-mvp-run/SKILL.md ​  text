@@ -1,0 +1,13 @@
+---
+name: beacon-mvp-run
+description: Pasos reproducibles para levantar BEACON local (backend+frontend) y validar endpoints MVP
+allowed-tools: Read, Grep, Glob
+disable-model-invocation: false
+---
+
+Cuando se invoque /beacon-mvp-run:
+- Produce instrucciones exactas (comandos) para levantar backend y frontend.
+- Incluye checklist de variables .env (sin secretos) y validación con curl.
+- Si detectas imports faltantes o archivos ausentes, lista fixes mínimos.
+- No asumas Docker; ofrece opción venv y opción Docker si existe.
+- Pide confirmación antes de sugerir cambios de código.
