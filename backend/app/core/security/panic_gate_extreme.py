@@ -171,17 +171,20 @@ class PanicGateExtreme:
             "MEDIUM" if new_level == SECURITY_YELLOW else "CRITICAL"
         )
 
-        audit_bus.log_security_event(
+        # Nota: se usa log_event (no log_security_event) para preservar
+        # actor_id real (puede ser un admin, no solo "SYSTEM") y para
+        # incluir entity_type/entity_id específicos del evento.
+        audit_bus.log_event(
             actor_id=triggered_by,
             action="SECURITY_LEVEL_CHANGED",
             entity_type="SYSTEM",
             entity_id="GLOBAL",
-            severity=severity,
             details={
                 "previous_level": previous_level,
                 "new_level": new_level,
                 "reason": reason,
                 "timestamp": timestamp,
+                "severity": severity,
             },
         )
 
@@ -326,13 +329,12 @@ class PanicGateExtreme:
         """
         if self._redis:
             await self._redis.sadd(REDIS_BLOCKED_IPS, ip)
-            audit_bus.log_security_event(
+            audit_bus.log_event(
                 actor_id="PANIC_GATE",
                 action="IP_BLOCKED",
                 entity_type="NETWORK",
                 entity_id=ip,
-                severity="HIGH",
-                details={"reason": reason, "ip": ip},
+                details={"reason": reason, "ip": ip, "severity": "HIGH"},
             )
 
     async def is_ip_blocked(self, ip: str) -> bool:
