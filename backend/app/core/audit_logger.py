@@ -21,7 +21,11 @@ from datetime import datetime
 from typing import Dict, Any
 import logging
 
-from app.core.database import get_supabase_client
+# NOTA: get_supabase_client NO se importa aquí a nivel de módulo.
+# El import se hace de forma lazy dentro de la property `client`,
+# para que importar audit_logger (y por ende stealth_ban, dna_scanner, etc.)
+# no dispare la carga de config.py → Settings() → lectura del .env.
+# Esto permite tests unitarios sin Supabase ni variables de entorno.
 
 logger = logging.getLogger("beacon.audit")
 
@@ -36,7 +40,22 @@ class AuditLogger:
     """
 
     def __init__(self):
-        self.client = get_supabase_client()
+        # Lazy: no conecta a Supabase al importar el módulo.
+        # La conexión se abre en el primer log_event, no antes.
+        # Esto permite importar audit_bus en tests unitarios sin .env.
+        self._client = None
+
+    @property
+    def client(self):
+        """
+        Obtiene el cliente Supabase, inicializándolo solo en el primer uso.
+        El import de database (y por ende de config/settings) ocurre aquí,
+        no al cargar el módulo.
+        """
+        if self._client is None:
+            from app.core.database import get_supabase_client
+            self._client = get_supabase_client()
+        return self._client
 
     def log_event(
         self,

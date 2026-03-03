@@ -161,14 +161,16 @@ class StealthBanEngine:
             Datos para actualizar en Supabase
         """
         # Registrar en audit (inmutable, forense)
-        audit_bus.log_security_event(
+        # Nota: usamos log_event (no log_security_event) porque tenemos
+        # actor_id y entity_id específicos. severity va en details.
+        audit_bus.log_event(
             actor_id="SYSTEM",
             action="SHADOW_BAN_APPLIED",
             entity_type="USER",
             entity_id=user_id,
-            severity="HIGH",
             details={
                 "reason": reason,
+                "severity": "HIGH",
                 "applied_at": datetime.utcnow().isoformat(),
                 "note": "El usuario NO fue notificado (Shadow Mode activo)",
             },
@@ -192,13 +194,15 @@ class StealthBanEngine:
             user_id: UUID del ciudadano a rehabilitar
             lifted_by: ID del admin o "SYSTEM" si es automático
         """
-        audit_bus.log_security_event(
+        # Misma razón que apply_shadow_ban: contexto de entidad específica
+        # → log_event; severity absorbida en details.
+        audit_bus.log_event(
             actor_id=lifted_by,
             action="SHADOW_BAN_LIFTED",
             entity_type="USER",
             entity_id=user_id,
-            severity="MEDIUM",
             details={
+                "severity": "MEDIUM",
                 "lifted_at": datetime.utcnow().isoformat(),
                 "lifted_by": lifted_by,
             },
