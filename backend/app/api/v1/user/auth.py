@@ -144,7 +144,13 @@ async def login(request: Request):
         # Recuperar datos extra del perfil en tabla users
         user_db = await get_user_by_id(auth_response.user.id)
         if not user_db:
-             raise ValueError("Perfil de ciudadano no encontrado en el Búnker")
+            raise ValueError("Perfil de ciudadano no encontrado en el Búnker")
+
+        # Verificar que la cuenta no esté suspendida en la tabla users.
+        # Supabase Auth autentica correctamente, pero el estado interno
+        # (shadow-ban, suspensión administrativa) vive en nuestra tabla.
+        if not user_db.get("is_active", True):
+            raise ValueError("Cuenta suspendida. Contacta al administrador.")
 
         return {
             "access_token": auth_response.session.access_token,
