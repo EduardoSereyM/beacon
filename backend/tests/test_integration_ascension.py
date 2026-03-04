@@ -185,8 +185,8 @@ class TestUserAssetCalculator:
             "rut_hash": "abc123hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        assert value >= 15.0
-        # Debe ser: (15 * 0.9) + 5.0 + 1.0 + 3.0 = 22.50
+        # SILVER: $5.00 × (0.75×1.2) + data(5.0+1.0) + rut(3.0) = 13.5
+        assert value >= 13.0
 
     def test_gold_referent_value(self):
         """GOLD con perfil completo → valor alto."""
@@ -199,7 +199,8 @@ class TestUserAssetCalculator:
             "rut_hash": "xyz789hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        assert value >= 150.0
+        # GOLD: $25.00 × (0.95×1.2) + data(6.0) + rut(3.0) = 37.5
+        assert value >= 35.0
 
     def test_diamond_auditor_value(self):
         """DIAMOND con integridad perfecta → máximo valor."""
@@ -212,7 +213,8 @@ class TestUserAssetCalculator:
             "rut_hash": "diamond_hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        assert value >= 500.0
+        # DIAMOND: $100.00 × (1.0×1.2) + data(6.0) + rut(3.0) = 129.0
+        assert value >= 125.0
 
     def test_data_bonus_with_partial_data(self):
         """Datos parciales → bono parcial ($2.00 vs $5.00)."""

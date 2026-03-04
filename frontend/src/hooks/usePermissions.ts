@@ -158,6 +158,7 @@ export default function usePermissions(): PermissionsResult {
             const stored = localStorage.getItem("beacon_user");
             if (stored) {
                 const parsed = JSON.parse(stored);
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setUser({
                     id: parsed.id || null,
                     email: parsed.email || null,

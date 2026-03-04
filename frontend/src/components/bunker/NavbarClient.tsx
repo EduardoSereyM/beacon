@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import AuthModal from "./AuthModal";
 import usePermissions from "@/hooks/usePermissions";
 import Image from "next/image";
+import Link from "next/link";
 import logoDorado from "@/asset/brand/LogoBeaconCian.png";
 
 export default function NavbarClient() {
@@ -38,7 +39,7 @@ export default function NavbarClient() {
             >
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     {/* ─── Logo (Oro Líquido) ─── */}
-                    <a href="/" className="flex items-center gap-3 group">
+                    <Link href="/" className="flex items-center gap-3 group">
                         <Image
                             src={logoDorado}
                             alt="Beacon Protocol Logo"
@@ -55,7 +56,7 @@ export default function NavbarClient() {
                                 Motor de Integridad
                             </p>
                         </div>
-                    </a>
+                    </Link>
 
                     {/* ─── Buscador Minimalista (borde inferior cian) ─── */}
                     <div className="hidden md:flex items-center flex-1 max-w-sm mx-8">
@@ -92,18 +93,18 @@ export default function NavbarClient() {
 
                     {/* ─── Navigation Links ─── */}
                     <div className="flex items-center gap-5">
-                        <a
+                        <Link
                             href="/events"
                             className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
                         >
                             Eventos
-                        </a>
-                        <a
+                        </Link>
+                        <Link
                             href="/entities"
                             className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
                         >
                             Empresas
-                        </a>
+                        </Link>
 
                         {/* Botón Acceso al Búnker — adaptativo */}
                         {isAuthenticated ? (
