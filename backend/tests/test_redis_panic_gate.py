@@ -18,7 +18,7 @@ import hashlib
 import time
 import pytest
 
-from app.core.security.rut_validator import format_rut, validate_rut, hash_rut
+from app.core.security.rut_validator import format_rut, hash_rut
 
 
 # ═══════════════════════════════════════════

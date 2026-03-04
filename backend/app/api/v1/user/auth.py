@@ -15,21 +15,15 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Request, HTTPException, Depends
-from datetime import datetime, timedelta
-from jose import jwt
 
-from app.core.config import settings
 from app.core.security.dna_scanner import gatekeeper
 from app.domain.schemas.user import (
     UserCreate,
     UserVerifyRUT,
     UserProfileUpdate,
-    UserResponse,
-    TokenResponse,
 )
 from app.services.auth_service import (
     register_user,
-    login_user,
     get_user_by_id,
 )
 from app.services.identity_service import (
@@ -41,26 +35,12 @@ from app.services.identity_service import (
 router = APIRouter()
 
 
-# ─── Helper: Generar JWT ───
-def create_access_token(user_id: str) -> str:
-    """
-    Genera un JWT firmado para el ciudadano autenticado.
-    El token expira según ACCESS_TOKEN_EXPIRE_MINUTES.
-    """
-    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {
-        "sub": user_id,
-        "exp": expire,
-        "iss": "BEACON_PROTOCOL",
-    }
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-
-
-# ─── Helper: Extraer usuario del JWT y Validar RBAC ───
+# ─── Helper: Validar token de Supabase Auth ───
 async def get_current_user(request: Request) -> dict:
     """
-    Dependency de FastAPI: extrae y valida el JWT (emitido por Supabase o Custom).
-    Retorna los datos del usuario e inyecta el role para validaciones RBAC.
+    Dependency de FastAPI: valida el Bearer token consultando a Supabase Auth.
+    Supabase verifica su propio JWT server-side → no se usa JWT_SECRET_KEY.
+    Retorna la fila completa del ciudadano desde la tabla 'users'.
     """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -69,24 +49,16 @@ async def get_current_user(request: Request) -> dict:
     token = auth_header.split(" ")[1]
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
-        )
-        user_id = payload.get("sub")
-        role = payload.get("user_role", payload.get("role", "user"))
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Token inválido")
+        from app.core.database import get_supabase_client
+        supabase = get_supabase_client()
+        auth_response = supabase.auth.get_user(token)
+        user_id = auth_response.user.id
     except Exception:
-        raise HTTPException(status_code=401, detail="Token expirado o inválido (Asegúrese de enviar el código de Supabase Auth)")
+        raise HTTPException(status_code=401, detail="Token expirado o inválido")
 
     user = await get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Ciudadano no encontrado")
-    
-    # Inyectar dict con rol RBAC validado
-    user["role"] = role
 
     return user
 
@@ -180,11 +152,11 @@ async def login(request: Request):
             "user": {
                 "id": user_db["id"],
                 "email": auth_response.user.email,
-                "full_name": f"{user_db.get('first_name', '')} {user_db.get('last_name', '')}".strip() or "Ciudadano",
-                "rank": "DIAMOND" if user_db.get("role") == "admin" else "BRONZE",
-                "integrity_score": float(user_db.get("reputation_score", 0.1)),
-                "is_verified": user_db.get("is_rut_verified", False),
-                "role": user_db.get("role", "user")
+                "full_name": user_db.get("full_name", "Ciudadano"),
+                "rank": user_db.get("rank", "BRONZE"),
+                "integrity_score": float(user_db.get("integrity_score", 0.5)),
+                "is_verified": user_db.get("is_verified", False),
+                "role": user_db.get("role", "user"),
             },
         }
     except Exception as e:
@@ -220,17 +192,17 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     """
     return {
         "id": current_user["id"],
-        "email": current_user.get("email", ""), 
-        "full_name": f"{current_user.get('first_name', '')} {current_user.get('last_name', '')}".strip() or "Ciudadano",
-        "rank": "DIAMOND" if current_user.get("role") == "admin" else "BRONZE",
-        "integrity_score": float(current_user.get("reputation_score", 0.1)),
+        "email": current_user.get("email", ""),
+        "full_name": current_user.get("full_name", "Ciudadano"),
+        "rank": current_user.get("rank", "BRONZE"),
+        "integrity_score": float(current_user.get("integrity_score", 0.5)),
         "reputation_score": float(current_user.get("reputation_score", 0.0)),
-        "verification_level": 3 if current_user.get("role") == "admin" else (2 if current_user.get("is_rut_verified") else 1),
-        "is_verified": current_user.get("is_rut_verified", False),
-        "commune": current_user.get("comuna_id"),
-        "region": None,
-        "age_range": None,
-        "created_at": None,
+        "verification_level": current_user.get("verification_level", 1),
+        "is_verified": current_user.get("is_verified", False),
+        "commune": current_user.get("commune"),
+        "region": current_user.get("region"),
+        "age_range": current_user.get("age_range"),
+        "created_at": current_user.get("created_at"),
     }
 
 

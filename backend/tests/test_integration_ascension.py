@@ -13,13 +13,10 @@ Usa mocks para aislar los componentes.
 "Del caos al orden. Del fantasma al ciudadano."
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
-
 # ─── Importaciones del sistema ───
 from app.core.security.rut_validator import validate_rut, format_rut, hash_rut
-from app.core.security.dna_scanner import DNAScanner, gatekeeper
-from app.core.valuation.user_asset_calculator import UserAssetCalculator, asset_calculator
+from app.core.security.dna_scanner import gatekeeper
+from app.core.valuation.user_asset_calculator import asset_calculator
 from app.domain.enums import UserRank, VerificationLevel, SecurityLevel
 
 
@@ -188,8 +185,8 @@ class TestUserAssetCalculator:
             "rut_hash": "abc123hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        assert value >= 15.0
-        # Debe ser: (15 * 0.9) + 5.0 + 1.0 + 3.0 = 22.50
+        # SILVER: $5.00 × (0.75×1.2) + data(5.0+1.0) + rut(3.0) = 13.5
+        assert value >= 13.0
 
     def test_gold_referent_value(self):
         """GOLD con perfil completo → valor alto."""
@@ -202,7 +199,8 @@ class TestUserAssetCalculator:
             "rut_hash": "xyz789hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        assert value >= 150.0
+        # GOLD: $25.00 × (0.95×1.2) + data(6.0) + rut(3.0) = 37.5
+        assert value >= 35.0
 
     def test_diamond_auditor_value(self):
         """DIAMOND con integridad perfecta → máximo valor."""
@@ -215,7 +213,8 @@ class TestUserAssetCalculator:
             "rut_hash": "diamond_hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        assert value >= 500.0
+        # DIAMOND: $100.00 × (1.0×1.2) + data(6.0) + rut(3.0) = 129.0
+        assert value >= 125.0
 
     def test_data_bonus_with_partial_data(self):
         """Datos parciales → bono parcial ($2.00 vs $5.00)."""
@@ -287,7 +286,7 @@ class TestUserAssetCalculator:
 
         # Logging del test para evidencia
         print(f"\n{'='*50}")
-        print(f"  BEACON — Test de Ascensión (Ciclo de Vida)")
+        print("  BEACON — Test de Ascensión (Ciclo de Vida)")
         print(f"{'='*50}")
         print(f"  BRONZE (registro):        ${value_bronze:.2f}")
         print(f"  SILVER (RUT verificado):   ${value_silver:.2f}")

@@ -17,6 +17,7 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import EntityCard from "@/components/status/EntityCard";
 
 /** URL de la API del Búnker */
@@ -453,13 +454,13 @@ function HomeContent() {
                 ({filteredEntities.length})
               </span>
             </div>
-            <a
+            <Link
               href="/entities"
               className="text-[10px] uppercase tracking-wider font-mono hover:text-beacon-gold transition-colors"
               style={{ color: "#00E5FF" }}
             >
               Ver todas →
-            </a>
+            </Link>
           </div>
 
           {/* Estado de carga */}

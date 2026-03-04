@@ -86,8 +86,8 @@ async def health_check():
 
 
 # ─── Registro de Routers ───
-from app.api.v1.user.auth import router as auth_router
-from app.api.v1.endpoints.realtime import router as realtime_router
+from app.api.v1.user.auth import router as auth_router  # noqa: E402
+from app.api.v1.endpoints.realtime import router as realtime_router  # noqa: E402
 
 app.include_router(
     auth_router,
@@ -101,7 +101,7 @@ app.include_router(
     tags=["Real-Time Pulse"],
 )
 
-from app.api.v1.endpoints.entities import router as entities_router
+from app.api.v1.endpoints.entities import router as entities_router  # noqa: E402
 
 app.include_router(
     entities_router,
@@ -110,8 +110,8 @@ app.include_router(
 )
 
 # ─── Admin Routers (Aislamiento de Responsabilidades) ───
-from app.api.v1.admin.entities_admin import router as admin_entities_router
-from app.api.v1.admin.aum_endpoint import router as admin_aum_router
+from app.api.v1.admin.entities_admin import router as admin_entities_router  # noqa: E402
+from app.api.v1.admin.aum_endpoint import router as admin_aum_router  # noqa: E402
 
 app.include_router(
     admin_entities_router,

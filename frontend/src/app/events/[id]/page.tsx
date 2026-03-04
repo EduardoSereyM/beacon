@@ -8,6 +8,7 @@
 "use client";
 
 import { use } from "react";
+import Link from "next/link";
 
 interface EventPageProps {
     params: Promise<{ id: string }>;
@@ -21,12 +22,12 @@ export default function EventPage({ params }: EventPageProps) {
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center gap-3 mb-6">
-                    <a
+                    <Link
                         href="/"
                         className="text-foreground-muted hover:text-foreground text-xs font-mono transition-colors"
                     >
                         ← Volver
-                    </a>
+                    </Link>
                     <span className="text-foreground-muted text-xs">/</span>
                     <span
                         className="text-xs font-mono tracking-wider"

@@ -16,6 +16,7 @@
 "use client";
 
 import { use, useState } from "react";
+import Link from "next/link";
 import TruthMeter from "@/components/status/TruthMeter";
 import VerdictButton from "@/components/status/VerdictButton";
 import usePermissions from "@/hooks/usePermissions";
@@ -146,19 +147,19 @@ export default function EntityPage({ params }: EntityPageProps) {
                 <div className="max-w-4xl mx-auto relative z-10">
                     {/* Breadcrumb */}
                     <div className="flex items-center gap-3 mb-8">
-                        <a
+                        <Link
                             href="/"
                             className="text-foreground-muted hover:text-foreground text-xs font-mono transition-colors"
                         >
                             ← Inicio
-                        </a>
+                        </Link>
                         <span className="text-foreground-muted text-xs">/</span>
-                        <a
+                        <Link
                             href="/entities"
                             className="text-foreground-muted hover:text-foreground text-xs font-mono transition-colors"
                         >
                             Entidades
-                        </a>
+                        </Link>
                         <span className="text-foreground-muted text-xs">/</span>
                         <span className="text-xs font-mono" style={{ color: "#8A2BE2" }}>
                             {entity.name}

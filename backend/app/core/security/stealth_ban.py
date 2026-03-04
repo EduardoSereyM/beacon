@@ -28,7 +28,7 @@ Flujo:
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 
 from app.core.audit_logger import audit_bus
 

@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -160,13 +161,13 @@ export default function AdminLayout({
 
                 {/* Volver al sitio */}
                 <div className="p-4 pt-0">
-                    <a
+                    <Link
                         href="/"
                         className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider transition-colors"
                         style={{ color: "rgba(136, 136, 136, 0.5)" }}
                     >
                         ← Volver al Protocolo
-                    </a>
+                    </Link>
                 </div>
             </aside>
 

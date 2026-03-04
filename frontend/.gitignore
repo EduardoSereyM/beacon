@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Excepciones: los archivos de plantilla SÍ deben commitearse
+!.env*.example
 
 # vercel
 .vercel

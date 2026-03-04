@@ -21,7 +21,6 @@ from app.core.database import get_supabase_client
 from app.core.audit_logger import audit_bus
 from app.core.security.dna_scanner import gatekeeper
 from app.domain.enums import UserRank, VerificationLevel
-from app.domain.models.user import User
 from app.domain.schemas.user import UserCreate
 
 
@@ -238,7 +237,7 @@ async def change_citizen_password(user_id: str, new_password: str) -> bool:
     new_hash = hash_password(new_password)
     new_history = history + [new_hash]
     
-    result = supabase.table("users").update({
+    supabase.table("users").update({
         "hashed_password": new_hash,
         "password_history": new_history
     }).eq("id", user_id).execute()

@@ -9,14 +9,10 @@ Valida los 3 pilares:
 "Lo que no se testea, no existe."
 """
 
-import pytest
-
 from app.core.valuation.user_asset_calculator import UserAssetCalculator
 from app.services.voting.vote_engine import (
     VoteEngine,
     VotePayload,
-    TERRITORIAL_ELIGIBLE_RANKS,
-    JURISDICTIONAL_ENTITY_TYPES,
 )
 
 

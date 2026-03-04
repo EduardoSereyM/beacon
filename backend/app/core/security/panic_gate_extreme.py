@@ -31,7 +31,7 @@ Flujo de activación:
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any
 
 from app.core.audit_logger import audit_bus
 
@@ -232,7 +232,7 @@ class PanicGateExtreme:
 
         action = "NONE"
         if recommended_level != current_level:
-            result = await self.switch_security_level(
+            await self.switch_security_level(
                 new_level=recommended_level,
                 triggered_by="THREAT_EVALUATOR",
                 reason=f"Anomaly rate: {anomaly_rate:.2%} ({suspicious_requests}/{total_requests})",
