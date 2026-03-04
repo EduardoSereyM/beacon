@@ -19,7 +19,7 @@ Endpoints:
 from fastapi import APIRouter, HTTPException, Depends, Query
 from datetime import datetime
 
-from app.core.database import get_supabase_client
+from app.core.database import get_async_supabase_client
 from app.core.audit_logger import audit_bus
 from app.api.v1.admin.require_admin import require_admin_role
 
@@ -34,7 +34,7 @@ async def admin_list_entities(
     admin: dict = Depends(require_admin_role),
 ):
     """Lista completa de entidades para el panel de administración."""
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     query = (
         supabase.table("entities")
@@ -46,7 +46,7 @@ async def admin_list_entities(
     if not include_inactive:
         query = query.eq("is_active", True)
 
-    result = query.execute()
+    result = await query.execute()
 
     entities = []
     for row in (result.data or []):
@@ -93,7 +93,7 @@ async def admin_create_entity(
             detail=f"Categoría inválida. Válidas: {valid_categories}",
         )
 
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     # Construir payload limpio
     payload = {
@@ -111,7 +111,7 @@ async def admin_create_entity(
         "updated_at": datetime.utcnow().isoformat(),
     }
 
-    result = supabase.table("entities").insert(payload).execute()
+    result = await supabase.table("entities").insert(payload).execute()
 
     if not result.data:
         raise HTTPException(status_code=500, detail="Error al crear entidad")
@@ -150,10 +150,10 @@ async def admin_update_entity(
             detail="Campo 'change_reason' es obligatorio para auditoría",
         )
 
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     # Obtener estado actual (old_data)
-    current = (
+    current = await (
         supabase.table("entities")
         .select("*")
         .eq("id", entity_id)
@@ -193,7 +193,7 @@ async def admin_update_entity(
     payload["updated_by"] = admin["user_id"]
     payload["updated_at"] = datetime.utcnow().isoformat()
 
-    result = (
+    result = await (
         supabase.table("entities")
         .update(payload)
         .eq("id", entity_id)
@@ -228,10 +228,10 @@ async def admin_delete_entity(
     Soft delete: marca is_active=false y registra deleted_at.
     La entidad permanece en la BBDD para auditoría pero desaparece del frontend.
     """
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     # Verificar existencia
-    current = (
+    current = await (
         supabase.table("entities")
         .select("id, first_name, last_name, is_active")
         .eq("id", entity_id)
@@ -247,7 +247,7 @@ async def admin_delete_entity(
         raise HTTPException(status_code=400, detail="La entidad ya está desactivada")
 
     # Soft delete
-    (
+    await (
         supabase.table("entities")
         .update({
             "is_active": False,

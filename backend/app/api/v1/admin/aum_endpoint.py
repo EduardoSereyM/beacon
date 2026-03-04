@@ -26,10 +26,10 @@ async def get_total_aum(admin: dict = Depends(require_admin_role)):
     En producción, se conectará a la tabla 'users' de Supabase.
     """
     try:
-        from app.core.database import get_supabase_client
-        supabase = get_supabase_client()
+        from app.core.database import get_async_supabase_client
+        supabase = get_async_supabase_client()
 
-        result = supabase.table("users").select(
+        result = await supabase.table("users").select(
             "id, rank, integrity_score, commune, age_range, region, rut_hash"
         ).execute()
 

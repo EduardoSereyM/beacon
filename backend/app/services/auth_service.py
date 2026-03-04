@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Optional
 from passlib.context import CryptContext
 
-from app.core.database import get_supabase_client
+from app.core.database import get_async_supabase_client
 from app.core.audit_logger import audit_bus
 from app.core.security.dna_scanner import gatekeeper
 from app.domain.enums import UserRank, VerificationLevel
@@ -59,7 +59,7 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     Raises:
         Exception: Si el email ya existe o hay error en Supabase
     """
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     # ─── 1. Análisis Forense del DNA Scanner ───
     dna_result = {"score": 100, "classification": "HUMAN", "alerts": []}
@@ -71,7 +71,7 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
 
     # ─── 2. Registro en Supabase Auth ───
     # Registramos al usuario en autenticación para activar el flujo OTP/Password
-    auth_response = supabase.auth.sign_up({
+    auth_response = await supabase.auth.sign_up({
         "email": user_data.email,
         "password": user_data.password,
     })
@@ -122,7 +122,7 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     )
 
     # ─── 3. Insertar en Supabase ───
-    result = supabase.table("users").insert(new_user).execute()
+    result = await supabase.table("users").insert(new_user).execute()
 
     if result.data:
         user = result.data[0]
@@ -166,9 +166,9 @@ async def get_user_by_id(user_id: str) -> Optional[dict]:
     Obtiene un ciudadano por su ID.
     Usado internamente por los servicios del búnker.
     """
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
-    result = (
+    result = await (
         supabase.table("users")
         .select("*")
         .eq("id", user_id)
@@ -196,7 +196,7 @@ async def change_citizen_password(user_id: str, new_password: str) -> bool:
     Raises:
         ValueError: Si el usuario no existe o reutilizó contraseña reciente
     """
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     user = await get_user_by_id(user_id)
     if not user:
@@ -218,7 +218,7 @@ async def change_citizen_password(user_id: str, new_password: str) -> bool:
     # Usar Admin API para no requerir la contraseña actual.
     # NUNCA se registra new_password en texto plano.
     try:
-        supabase.auth.admin.update_user_by_id(
+        await supabase.auth.admin.update_user_by_id(
             user_id,
             {"password": new_password},
         )
@@ -234,7 +234,7 @@ async def change_citizen_password(user_id: str, new_password: str) -> bool:
         raise ValueError("Error al actualizar la contraseña en Supabase Auth.") from e
 
     # ─── 2. Actualizar tabla users (historial interno) ───
-    supabase.table("users").update({
+    await supabase.table("users").update({
         "hashed_password": new_hash,
         "password_history": new_history,
     }).eq("id", user_id).execute()

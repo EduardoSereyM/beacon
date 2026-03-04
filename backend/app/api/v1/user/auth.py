@@ -49,9 +49,9 @@ async def get_current_user(request: Request) -> dict:
     token = auth_header.split(" ")[1]
 
     try:
-        from app.core.database import get_supabase_client
-        supabase = get_supabase_client()
-        auth_response = supabase.auth.get_user(token)
+        from app.core.database import get_async_supabase_client
+        supabase = get_async_supabase_client()
+        auth_response = await supabase.auth.get_user(token)
         user_id = auth_response.user.id
     except Exception:
         raise HTTPException(status_code=401, detail="Token expirado o inválido")
@@ -129,11 +129,11 @@ async def login(request: Request):
         raise HTTPException(status_code=401, detail="Error de autenticación: Credenciales inválidas")
 
     try:
-        from app.core.database import get_supabase_client
-        supabase = get_supabase_client()
-        
+        from app.core.database import get_async_supabase_client
+        supabase = get_async_supabase_client()
+
         # Iniciar sesión vía Supabase Auth (esto genera el JWT con claims RBAC)
-        auth_response = supabase.auth.sign_in_with_password({
+        auth_response = await supabase.auth.sign_in_with_password({
             "email": email,
             "password": password
         })
