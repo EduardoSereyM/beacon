@@ -17,7 +17,6 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Optional
 from datetime import datetime
 
 from app.core.database import get_supabase_client
@@ -248,7 +247,7 @@ async def admin_delete_entity(
         raise HTTPException(status_code=400, detail="La entidad ya está desactivada")
 
     # Soft delete
-    result = (
+    (
         supabase.table("entities")
         .update({
             "is_active": False,

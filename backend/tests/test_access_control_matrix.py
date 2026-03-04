@@ -10,8 +10,7 @@ BEACON PROTOCOL — Tests ACM (Matriz de Control de Acceso)
 "El test que no falla es el que no existe."
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from app.core.auth.access_control_matrix import (
     resolve_permissions,

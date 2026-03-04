@@ -13,13 +13,10 @@ Usa mocks para aislar los componentes.
 "Del caos al orden. Del fantasma al ciudadano."
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
-
 # ─── Importaciones del sistema ───
 from app.core.security.rut_validator import validate_rut, format_rut, hash_rut
-from app.core.security.dna_scanner import DNAScanner, gatekeeper
-from app.core.valuation.user_asset_calculator import UserAssetCalculator, asset_calculator
+from app.core.security.dna_scanner import gatekeeper
+from app.core.valuation.user_asset_calculator import asset_calculator
 from app.domain.enums import UserRank, VerificationLevel, SecurityLevel
 
 
@@ -287,7 +284,7 @@ class TestUserAssetCalculator:
 
         # Logging del test para evidencia
         print(f"\n{'='*50}")
-        print(f"  BEACON — Test de Ascensión (Ciclo de Vida)")
+        print("  BEACON — Test de Ascensión (Ciclo de Vida)")
         print(f"{'='*50}")
         print(f"  BRONZE (registro):        ${value_bronze:.2f}")
         print(f"  SILVER (RUT verificado):   ${value_silver:.2f}")

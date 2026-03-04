@@ -21,12 +21,9 @@ from app.domain.schemas.user import (
     UserCreate,
     UserVerifyRUT,
     UserProfileUpdate,
-    UserResponse,
-    TokenResponse,
 )
 from app.services.auth_service import (
     register_user,
-    login_user,
     get_user_by_id,
 )
 from app.services.identity_service import (

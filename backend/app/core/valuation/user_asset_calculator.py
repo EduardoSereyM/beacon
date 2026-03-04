@@ -18,7 +18,6 @@ Ajuste por Integridad:
  Cada dato demográfico, una pepita extra."
 """
 
-from typing import Optional
 
 
 class UserAssetCalculator:

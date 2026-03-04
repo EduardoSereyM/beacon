@@ -31,7 +31,7 @@ Factor de Volumen:
 """
 
 import math
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 
 
 class BayesianRankingEngine:

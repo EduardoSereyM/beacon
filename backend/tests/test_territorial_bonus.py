@@ -10,8 +10,6 @@ Valida que:
 "La verdad de un territorio la definen quienes lo habitan."
 """
 
-import pytest
-
 from app.services.geo_logic import (
     verify_territoriality,
     apply_territorial_bonus,
