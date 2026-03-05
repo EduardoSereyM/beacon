@@ -247,7 +247,7 @@ class TestEscalateToPanicGate:
         mock_gate = MockPanicGate()
         room = WarRoom(panic_gate_instance=mock_gate)
 
-        with pytest.raises(ValueError, match="YELLOW.*RED"):
+        with pytest.raises(ValueError, match="'YELLOW' o 'RED'"):
             await room.escalate_to_panic_gate(
                 threat_level="GREEN",
                 reason="Intentando bajar a GREEN vía escalate",

@@ -201,7 +201,7 @@ class WarRoom:
         valid_escalation_levels = {"YELLOW", "RED"}
         if threat_level not in valid_escalation_levels:
             raise ValueError(
-                f"escalate_to_panic_gate solo acepta {valid_escalation_levels}. "
+                "escalate_to_panic_gate solo acepta 'YELLOW' o 'RED'. "
                 f"Recibido: '{threat_level}'. "
                 "Para bajar el nivel usa panic_gate.switch_security_level() directamente."
             )
