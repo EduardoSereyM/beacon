@@ -7,6 +7,7 @@ El contrato de datos devuelve los nombres de columna EXACTOS
 de la tabla 'entities' de Supabase, sin transformación.
 
 Endpoints:
+  GET /entities/filters  → Valores DISTINCT para filtros del frontend
   GET /entities          → Lista paginada de entidades activas
   GET /entities/{id}     → Detalle de una entidad por UUID
 
@@ -25,15 +26,14 @@ router = APIRouter()
 async def get_entity_filters():
     """
     Retorna valores DISTINCT de región y partido para los selectores del frontend.
-    Se auto-actualiza: si mañana se cargan empresas o periodistas, los filtros
-    reflejan la realidad sin tocar código.
+    Lee directamente desde las columnas 'region' y 'party' de la tabla entities.
+    Se auto-actualiza sin tocar código al cargar nuevas entidades.
     """
     supabase = get_async_supabase_client()
 
-    # Obtener todas las entidades activas (solo campos necesarios)
     result = await (
         supabase.table("entities")
-        .select("region, bio")
+        .select("region, party")
         .eq("is_active", True)
         .is_("deleted_at", "null")
         .execute()
@@ -47,11 +47,9 @@ async def get_entity_filters():
         if r:
             regions.add(r)
 
-        bio = row.get("bio") or ""
-        if "Partido:" in bio:
-            party = bio.split("Partido:")[-1].strip().rstrip(".")
-            if party and party != "Sin partido":
-                parties.add(party)
+        p = row.get("party")
+        if p and p != "Sin partido":
+            parties.add(p)
 
     return {
         "regions": sorted(regions),
@@ -70,7 +68,8 @@ async def list_entities(
 ):
     """
     Retorna las entidades activas del Búnker.
-    Devuelve los campos EXACTOS de la tabla 'entities' de Supabase.
+    El filtro por partido se ejecuta en SQL usando la columna 'party'
+    (migración 005) — no más parseo de bio en Python.
     """
     supabase = get_async_supabase_client()
 
@@ -89,6 +88,9 @@ async def list_entities(
     if region:
         query = query.ilike("region", f"%{region}%")
 
+    if party:
+        query = query.ilike("party", f"%{party}%")
+
     if search:
         query = query.or_(
             f"first_name.ilike.%{search}%,last_name.ilike.%{search}%"
@@ -96,20 +98,9 @@ async def list_entities(
 
     result = await query.execute()
 
-    # Mapear datos con campos directos de la BBDD + campos derivados para el frontend
     entities = []
     for row in (result.data or []):
         links = row.get("official_links") or {}
-
-        # Extraer partido desde official_links o bio
-        entity_party = ""
-        bio = row.get("bio") or ""
-        if "Partido:" in bio:
-            entity_party = bio.split("Partido:")[-1].strip().rstrip(".")
-        
-        # Filtrar por partido si se pidió
-        if party and party.lower() not in entity_party.lower():
-            continue
 
         entities.append({
             # ─── Campos directos de la tabla entities ───
@@ -121,12 +112,12 @@ async def list_entities(
             "position": row.get("position", ""),
             "region": row.get("region", ""),
             "district": row.get("district", ""),
-            "bio": bio,
+            "bio": row.get("bio", ""),
+            "party": row.get("party", ""),
             "photo_path": row.get("photo_path"),
             "official_links": links,
             "is_active": row.get("is_active", True),
             # ─── Campos derivados para el frontend ───
-            "party": entity_party,
             "email": links.get("email", ""),
             "reputation_score": 0.0,
             "total_reviews": 0,
@@ -161,10 +152,6 @@ async def get_entity(entity_id: str):
 
     row = result.data[0]
     links = row.get("official_links") or {}
-    bio = row.get("bio") or ""
-    entity_party = ""
-    if "Partido:" in bio:
-        entity_party = bio.split("Partido:")[-1].strip().rstrip(".")
 
     return {
         "id": row["id"],
@@ -175,11 +162,11 @@ async def get_entity(entity_id: str):
         "position": row.get("position", ""),
         "region": row.get("region", ""),
         "district": row.get("district", ""),
-        "bio": bio,
+        "bio": row.get("bio", ""),
+        "party": row.get("party", ""),
         "photo_path": row.get("photo_path"),
         "official_links": links,
         "is_active": row.get("is_active", True),
-        "party": entity_party,
         "email": links.get("email", ""),
         "reputation_score": 0.0,
         "total_reviews": 0,

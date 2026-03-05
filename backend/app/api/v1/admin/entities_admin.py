@@ -48,17 +48,7 @@ async def admin_list_entities(
 
     result = await query.execute()
 
-    entities = []
-    for row in (result.data or []):
-        bio = row.get("bio") or ""
-        party = ""
-        if "Partido:" in bio:
-            party = bio.split("Partido:")[-1].strip().rstrip(".")
-
-        entities.append({
-            **row,
-            "party": party,
-        })
+    entities = list(result.data or [])
 
     return {
         "entities": entities,
@@ -105,6 +95,7 @@ async def admin_create_entity(
         "region": entity_data.get("region"),
         "district": entity_data.get("district"),
         "bio": entity_data.get("bio", ""),
+        "party": entity_data.get("party"),
         "official_links": entity_data.get("official_links", {}),
         "is_active": True,
         "updated_by": admin["user_id"],
@@ -169,7 +160,7 @@ async def admin_update_entity(
     allowed = [
         "first_name", "last_name", "second_last_name",
         "category", "position", "region", "district",
-        "bio", "official_links", "photo_path", "is_active",
+        "bio", "party", "official_links", "photo_path", "is_active",
     ]
 
     payload = {}
