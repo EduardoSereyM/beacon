@@ -9,7 +9,8 @@ Dos niveles de acceso:
 "El dato que entra al búnker, solo sale si es íntegro."
 """
 
-from supabase import create_client, Client, AsyncClient
+from supabase import create_client, Client
+from supabase._async.client import AsyncClient
 from app.core.config import settings
 
 
