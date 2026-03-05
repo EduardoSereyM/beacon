@@ -155,47 +155,10 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     raise Exception("Error al registrar el ciudadano en Supabase")
 
 
-async def login_user(email: str, password: str) -> dict:
-    """
-    Autentica un ciudadano en el Búnker.
-
-    Flujo:
-      1. Busca al usuario por email (solo activos)
-      2. Verifica la contraseña con bcrypt
-      3. Retorna los datos del usuario para generar JWT
-
-    Args:
-        email: Email del ciudadano
-        password: Contraseña en texto plano (se verifica y descarta)
-
-    Returns:
-        Diccionario con los datos del usuario autenticado
-
-    Raises:
-        ValueError: Si las credenciales son inválidas
-    """
-    supabase = get_supabase_client()
-
-    # Buscar usuario por email (NOTA: el email real no está en 'users',
-    # pero este método ahora parece ser legacy si usamos sign_in de Auth.
-    # Aún así, quitamos is_active para evitar crasheos si se llama).
-    result = (
-        supabase.table("users")
-        .select("*")
-        .eq("email", email)
-        .execute()
-    )
-
-    if not result.data:
-        raise ValueError("Credenciales inválidas")
-
-    user = result.data[0]
-
-    # Verificar contraseña
-    if not verify_password(password, user["hashed_password"]):
-        raise ValueError("Credenciales inválidas")
-
-    return user
+# login_user() fue removida en PR-07.
+# La autenticación real ocurre en el endpoint POST /login vía
+# supabase.auth.sign_in_with_password(), que devuelve el JWT de Supabase.
+# Esta función bcrypt-based quedó obsoleta desde que migramos a Supabase Auth.
 
 
 async def get_user_by_id(user_id: str) -> Optional[dict]:
@@ -217,38 +180,72 @@ async def get_user_by_id(user_id: str) -> Optional[dict]:
 
 async def change_citizen_password(user_id: str, new_password: str) -> bool:
     """
-    Cambia la contraseña de un usuario, asegurando que no reutilice las últimas 3.
-    (Llamado desde el Flow de Recovery o Cambio interno).
+    Cambia la contraseña de un ciudadano con doble escritura:
+      1. Supabase Auth (fuente de verdad de autenticación)
+      2. Tabla users: hashed_password + password_history (historial interno)
+
+    La escritura en Supabase Auth usa la Admin API (service_role),
+    por lo que nunca se expone la contraseña nueva al cliente.
+
+    Verifica que el ciudadano no reutilice ninguna de sus últimas 3 contraseñas.
+
+    Args:
+        user_id: UUID del ciudadano
+        new_password: Nueva contraseña en texto plano (se descarta tras el hash)
+
+    Raises:
+        ValueError: Si el usuario no existe o reutilizó contraseña reciente
     """
     supabase = get_supabase_client()
 
     user = await get_user_by_id(user_id)
     if not user:
         raise ValueError("Usuario no encontrado")
-        
+
     history = user.get("password_history", [])
-    
-    # Verificar si la nueva contraseña ha sido usada recientemente
-    for past_hash in history[-3:]: # Comprobar las últimas 3
+
+    # Verificar que no se reutilicen las últimas 3 contraseñas
+    for past_hash in history[-3:]:
         if verify_password(new_password, past_hash):
-            raise ValueError("Directiva de Seguridad: No puedes reutilizar tus últimas 3 contraseñas.")
-            
-    # Registrar en BBDD (y en auth idealmente, pero eso lo hace Supabase por su lado)
+            raise ValueError(
+                "Directiva de Seguridad: No puedes reutilizar tus últimas 3 contraseñas."
+            )
+
     new_hash = hash_password(new_password)
     new_history = history + [new_hash]
-    
+
+    # ─── 1. Sincronizar con Supabase Auth (fuente de verdad) ───
+    # Usar Admin API para no requerir la contraseña actual.
+    # NUNCA se registra new_password en texto plano.
+    try:
+        supabase.auth.admin.update_user_by_id(
+            user_id,
+            {"password": new_password},
+        )
+    except Exception as e:
+        # Si Supabase Auth falla, abortamos para no crear divergencia
+        audit_bus.log_event(
+            actor_id=user_id,
+            action="IDENTITY_PASSWORD_CHANGE_FAILED",
+            entity_type="USER",
+            entity_id=user_id,
+            details={"stage": "SUPABASE_AUTH", "error": str(e)},
+        )
+        raise ValueError("Error al actualizar la contraseña en Supabase Auth.") from e
+
+    # ─── 2. Actualizar tabla users (historial interno) ───
     supabase.table("users").update({
         "hashed_password": new_hash,
-        "password_history": new_history
+        "password_history": new_history,
     }).eq("id", user_id).execute()
-    
-    # Audit log (jamás registrar contraseña en plano)
+
+    # ─── 3. Audit Log inmutable (sin contraseña en plano) ───
     audit_bus.log_event(
         actor_id=user_id,
         action="IDENTITY_PASSWORD_CHANGED",
         entity_type="USER",
         entity_id=user_id,
-        details={"rotated": True}
+        details={"rotated": True, "history_depth": len(new_history)},
     )
-    
+
     return True

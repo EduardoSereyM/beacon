@@ -59,11 +59,11 @@ class UserAssetCalculator:
         Returns:
             Valor en USD redondeado a 2 decimales
 
-        Ejemplos:
-            BRONZE sin datos:    $1.00 * 0.6 = $0.60
-            SILVER con datos:    $15.00 * 0.9 + $5.00 + $3.00 = $21.50
-            GOLD completo:       $150.00 * 1.2 + $5.00 + $3.00 = $188.00
-            DIAMOND completo:    $500.00 * 1.2 + $5.00 + $3.00 = $608.00
+        Ejemplos (TIER_VALUES 2026):
+            BRONZE sin datos:    $0.50 × 0.6 = $0.30
+            SILVER completo:     $5.00 × 0.9 + $6.00 + $3.00 = $13.50
+            GOLD completo:       $25.00 × 1.14 + $6.00 + $3.00 = $37.50
+            DIAMOND completo:    $100.00 × 1.2 + $6.00 + $3.00 = $129.00
         """
         # Acceso flexible: soporta dict y dataclass
         rank = self._get(user, "rank", "BRONZE")

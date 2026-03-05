@@ -93,9 +93,12 @@ def hash_rut(rut: str, salt: str | None = None) -> str:
         Esto nos permite decir: "Sabemos que es un humano real y único"
         sin poseer el dato sensible. Blindaje legal total.
     """
-    from app.core.config import settings
+    # Import lazy y condicional: solo se carga settings cuando no hay salt
+    # explícita. Esto permite usar hash_rut() en tests unitarios sin .env.
+    if salt is None:
+        from app.core.config import settings
+        salt = settings.RUT_HASH_SALT
 
-    effective_salt = salt if salt is not None else settings.RUT_HASH_SALT
     normalized = format_rut(rut)
-    payload = f"{effective_salt}:{normalized}"
+    payload = f"{salt}:{normalized}"
     return hashlib.sha256(payload.encode()).hexdigest()
