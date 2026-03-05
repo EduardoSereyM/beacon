@@ -9,26 +9,41 @@ Dos niveles de acceso:
 "El dato que entra al búnker, solo sale si es íntegro."
 """
 
-from supabase import create_client, Client
+from supabase import create_client, Client, AsyncClient
 from app.core.config import settings
 
 
 def get_supabase_client() -> Client:
     """
-    Cliente con privilegios de administrador (service_role) para bypass de RLS.
-    USO: Operaciones del backend que requieran acceso total.
-    Los bots forenses (.py) usan este cliente para escribir en audit_logs,
-    actualizar rangos de usuario y ejecutar purgas de brigadas.
-    NUNCA exponer esta llave al frontend.
+    Cliente SÍNCRONO con privilegios de administrador (service_role).
+    DEPRECADO: usar get_async_supabase_client() en código FastAPI async.
+    Mantenido para compatibilidad con componentes síncronos (audit_logger,
+    scripts CLI, tests unitarios sin loop de eventos).
+    NUNCA exponer service_role al frontend.
     """
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
 
 
+def get_async_supabase_client() -> AsyncClient:
+    """
+    Cliente ASÍNCRONO con privilegios de administrador (service_role).
+    USO: Todos los endpoints FastAPI (async def). Evita bloquear el event loop.
+
+    El constructor de AsyncClient es síncrono; las operaciones de tabla y auth
+    son awaitable. Patrón de uso:
+
+        supabase = get_async_supabase_client()
+        result = await supabase.table("users").select("*").execute()
+        auth_response = await supabase.auth.get_user(token)
+
+    NUNCA exponer service_role al frontend.
+    """
+    return AsyncClient(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+
+
 def get_supabase_anon() -> Client:
     """
-    Cliente estándar para operaciones autenticadas desde el frontend.
+    Cliente estándar (sync) para operaciones autenticadas desde el frontend.
     Respeta las políticas de Row Level Security (RLS).
-    Aislamiento de Poder: Protege la base de datos de inyecciones
-    maliciosas desde el frontend.
     """
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)

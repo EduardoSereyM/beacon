@@ -39,9 +39,9 @@ async def require_admin_role(request: Request) -> dict:
 
     # ─── 1. Validar token contra Supabase Auth ───
     try:
-        from app.core.database import get_supabase_client
-        supabase = get_supabase_client()
-        auth_response = supabase.auth.get_user(token)
+        from app.core.database import get_async_supabase_client
+        supabase = get_async_supabase_client()
+        auth_response = await supabase.auth.get_user(token)
         user_id = auth_response.user.id
         user_email = auth_response.user.email or ""
     except Exception:

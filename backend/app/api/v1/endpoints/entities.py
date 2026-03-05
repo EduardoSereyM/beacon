@@ -16,7 +16,7 @@ Endpoints:
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
-from app.core.database import get_supabase_client
+from app.core.database import get_async_supabase_client
 
 router = APIRouter()
 
@@ -28,10 +28,10 @@ async def get_entity_filters():
     Se auto-actualiza: si mañana se cargan empresas o periodistas, los filtros
     reflejan la realidad sin tocar código.
     """
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     # Obtener todas las entidades activas (solo campos necesarios)
-    result = (
+    result = await (
         supabase.table("entities")
         .select("region, bio")
         .eq("is_active", True)
@@ -72,7 +72,7 @@ async def list_entities(
     Retorna las entidades activas del Búnker.
     Devuelve los campos EXACTOS de la tabla 'entities' de Supabase.
     """
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     query = (
         supabase.table("entities")
@@ -94,7 +94,7 @@ async def list_entities(
             f"first_name.ilike.%{search}%,last_name.ilike.%{search}%"
         )
 
-    result = query.execute()
+    result = await query.execute()
 
     # Mapear datos con campos directos de la BBDD + campos derivados para el frontend
     entities = []
@@ -146,9 +146,9 @@ async def list_entities(
 @router.get("/entities/{entity_id}", summary="Detalle de una entidad")
 async def get_entity(entity_id: str):
     """Retorna el detalle completo de una entidad por su UUID."""
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
-    result = (
+    result = await (
         supabase.table("entities")
         .select("*")
         .eq("id", entity_id)

@@ -18,7 +18,7 @@ en el AuditLogger inmutable. El Escriba no olvida.
 from datetime import datetime
 from typing import Optional
 
-from app.core.database import get_supabase_client
+from app.core.database import get_async_supabase_client
 from app.core.audit_logger import audit_bus
 from app.core.security.rut_validator import validate_rut, hash_rut
 from app.domain.enums import UserRank, VerificationLevel
@@ -46,7 +46,7 @@ async def verify_rut(user_id: str, rut: str) -> dict:
     Raises:
         ValueError: Si el RUT es inválido o ya está registrado
     """
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     # ─── Paso 1: Validación del Dígito Verificador ───
     if not validate_rut(rut):
@@ -67,7 +67,7 @@ async def verify_rut(user_id: str, rut: str) -> dict:
     rut_hashed = hash_rut(rut)
 
     # ─── Paso 3: Verificar Unicidad ───
-    existing = (
+    existing = await (
         supabase.table("users")
         .select("id")
         .eq("rut_hash", rut_hashed)
@@ -101,7 +101,7 @@ async def verify_rut(user_id: str, rut: str) -> dict:
         "updated_at": datetime.utcnow().isoformat(),
     }
 
-    result = (
+    result = await (
         supabase.table("users")
         .update(update_data)
         .eq("id", user_id)
@@ -174,7 +174,7 @@ async def update_demographic_profile(
     Returns:
         Diccionario con el resultado de la actualización
     """
-    supabase = get_supabase_client()
+    supabase = get_async_supabase_client()
 
     # Construir solo los campos que se van a actualizar
     update_data = {"updated_at": datetime.utcnow().isoformat()}
@@ -194,7 +194,7 @@ async def update_demographic_profile(
 
     # Boost de integrity_score por completar perfil
     if fields_provided > 0:
-        user = (
+        user = await (
             supabase.table("users")
             .select("integrity_score")
             .eq("id", user_id)
@@ -206,7 +206,7 @@ async def update_demographic_profile(
             new_score = min(1.0, current_score + (fields_provided * 0.02))
             update_data["integrity_score"] = new_score
 
-    result = (
+    result = await (
         supabase.table("users")
         .update(update_data)
         .eq("id", user_id)
