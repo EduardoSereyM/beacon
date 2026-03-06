@@ -29,8 +29,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    """Hashea la contraseña con bcrypt."""
-    return pwd_context.hash(password)
+    """Hashea la contraseña con bcrypt. Trunca a 72 bytes (límite duro de bcrypt)."""
+    truncated = password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+    return pwd_context.hash(truncated)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -69,15 +70,17 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     if dna_result["classification"] == "DISPLACED":
         raise Exception("Error en la validación de seguridad (DISPLACED).")
 
-    # ─── 2. Registro en Supabase Auth ───
-    # Registramos al usuario en autenticación para activar el flujo OTP/Password
-    auth_response = await supabase.auth.sign_up({
+    # ─── 2. Registro en Supabase Auth (Admin API con email auto-confirmado) ───
+    # Se usa admin.create_user (service_role) para confirmar email inmediatamente.
+    # sign_up() deja al usuario sin confirmar → sign_in_with_password devuelve 400.
+    auth_response = await supabase.auth.admin.create_user({
         "email": user_data.email,
         "password": user_data.password,
+        "email_confirm": True,
     })
-    
+
     if not auth_response.user:
-         raise Exception("Falla al generar identidad en Supabase Auth")
+        raise Exception("Falla al generar identidad en Supabase Auth")
          
     auth_user_id = auth_response.user.id
 

@@ -526,20 +526,38 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                 </button>
                             </div>
                             {mode === "register" && (
-                                <div className="mt-2 text-[9px] font-mono grid grid-cols-2 gap-1 text-gray-500">
-                                    <span style={{ color: pwdValidations.length ? CYAN : "#555" }}>
-                                        {pwdValidations.length ? "✓" : "○"} Min 8 caracteres
-                                    </span>
-                                    <span style={{ color: pwdValidations.upper ? CYAN : "#555" }}>
-                                        {pwdValidations.upper ? "✓" : "○"} Una mayúscula
-                                    </span>
-                                    <span style={{ color: pwdValidations.number ? CYAN : "#555" }}>
-                                        {pwdValidations.number ? "✓" : "○"} Un número
-                                    </span>
-                                    <span style={{ color: pwdValidations.special ? CYAN : "#555" }}>
-                                        {pwdValidations.special ? "✓" : "○"} Carácter especial (@#$%&*)
-                                    </span>
-                                </div>
+                                <>
+                                    <div className="mt-2 font-mono grid grid-cols-2 gap-x-3 gap-y-1.5">
+                                        {[
+                                            { ok: pwdValidations.length, label: "Min 8 caracteres" },
+                                            { ok: pwdValidations.upper,  label: "Una mayúscula" },
+                                            { ok: pwdValidations.number, label: "Un número" },
+                                            { ok: pwdValidations.special, label: "Carácter (@#$%&*)" },
+                                        ].map(({ ok, label }) => (
+                                            <span
+                                                key={label}
+                                                className="flex items-center gap-1.5 text-[11px] font-semibold transition-colors duration-200"
+                                                style={{ color: ok ? CYAN : RED }}
+                                            >
+                                                <span className="text-[13px] leading-none">{ok ? "✓" : "✗"}</span>
+                                                {label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    {/* Aviso visible cuando hay requisitos sin cumplir y el usuario ya escribió algo */}
+                                    {password.length > 0 && !Object.values(pwdValidations).every(Boolean) && (
+                                        <p
+                                            className="mt-2 text-[10px] font-mono px-2.5 py-1.5 rounded-lg"
+                                            style={{
+                                                backgroundColor: `${RED}10`,
+                                                color: RED,
+                                                border: `1px solid ${RED}25`,
+                                            }}
+                                        >
+                                            ✗ Completa los requisitos en rojo para continuar
+                                        </p>
+                                    )}
+                                </>
                             )}
                         </div>
 
