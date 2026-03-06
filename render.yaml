@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: beacon-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DEBUG
+        value: false
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      # ── Supabase ── (setear en Render dashboard, no commitear valores)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      # ── Security ──
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: RUT_HASH_SALT
+        sync: false
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      # ── Redis (opcional — degraded mode si no está) ──
+      # Agregar si se crea un Redis service en Render:
+      # - key: REDIS_URL
+      #   fromService:
+      #     name: beacon-redis
+      #     type: redis
+      #     property: connectionString
+      # ── CORS — agregar URL de Vercel después del primer deploy ──
+      # - key: CORS_ORIGINS
+      #   value: '["https://TU-APP.vercel.app","http://localhost:3000"]'

@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
 
     # ─── CORS (Frontend → Backend) ───
+    # En producción setear como JSON: CORS_ORIGINS=["https://app.vercel.app","http://localhost:3000"]
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",  # Next.js dev
         "http://localhost:3001",
