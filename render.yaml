@@ -35,6 +35,6 @@ services:
       #     name: beacon-redis
       #     type: redis
       #     property: connectionString
-      # ── CORS — agregar URL de Vercel después del primer deploy ──
-      # - key: CORS_ORIGINS
-      #   value: '["https://TU-APP.vercel.app","http://localhost:3000"]'
+      # ── CORS — Frontend autorizado ──
+      - key: CORS_ORIGINS
+        value: '["https://beacon-phi-green.vercel.app","http://localhost:3000","http://localhost:3001"]'
