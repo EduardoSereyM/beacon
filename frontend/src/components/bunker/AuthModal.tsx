@@ -290,7 +290,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
                 if (!res.ok) {
                     const data = await res.json();
-                    throw new Error(data.detail || "Credenciales inválidas");
+                    const errorMsg = data.detail || "Credenciales inválidas";
+                    // Detectar el error específico de Supabase cuando el email no está confirmado
+                    if (errorMsg.toLowerCase().includes("email not confirmed") ||
+                        errorMsg.toLowerCase().includes("not confirmed")) {
+                        throw new Error("Debes confirmar tu correo electrónico antes de acceder. Revisa tu bandeja de entrada.");
+                    }
+                    throw new Error(errorMsg);
                 }
 
                 const data = await res.json();
@@ -338,11 +344,11 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     throw new Error(data.detail || "Error en el registro");
                 }
 
-                setSuccess("Ciudadano registrado. Rango inicial: BRONZE. Verifica tu email.");
+                setSuccess(`📧 Registro exitoso. Hemos enviado un email de confirmación a ${email}. Revisa tu bandeja y haz clic en el enlace para activar tu cuenta.`);
                 setTimeout(() => {
                     setMode("login");
                     setSuccess("");
-                }, 2500);
+                }, 6000);
             }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Error interno del servidor");
@@ -530,7 +536,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                     <div className="mt-2 font-mono grid grid-cols-2 gap-x-3 gap-y-1.5">
                                         {[
                                             { ok: pwdValidations.length, label: "Min 8 caracteres" },
-                                            { ok: pwdValidations.upper,  label: "Una mayúscula" },
+                                            { ok: pwdValidations.upper, label: "Una mayúscula" },
                                             { ok: pwdValidations.number, label: "Un número" },
                                             { ok: pwdValidations.special, label: "Carácter (@#$%&*)" },
                                         ].map(({ ok, label }) => (

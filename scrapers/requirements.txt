@@ -1,0 +1,22 @@
+# BEACON Scrapers — Dependencias Python
+# =======================================
+# Instalar con: pip install -r scrapers/requirements.txt
+# (desde la raíz del proyecto)
+
+# HTTP requests
+requests==2.31.0
+
+# HTML parsing (para BCN, Camara, Senado)
+beautifulsoup4==4.12.3
+lxml==5.1.0        # Parser más rápido para BeautifulSoup
+
+# Supabase client (comparte la del backend)
+supabase==2.3.5
+
+# Variables de entorno
+python-dotenv==1.0.1
+
+# Playwright (para sitios con JS — Cámara, Senado)
+# Solo instalar si vas a usar camara_scraper.py
+# playwright==1.43.0
+# → después de instalar: playwright install chromium

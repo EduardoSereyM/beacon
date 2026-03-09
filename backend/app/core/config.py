@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
+    FRONTEND_URL: str = "http://localhost:3000"  # URL del frontend (Next.js)
 
     # ─── CORS (Frontend → Backend) ───
     # En producción setear como JSON: CORS_ORIGINS=["https://app.vercel.app","http://localhost:3000"]

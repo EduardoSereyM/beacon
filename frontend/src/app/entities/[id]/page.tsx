@@ -545,10 +545,17 @@ export default function EntityPage({ params }: EntityPageProps) {
                                 voteMessage={voteMessage}
                                 onVerdict={async () => {
                                     if (Object.keys(sliderValues).length === 0) return;
+
+                                    // Verificar token antes de intentar
+                                    const token = localStorage.getItem("beacon_token");
+                                    if (!token) {
+                                        openAuthModal();
+                                        return;
+                                    }
+
                                     setVoteStatus("loading");
                                     setVoteMessage("");
                                     try {
-                                        const token = localStorage.getItem("beacon_token");
                                         const res = await fetch(`${API_URL}/api/v1/entities/${id}/vote`, {
                                             method: "POST",
                                             headers: {
@@ -557,6 +564,17 @@ export default function EntityPage({ params }: EntityPageProps) {
                                             },
                                             body: JSON.stringify({ scores: sliderValues }),
                                         });
+
+                                        // Sesión expirada → limpiar y re-auth
+                                        if (res.status === 401) {
+                                            localStorage.removeItem("beacon_token");
+                                            localStorage.removeItem("beacon_user");
+                                            setVoteStatus("error");
+                                            setVoteMessage("Sesión expirada. Inicia sesión nuevamente.");
+                                            setTimeout(() => openAuthModal(), 800);
+                                            return;
+                                        }
+
                                         if (!res.ok) {
                                             const err = await res.json();
                                             throw new Error(err.detail || "Error al emitir voto");

@@ -1,8 +1,8 @@
 /**
  * BEACON PROTOCOL — EntitiesListPage (Componente Compartido)
  * ===========================================================
- * Lista de entidades con filtros por categoría, región, partido y búsqueda.
- * Reutilizado por /entities, /politicos, /empresas, /periodistas.
+ * Lista de entidades con búsqueda por nombre y filtro por categoría.
+ * Reutilizado por /entities, /politicos, /empresas, /personajes, /eventos.
  *
  * "El que no puede ser buscado, no puede ser juzgado."
  */
@@ -35,18 +35,14 @@ interface BackendEntity {
   service_tags?: string[];
 }
 
-interface Filters {
-  regions: string[];
-  parties: string[];
-}
-
-type CategoryTab = "" | "politico" | "empresario" | "periodista";
+type CategoryTab = "" | "politico" | "empresario" | "periodista" | "evento";
 
 const CATEGORY_TABS: { key: CategoryTab; label: string; icon: string; color: string }[] = [
-  { key: "", label: "Todos", icon: "🌐", color: "#00E5FF" },
-  { key: "politico", label: "Políticos", icon: "⚖️", color: "#D4AF37" },
-  { key: "empresario", label: "Empresas", icon: "🏢", color: "#00E5FF" },
+  { key: "",           label: "Todos",      icon: "🌐", color: "#00E5FF" },
+  { key: "politico",   label: "Políticos",  icon: "⚖️", color: "#D4AF37" },
+  { key: "empresario", label: "Empresas",   icon: "🏢", color: "#00E5FF" },
   { key: "periodista", label: "Personajes", icon: "👤", color: "#C0C0C0" },
+  { key: "evento",     label: "Eventos",    icon: "📅", color: "#8A2BE2" },
 ];
 
 interface InitialData {
@@ -71,27 +67,16 @@ export default function EntitiesListPage({
   // Si hay initialData del server, arrancamos con datos (cero flicker)
   const [entities, setEntities] = useState<BackendEntity[]>(initialData?.entities ?? []);
   const [loading, setLoading] = useState(!initialData);
-  const [filters, setFilters] = useState<Filters>({ regions: [], parties: [] });
   // Ref para saltear el fetch de montaje cuando ya tenemos initialData
   const skipInitialFetch = useRef(!!initialData);
 
   // Filter state
   const [category, setCategory] = useState<CategoryTab>(defaultCategory);
-  const [region, setRegion] = useState("");
-  const [party, setParty] = useState("");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [total, setTotal] = useState(initialData?.total ?? 0);
   const [offset, setOffset] = useState(0);
   const LIMIT = 24;
-
-  // Fetch filters on mount
-  useEffect(() => {
-    fetch(`${API_URL}/api/v1/entities/filters`)
-      .then((res) => (res.ok ? res.json() : { regions: [], parties: [] }))
-      .then((data) => setFilters(data))
-      .catch(() => {});
-  }, []);
 
   // Fetch entities when filters change
   const fetchEntities = useCallback(async () => {
@@ -99,8 +84,6 @@ export default function EntitiesListPage({
     try {
       const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) });
       if (category) params.set("category", category);
-      if (region) params.set("region", region);
-      if (party) params.set("party", party);
       if (search) params.set("search", search);
 
       const res = await fetch(`${API_URL}/api/v1/entities?${params.toString()}`);
@@ -118,7 +101,7 @@ export default function EntitiesListPage({
     } finally {
       setLoading(false);
     }
-  }, [category, region, party, search, offset]);
+  }, [category, search, offset]);
 
   useEffect(() => {
     // Si tenemos datos del servidor (initialData), saltamos el primer fetch.
@@ -133,30 +116,26 @@ export default function EntitiesListPage({
   // Reset offset when filters change
   useEffect(() => {
     setOffset(0);
-  }, [category, region, party, search]);
+  }, [category, search]);
 
-  // Search debounce
-  const handleSearch = () => {
-    setSearch(searchInput.trim());
-  };
-
+  // Search handlers
+  const handleSearch = () => setSearch(searchInput.trim());
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
   };
 
   const clearFilters = () => {
     if (!defaultCategory) setCategory("");
-    setRegion("");
-    setParty("");
     setSearch("");
     setSearchInput("");
   };
 
-  const hasActiveFilters = region || party || search || (!defaultCategory && category);
+  const hasActiveFilters = search || (!defaultCategory && category);
 
   return (
     <div className="min-h-screen pt-20 pb-12 px-6">
       <div className="max-w-7xl mx-auto">
+
         {/* ═══ Header ═══ */}
         <div className="mb-8">
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
@@ -187,7 +166,7 @@ export default function EntitiesListPage({
           </div>
         )}
 
-        {/* ═══ Filters Bar ═══ */}
+        {/* ═══ Search Bar ═══ */}
         <div
           className="flex flex-wrap items-center gap-3 mb-8 p-4 rounded-xl"
           style={{
@@ -195,7 +174,6 @@ export default function EntitiesListPage({
             border: "1px solid rgba(255,255,255,0.06)",
           }}
         >
-          {/* Search */}
           <div className="flex items-center gap-2 flex-1 min-w-[200px]">
             <input
               type="text"
@@ -219,40 +197,6 @@ export default function EntitiesListPage({
             </button>
           </div>
 
-          {/* Region filter */}
-          <select
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            className="bg-transparent text-xs text-foreground-muted font-mono px-3 py-2 rounded-lg outline-none cursor-pointer"
-            style={{ border: "1px solid rgba(255,255,255,0.1)" }}
-          >
-            <option value="" style={{ backgroundColor: "#111" }}>
-              Todas las regiones
-            </option>
-            {filters.regions.map((r) => (
-              <option key={r} value={r} style={{ backgroundColor: "#111" }}>
-                {r}
-              </option>
-            ))}
-          </select>
-
-          {/* Party filter */}
-          <select
-            value={party}
-            onChange={(e) => setParty(e.target.value)}
-            className="bg-transparent text-xs text-foreground-muted font-mono px-3 py-2 rounded-lg outline-none cursor-pointer"
-            style={{ border: "1px solid rgba(255,255,255,0.1)" }}
-          >
-            <option value="" style={{ backgroundColor: "#111" }}>
-              Todos los partidos
-            </option>
-            {filters.parties.map((p) => (
-              <option key={p} value={p} style={{ backgroundColor: "#111" }}>
-                {p}
-              </option>
-            ))}
-          </select>
-
           {/* Clear filters */}
           {hasActiveFilters && (
             <button
@@ -264,7 +208,7 @@ export default function EntitiesListPage({
                 color: "#FF073A",
               }}
             >
-              Limpiar filtros
+              Limpiar
             </button>
           )}
         </div>
@@ -378,6 +322,7 @@ export default function EntitiesListPage({
             </button>
           </div>
         )}
+
       </div>
     </div>
   );

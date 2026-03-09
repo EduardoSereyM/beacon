@@ -58,62 +58,41 @@ export default function NavbarClient() {
                         </div>
                     </Link>
 
-                    {/* ─── Buscador Minimalista (borde inferior cian) ─── */}
-                    <div className="hidden md:flex items-center flex-1 max-w-sm mx-8">
-                        <div className="relative w-full">
-                            <input
-                                type="text"
-                                placeholder="Buscar entidades, personas, eventos..."
-                                className="w-full bg-transparent text-sm text-foreground placeholder-foreground-muted px-3 py-2 outline-none font-mono"
-                                style={{
-                                    borderBottom: "1px solid #00E5FF",
-                                    caretColor: "#00E5FF",
-                                }}
-                            />
-                            <div
-                                className="absolute right-2 top-1/2 -translate-y-1/2"
-                                style={{ color: "#00E5FF" }}
-                            >
-                                <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <circle cx="11" cy="11" r="8" />
-                                    <path d="m21 21-4.3-4.3" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-
                     {/* ─── Navigation Links ─── */}
-                    <div className="flex items-center gap-5">
+                    <div className="flex items-center gap-4">
                         <Link
                             href="/entities"
-                            className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                            className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
                         >
                             Entidades
                         </Link>
                         <Link
                             href="/politicos"
-                            className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                            className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
                         >
                             Políticos
                         </Link>
                         <Link
                             href="/empresas"
-                            className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                            className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
                         >
                             Empresas
                         </Link>
                         <Link
+                            href="/personajes"
+                            className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                        >
+                            Personajes
+                        </Link>
+                        <Link
+                            href="/eventos"
+                            className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                        >
+                            Eventos
+                        </Link>
+                        <Link
                             href="/versus"
-                            className="hidden sm:block text-xs hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                            className="hidden md:block text-xs hover:text-foreground transition-colors uppercase tracking-wider font-medium"
                             style={{ color: "#D4AF37" }}
                         >
                             VS
@@ -125,7 +104,7 @@ export default function NavbarClient() {
                                 {/* Separador visual */}
                                 <div
                                     className="hidden sm:block w-px h-5 self-center"
-                                    style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                                    style={{ backgroundColor: "rgba(77, 255, 131, 1)" }}
                                 />
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.03em" }}>
@@ -144,7 +123,7 @@ export default function NavbarClient() {
                                 </div>
                                 <button
                                     onClick={logout}
-                                    className="text-[10px] text-foreground-muted hover:text-white transition-colors font-mono"
+                                    className="text-[10px] text-foreground hover:text-white transition-colors font-mono"
                                 >
                                     Salir
                                 </button>

@@ -47,7 +47,7 @@ export default async function EntitiesPage() {
   return (
     <EntitiesListPage
       title="Explorar Entidades"
-      subtitle="Todas las entidades evaluadas por el Protocolo Beacon. Filtra por categoría, región o partido."
+      subtitle="Busca políticos, empresas, personajes públicos y eventos evaluados por el Protocolo Beacon."
       initialData={initialData}
     />
   );

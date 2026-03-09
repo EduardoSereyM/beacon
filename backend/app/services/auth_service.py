@@ -18,6 +18,7 @@ from typing import Optional
 from app.core.database import get_async_supabase_client
 from app.core.audit_logger import audit_bus
 from app.core.security.dna_scanner import gatekeeper
+from app.core.config import settings
 from app.domain.schemas.user import UserCreate
 
 
@@ -75,13 +76,16 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     if dna_result["classification"] == "DISPLACED":
         raise Exception("Error en la validación de seguridad (DISPLACED).")
 
-    # ─── 2. Registro en Supabase Auth (Admin API con email auto-confirmado) ───
-    # Se usa admin.create_user (service_role) para confirmar email inmediatamente.
-    # sign_up() deja al usuario sin confirmar → sign_in_with_password devuelve 400.
-    auth_response = await supabase.auth.admin.create_user({
+    # ─── 2. Registro en Supabase Auth (sign_up con confirmación de email) ───
+    # Usamos sign_up() para que Supabase envíe el email de confirmación al usuario.
+    # El ciudadano NO puede hacer login hasta confirmar su correo.
+    redirect_url = f"{settings.FRONTEND_URL}/auth/callback"
+    auth_response = await supabase.auth.sign_up({
         "email": user_data.email,
         "password": user_data.password,
-        "email_confirm": True,
+        "options": {
+            "email_redirect_to": redirect_url,
+        },
     })
 
     if not auth_response.user:
@@ -162,13 +166,14 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
             pass  # audit_logs puede no estar listo — no bloquea
 
         return {
-            "status": "success",
+            "status": "pending_confirmation",
             "user_id": user_id,
             "rank": user.get("rank", "BRONZE"),
             "integrity_score": float(user.get("integrity_score", 0.5)),
             "reputation_score": float(user.get("reputation_score", 0.5)),
             "dna_classification": dna_result["classification"],
-            "message": "Ciudadano registrado. Nivel: BRONZE. Verifica tu RUT para ascender.",
+            "message": "Ciudadano registrado. Revisa tu correo electrónico y haz clic en el enlace de confirmación para activar tu cuenta.",
+            "email_confirmation_required": True,
         }
 
     except Exception as err:

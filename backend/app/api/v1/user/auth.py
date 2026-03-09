@@ -111,6 +111,47 @@ async def register(user_in: UserCreate, request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/confirm-email", summary="Confirmar email con token de Supabase")
+async def confirm_email(request: Request):
+    """
+    Recibe el token_hash enviado por Supabase en el enlace de confirmación
+    y verifica la identidad del ciudadano.
+
+    Supabase envía: token_hash + type (signup | recovery | invite | etc.)
+    """
+    body = await request.json()
+    token_hash = body.get("token_hash", "")
+    token_type = body.get("type", "signup")
+
+    if not token_hash:
+        raise HTTPException(status_code=400, detail="token_hash es obligatorio")
+
+    try:
+        from app.core.database import get_async_supabase_client
+        supabase = get_async_supabase_client()
+
+        # Verificar el OTP (token_hash + type) con Supabase Auth
+        auth_response = await supabase.auth.verify_otp({
+            "token_hash": token_hash,
+            "type": token_type,
+        })
+
+        if not auth_response.user:
+            raise HTTPException(status_code=400, detail="Token inválido o expirado")
+
+        return {
+            "status": "confirmed",
+            "message": "Email confirmado correctamente. Ya puedes iniciar sesión.",
+            "user_id": auth_response.user.id,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al confirmar email: {str(e)}")
+
+
+
+
 @router.post("/login", summary="Iniciar sesión")
 async def login(request: Request):
     """

@@ -50,7 +50,7 @@ export default function RootLayout({
               BEACON PROTOCOL v1.0 — &quot;Lo que no es íntegro, no existe.&quot;
             </p>
             <p className="text-[10px] text-foreground-muted">
-              Sang​re y Código &copy; 2026
+              Desarrollo ESM; 2026
             </p>
           </div>
         </footer>

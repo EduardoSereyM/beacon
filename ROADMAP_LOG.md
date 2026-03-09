@@ -21,7 +21,7 @@
 |---|---|---|
 | **Fase 1** — Auth e Identidad | ✅ BLINDADA | █████████████ 100% |
 | **Fase 1.5** — ACM + Auth Modal | ✅ BLINDADA | █████████████ 100% |
-| **Fase 2** — Territorio + Valor | 🔄 EN CURSO | █████████░░░░ 65% |
+| **Fase 2** — Territorio + Valor | 🔄 EN CURSO | ████████████░ 90% |
 | **Fase 3** — Tiempo Real + 2FA SMS | 🔄 PENDIENTE | ░░░░░░░░░░░░░ 0% |
 
 ---
@@ -104,44 +104,128 @@
 ### 2. Seguridad Perimetral y Autenticación
 - [x] Flujo delegado: DNA Scanner → Supabase Auth (`sign_up`/`sign_in`) → RBAC JWT Inyectado.
 - [x] Identidad Forense: Hashing inmutable de RUT vía `rut_validator.py` (Módulo 11 + SHA-256) en tiempo de vuelo.
+- [x] **Fix Login**: `sign_up()` → `admin.create_user(email_confirm=True)` para evitar usuarios sin confirmar.
 
 ### 3. Ingeniería Civil (Lógica de Votaciones MVP)
 - [x] Aislamiento de categorías: `POLITICO` vs `PERSONA_PUBLICA` diferenciando roles.
 - [x] Implementación de **Pivot Axis Engine** para evaluación de políticos (Transparencia, Gestión, Coherencia).
 - [x] **Fricción Inteligente Anti-Brigada**: Freno a ráfagas coordinadas (< 3.0s con 1.0 base) requiriendo "Hechos Concretos".
+- [x] **Endpoint de Votación Bayesiano** — `POST /api/v1/entities/{entity_id}/vote` (`votes.py`).
+  - Fórmula: `score = (m·C + Σ_votos) / (m + n)` con m=30, C=3.0.
+  - Actualiza `reputation_score` + `total_reviews` en Supabase atómicamente.
+  - Requiere JWT autenticado (mínimo BRONZE).
 
 ### 4. Garantía Zero-Waste & Async Purity
 - [x] Inspección async en controladores de FastAPI y delegación I/O al Transaction Pooler.
 - [x] Limpieza extrema de logs y redundancias técnicas dictaminadas.
 
----
+### 5. Despliegue a Producción (www.beaconchile.cl)
+- [x] Deploy en Render (backend) + Vercel (frontend) — dominio custom `www.beaconchile.cl` activo.
+- [x] **CORS fix**: `CORS_ORIGINS` actualizado en Render Dashboard para incluir `https://www.beaconchile.cl`.
+  - Diagnóstico: `render.yaml` NO actualiza automáticamente servicios existentes → configuración manual obligatoria.
+- [x] `vercel.json` con `NEXT_PUBLIC_API_URL` hardcodeado para evitar variables de entorno en Vercel.
 
-## 🔲 Pendientes Críticos — Fase 2 (Estabilización MVP)
+### 6. Home Page — Server Component + ISR
+- [x] Conversión de `page.tsx` de `"use client"` a **Server Component** async.
+- [x] `export const revalidate = 60` — Vercel cachea datos, usuarios nunca ven Render en estado frío.
+- [x] Fetches paralelos con `Promise.all` para 4 categorías (políticos, empresas, periodistas, todas).
+- [x] Eliminado spinner de carga — datos listos en SSR, UX instantánea.
 
-### Dual-Role Admin Access
+### 7. UI Refinements (Post-Despliegue)
+- [x] **VerdictButton**: Estado `idle → loading → voted | error` con feedback visual por rango.
+  - BRONZE: botón verde + "✓ Voto Registrado" al confirmar.
+  - GOLD/DIAMOND: texto "Veredicto Magistral Registrado" + partículas doradas al click.
+  - Deshabilitado tras votar (previene doble submit en la misma sesión).
+- [x] **Entity page**: Estado de sliders levantado al padre (`onValuesChange`); voto real a la API con JWT.
+  - Actualización optimista del score en pantalla tras voto exitoso.
+- [x] **Navbar**: Separador vertical `|` + texto de usuario más visible (`text-xs font-mono`) + borde dorado en badge de rango.
+- [x] Eliminado botón "Generar Reporte de Verdad de Mercado" (era stub sin backend).
+
+### 9. Revisión General del Proyecto (`2026-03-09`)
+- [x] Relevamiento completo de estado: fases, endpoints, componentes y deuda técnica.
+- [x] Detectado: `reputation_score` y `total_reviews` hardcodeados a 0 en `entities.py` (no lee desde DB).
+- [x] Detectado: `scrapers/` vacío — solo existe README, pendiente implementación.
+- [x] MEMORY.md y ROADMAP_LOG.md actualizados con estado actual completo.
+
+### 8. Dual-Role Admin Access
 - [x] Implementar lógica en el Login para usuarios con rol ADMIN. Al autenticarse, el sistema debe presentar un 'Intersticial de Rol' que permita elegir entre:
   - **Admin Mode:** Acceso total al Overlord Dashboard y gestión sistemática.
   - **User Test Mode:** Acceso a la interfaz de usuario con privilegios máximos (Rango Diamond automático) para validación de funcionamiento y pruebas de UX.
 
-> **CREDENCIALES DE PRUEBA PERMANENTES GENERADAS:**
+> **CREDENCIALES DE PRUEBA PERMANENTES:**
 > - **[ADMIN]** `overlord2026@beacon.com` / `OverlordPassword2026*` (Rango: DIAMOND, Rol: ADMIN)
 > - **[USER]** `ciudadano2026@beacon.com` / `CiudadanoPassword2026*` (Rango: BRONZE, Rol: USER)
-> - **[USER]** `beacon@testdesarrollo.cl` / `CiudadanoPassword#2026` (Rango: BRONZE, Rol: USER)
+> - **[USER]** `beacon@testdesarrollo.cl` / `Password#2026` (Rango: BRONZE, Rol: USER)
+
+---
+
+## 🔲 Pendientes Críticos — Fase 2 (Cierre MVP)
+
+### P3 — VS/Versus
+- [ ] Backend: `GET /api/v1/versus` + `POST /api/v1/versus/{id}/vote` con tabla `event_votes` (votos de evento, no afectan `reputation_score` permanente).
+- [ ] Frontend: página `/versus` con UI head-to-head — dos entidades lado a lado, votación simultánea.
+
+### P4 — Páginas de Sección con Filtros
+- [ ] `/politicos`, `/empresas`, `/periodistas` — cada una con filtros propios: región, comuna, partido, búsqueda.
+- [ ] Backend: endpoint `/entities` con sort por `reputation_score DESC` (actualmente ordena por `updated_at`).
+
+### P5 — Verificación de Identidad RUT (BRONZE → SILVER)
+- [ ] `POST /api/v1/user/auth/verify-identity` — ascenso de rango tras validación RUT Módulo 11.
+- [ ] Frontend: flujo de upgrade en perfil de usuario.
 
 ### Recovery Flow
-- [ ] Implementar el servicio de recuperación de credenciales ('Olvidé mi contraseña') mediante el envío de tokens firmados vía email, integrándolo con el flujo de auditoría de Supabase Auth.
+- [ ] Servicio de recuperación de credenciales ('Olvidé mi contraseña') vía tokens firmados por email, integrado con Supabase Auth + audit_logs.
 
-### Vínculo Territorial
-- [ ] Lógica de detección de brigadas coordinadas mediante análisis geográfico (`is_local_vote`).
+### Anti-Brigada (Rate Limiting en Votos)
+- [ ] Un voto por usuario por entidad — tabla `entity_reviews` para trazabilidad de votos por usuario.
+- [ ] Rate limiting en `POST /vote`: mínimo 3s entre votos; máx. N votos por hora.
+- [ ] `is_local_vote` — lógica de detección de brigadas coordinadas por análisis geográfico.
 
 ### Mina de Oro
 - [ ] Activación del `user_asset_calculator.py` para proyectar el valor en dólares de la base de datos basado en densidad demográfica.
 
 ### Efecto Kahoot
-- [ ] Configuración de WebSockets para actualizaciones de rankings en tiempo real y 'Gold Explosions'.
+- [ ] WebSockets para actualizaciones de rankings en tiempo real y 'Gold Explosions'.
 
 ### Zona de Desplazados
 - [ ] Reforzar aislamiento y logs en `forensics/displaced/` para capturar patrones de bots.
+
+### Deuda Técnica
+- [ ] `identity_service.py`: columnas antiguas (`commune`, `region` como text) → migrar a `comuna_id` FK.
+- [ ] `create_admin.py` / `create_test_users.py`: referencian columnas eliminadas (`hashed_password`, `password_history`) — requieren actualización.
+- [ ] `entities.py (list_entities + get_entity)`: `reputation_score` y `total_reviews` hardcodeados a 0 — deben leer campos reales desde Supabase.
+
+---
+
+## 🔲 P6 — Scraping & Enrichment de Entidades
+
+> **Objetivo:** Llenar los campos faltantes de la tabla `entities` usando scripts automatizados con Playwright y fuentes pública verificables.
+
+### Estrategia de Fuentes
+
+| Campo objetivo | Fuente primaria | Fuente secundaria |
+|---|---|---|
+| `photo_path` | Cámara.cl / Senado.cl | Wikipedia (imagen infobox) |
+| `bio` | BCN (Biblioteca del Congreso) | Wikipedia (primer párrafo) |
+| `position` | BCN + Cámara | Manual |
+| `party` | BCN / Servel | Wikipedia |
+| `district` / `region` | Cámara / Senado | BCN |
+| `official_links` | Sitio oficial, Twitter/X, LinkedIn | Manual |
+
+### Scripts a Implementar en `scrapers/`
+
+- [ ] `scrapers/bcn_scraper.py` — Extrae bio, partido, cargo desde [bcn.cl](https://www.bcn.cl/)
+- [ ] `scrapers/camara_scraper.py` — Extrae foto oficial, distrito, región desde [camara.cl](https://www.camara.cl/)
+- [ ] `scrapers/senado_scraper.py` — Foto y datos de senadores desde [senado.cl](https://www.senado.cl/)
+- [ ] `scrapers/wikipedia_scraper.py` — Foto de infobox + bio resumida desde Wikipedia ES
+- [ ] `scrapers/photo_downloader.py` — Descarga imágenes a Storage Supabase o carpeta `public/`
+- [ ] `scrapers/enrichment_runner.py` — Orquestador: itera `entities` sin foto/bio y llama scrapers
+
+### Reglas Operativas (Directives 2026)
+- Todo dato insertado debe incluir `source_url` y `last_scraped_at`
+- Cambios drásticos se marcan para Revisión Humana antes de commitear
+- NUNCA insertar sin validación de integridad previa
+- Rate limiting entre requests (mín. 2s entre páginas)
 
 ---
 
@@ -168,7 +252,9 @@
 | Pivot | `pivot_axis_engine.py` | Fórmula adaptativa |
 | Tests | `test_access_control_matrix.py` | 27 tests ACM |
 | Tests | `test_redis_panic_gate.py` | 12 tests funcionales |
-| Frontend | `page.tsx` | Category Switcher + Suspense |
+| Frontend | `page.tsx` | Home Server Component + ISR |
+| Votos | `votes.py` | Endpoint Bayesiano POST /vote |
+| Frontend | `VerdictButton.tsx` | Estados idle/loading/voted/error |
 
 ---
 
@@ -178,9 +264,11 @@
 
 Este documento ha sido chequeado y aprobado bajo los estándares de las **Technical Directives 2026**.
 
-Última actualización: `2026-02-25T16:30:00-03:00`
+Última actualización: `2026-03-09T17:10:00-03:00`
 Autor: Beacon Protocol — Motor de Integridad Digital
-Commit de referencia: `ACM-auth-modal`
+Commits de referencia:
+- `223bafd` — Home Server Component + ISR + CORS fix producción
+- `7e15a4e` — Vote endpoint Bayesiano + VerdictButton estados + Navbar refinements
 
 _"Lo que vale, brilla. Lo que no, desaparece."_
 

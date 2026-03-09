@@ -229,7 +229,7 @@ export default async function Home() {
                 color: "#00E5FF",
               }}
             >
-              Explorar Entidades
+              Explorar Entidades (todos)
             </Link>
             <Link
               href="/versus"
