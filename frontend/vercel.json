@@ -1,0 +1,10 @@
+{
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_API_URL": "https://beacon-f477.onrender.com"
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://beacon-f477.onrender.com"
+  }
+}
