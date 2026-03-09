@@ -1,19 +1,23 @@
 /**
  * BEACON PROTOCOL — Home Dashboard
  * ==================================
- * Dashboard curado: Hero · Top Políticos · Empresas · Personajes Públicos · Stats
- *
- * Fetches paralelos por sección (sin carga masiva de 200 entidades).
- * Filtros eliminados del home → viven en /politicos, /empresas, /periodistas.
+ * Server Component con ISR (revalidate 60s).
+ * Fetches paralelos server-side → Vercel cachea → el usuario NUNCA ve Render dormido.
  *
  * "La primera impresión es el primer juicio. Hazle sentir el poder."
  */
 
-"use client";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import EntityCard from "@/components/status/EntityCard";
+
+export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "Beacon Protocol — Motor de Integridad Digital",
+  description:
+    "Evalúa políticos, empresarios y personajes públicos de Chile. Verificación humana forense. La verdad validada.",
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -42,27 +46,15 @@ async function fetchSection(category: string, limit: number): Promise<BackendEnt
   try {
     const params = new URLSearchParams({ limit: String(limit) });
     if (category) params.set("category", category);
-    const res = await fetch(`${API_URL}/api/v1/entities?${params.toString()}`);
+    const res = await fetch(`${API_URL}/api/v1/entities?${params.toString()}`, {
+      next: { revalidate: 60 },
+    });
     if (!res.ok) return [];
     const data = await res.json();
     return data.entities || [];
   } catch {
     return [];
   }
-}
-
-// ─── Skeleton Card ───
-function SkeletonCard() {
-  return (
-    <div
-      className="rounded-xl p-5 animate-pulse"
-      style={{
-        backgroundColor: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.06)",
-        height: "180px",
-      }}
-    />
-  );
 }
 
 // ─── Section Header ───
@@ -108,30 +100,17 @@ function SectionHeader({
 // ─── Entity Grid ───
 function EntityGrid({
   entities,
-  loading,
   cols = 3,
 }: {
   entities: BackendEntity[];
-  loading: boolean;
   cols?: number;
 }) {
-  const skeletons = Array.from({ length: cols });
   const gridClass =
     cols === 5
       ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"
       : cols === 4
         ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
         : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5";
-
-  if (loading) {
-    return (
-      <div className={gridClass}>
-        {skeletons.map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
-    );
-  }
 
   if (!entities.length) {
     return (
@@ -146,9 +125,7 @@ function EntityGrid({
       {entities.map((entity, idx) => (
         <div
           key={entity.id}
-          style={{
-            animation: `fadeInUp 0.4s ease-out ${idx * 50}ms both`,
-          }}
+          style={{ animation: `fadeInUp 0.4s ease-out ${idx * 50}ms both` }}
         >
           <EntityCard entity={entity} />
         </div>
@@ -170,46 +147,26 @@ function SectionDivider() {
   );
 }
 
-export default function Home() {
-  const [politicos, setPoliticos] = useState<BackendEntity[]>([]);
-  const [empresas, setEmpresas] = useState<BackendEntity[]>([]);
-  const [periodistas, setPeriodistas] = useState<BackendEntity[]>([]);
-  const [totalEntities, setTotalEntities] = useState<number>(0);
-
-  const [loadingPoliticos, setLoadingPoliticos] = useState(true);
-  const [loadingEmpresas, setLoadingEmpresas] = useState(true);
-  const [loadingPeriodistas, setLoadingPeriodistas] = useState(true);
-
-  useEffect(() => {
-    // Fetches paralelos — no se esperan entre sí
-    fetchSection("politico", 9).then((data) => {
-      setPoliticos(data);
-      setLoadingPoliticos(false);
-    });
-
-    fetchSection("empresario", 9).then((data) => {
-      setEmpresas(data);
-      setLoadingEmpresas(false);
-    });
-
-    fetchSection("periodista", 9).then((data) => {
-      setPeriodistas(data);
-      setLoadingPeriodistas(false);
-    });
-
-    // Conteo real via fetch de 200 — se usa solo para el stat del footer
-    fetchSection("", 200).then((data) => {
-      setTotalEntities(data.length);
-    });
-  }, []);
+// ─── Page ───
+export default async function Home() {
+  // Fetches paralelos en el servidor — Vercel cachea, Render dormido no afecta al usuario
+  const [politicos, empresas, periodistas, allEntities] = await Promise.all([
+    fetchSection("politico", 9),
+    fetchSection("empresario", 9),
+    fetchSection("periodista", 9),
+    fetchSection("", 200),
+  ]);
 
   return (
     <div className="min-h-screen">
-      {/* Keyframes para el badge del protocolo */}
       <style>{`
         @keyframes beaconPulse {
           0%, 100% { opacity: 1; box-shadow: 0 0 0px transparent; }
           50%       { opacity: 0.5; box-shadow: 0 0 10px rgba(0,229,255,0.15); }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
 
@@ -226,13 +183,20 @@ export default function Home() {
         />
 
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          {/* Live badge — pulso lento cada 3s */}
+          {/* Live badge */}
           <div
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 glass"
-            style={{ animation: "beaconPulse 3s ease-in-out infinite", border: "1px solid rgba(255,7,58,0.7)", boxShadow: "0 0 8px rgba(255, 7, 57, 0.81)" }}
+            style={{
+              animation: "beaconPulse 3s ease-in-out infinite",
+              border: "1px solid rgba(255,7,58,0.7)",
+              boxShadow: "0 0 8px rgba(255, 7, 57, 0.81)",
+            }}
           >
             <div className="w-1.5 h-1.5 rounded-full bg-beacon-neon pulse-live" />
-            <span className="text-[10px] tracking-[0.2em] uppercase font-mono" style={{ color: "#FF073A" }}>
+            <span
+              className="text-[10px] tracking-[0.2em] uppercase font-mono"
+              style={{ color: "#FF073A" }}
+            >
               Protocolo ANTIBOT Activo — Verificación Humana en Curso
             </span>
           </div>
@@ -295,7 +259,7 @@ export default function Home() {
             count={politicos.length}
             href="/politicos"
           />
-          <EntityGrid entities={politicos} loading={loadingPoliticos} cols={3} />
+          <EntityGrid entities={politicos} cols={3} />
         </div>
       </section>
 
@@ -312,7 +276,7 @@ export default function Home() {
             count={empresas.length}
             href="/empresas"
           />
-          <EntityGrid entities={empresas} loading={loadingEmpresas} cols={3} />
+          <EntityGrid entities={empresas} cols={3} />
         </div>
       </section>
 
@@ -329,7 +293,7 @@ export default function Home() {
             count={periodistas.length}
             href="/periodistas"
           />
-          <EntityGrid entities={periodistas} loading={loadingPeriodistas} cols={3} />
+          <EntityGrid entities={periodistas} cols={3} />
         </div>
       </section>
 
@@ -360,7 +324,6 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Teaser card */}
           <div
             className="rounded-xl p-8 text-center"
             style={{
@@ -397,7 +360,7 @@ export default function Home() {
             { label: "Ciudadanos Activos", value: "1,646", color: "#D4AF37" },
             {
               label: "Entidades en BBDD",
-              value: totalEntities > 0 ? totalEntities.toLocaleString() : "—",
+              value: allEntities.length > 0 ? allEntities.length.toLocaleString() : "—",
               color: "#00E5FF",
             },
             { label: "Votos Procesados", value: "18,403", color: "#39FF14" },
