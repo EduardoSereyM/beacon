@@ -118,10 +118,10 @@ function EntityGrid({
   const skeletons = Array.from({ length: cols });
   const gridClass =
     cols === 5
-      ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4"
+      ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"
       : cols === 4
-      ? "grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-      : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5";
+        ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+        : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5";
 
   if (loading) {
     return (
@@ -182,17 +182,17 @@ export default function Home() {
 
   useEffect(() => {
     // Fetches paralelos — no se esperan entre sí
-    fetchSection("politico", 5).then((data) => {
+    fetchSection("politico", 9).then((data) => {
       setPoliticos(data);
       setLoadingPoliticos(false);
     });
 
-    fetchSection("empresario", 4).then((data) => {
+    fetchSection("empresario", 9).then((data) => {
       setEmpresas(data);
       setLoadingEmpresas(false);
     });
 
-    fetchSection("periodista", 4).then((data) => {
+    fetchSection("periodista", 9).then((data) => {
       setPeriodistas(data);
       setLoadingPeriodistas(false);
     });
@@ -205,6 +205,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
+      {/* Keyframes para el badge del protocolo */}
+      <style>{`
+        @keyframes beaconPulse {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0px transparent; }
+          50%       { opacity: 0.5; box-shadow: 0 0 10px rgba(0,229,255,0.15); }
+        }
+      `}</style>
+
       {/* ═══════════════════════════════════════════
        *  HERO
        * ═══════════════════════════════════════════ */}
@@ -218,11 +226,14 @@ export default function Home() {
         />
 
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          {/* Live badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 glass">
+          {/* Live badge — pulso lento cada 3s */}
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 glass"
+            style={{ animation: "beaconPulse 3s ease-in-out infinite", border: "1px solid rgba(255,7,58,0.7)", boxShadow: "0 0 8px rgba(255, 7, 57, 0.81)" }}
+          >
             <div className="w-1.5 h-1.5 rounded-full bg-beacon-neon pulse-live" />
-            <span className="text-[10px] text-foreground-muted tracking-[0.2em] uppercase font-mono">
-              Protocolo Activo — Verificación Humana en Curso
+            <span className="text-[10px] tracking-[0.2em] uppercase font-mono" style={{ color: "#FF073A" }}>
+              Protocolo ANTIBOT Activo — Verificación Humana en Curso
             </span>
           </div>
 
@@ -284,7 +295,7 @@ export default function Home() {
             count={politicos.length}
             href="/politicos"
           />
-          <EntityGrid entities={politicos} loading={loadingPoliticos} cols={5} />
+          <EntityGrid entities={politicos} loading={loadingPoliticos} cols={3} />
         </div>
       </section>
 
@@ -301,7 +312,7 @@ export default function Home() {
             count={empresas.length}
             href="/empresas"
           />
-          <EntityGrid entities={empresas} loading={loadingEmpresas} cols={4} />
+          <EntityGrid entities={empresas} loading={loadingEmpresas} cols={3} />
         </div>
       </section>
 
@@ -318,7 +329,7 @@ export default function Home() {
             count={periodistas.length}
             href="/periodistas"
           />
-          <EntityGrid entities={periodistas} loading={loadingPeriodistas} cols={4} />
+          <EntityGrid entities={periodistas} loading={loadingPeriodistas} cols={3} />
         </div>
       </section>
 

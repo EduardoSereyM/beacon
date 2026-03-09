@@ -126,6 +126,7 @@
 > **CREDENCIALES DE PRUEBA PERMANENTES GENERADAS:**
 > - **[ADMIN]** `overlord2026@beacon.com` / `OverlordPassword2026*` (Rango: DIAMOND, Rol: ADMIN)
 > - **[USER]** `ciudadano2026@beacon.com` / `CiudadanoPassword2026*` (Rango: BRONZE, Rol: USER)
+> - **[USER]** `beacon@testdesarrollo.cl` / `CiudadanoPassword#2026` (Rango: BRONZE, Rol: USER)
 
 ### Recovery Flow
 - [ ] Implementar el servicio de recuperación de credenciales ('Olvidé mi contraseña') mediante el envío de tokens firmados vía email, integrándolo con el flujo de auditoría de Supabase Auth.

@@ -40,7 +40,11 @@ async def get_current_user(request: Request) -> dict:
     """
     Dependency de FastAPI: valida el Bearer token consultando a Supabase Auth.
     Supabase verifica su propio JWT server-side → no se usa JWT_SECRET_KEY.
-    Retorna la fila completa del ciudadano desde la tabla 'users'.
+    Retorna la fila de public.users + email inyectado desde auth.users.
+
+    Schema real de public.users:
+      id, first_name, last_name, rut_hash, comuna_id,
+      reputation_score, is_rut_verified, is_shadow_banned, role
     """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -53,6 +57,7 @@ async def get_current_user(request: Request) -> dict:
         supabase = get_async_supabase_client()
         auth_response = await supabase.auth.get_user(token)
         user_id = auth_response.user.id
+        user_email = auth_response.user.email or ""
     except Exception:
         raise HTTPException(status_code=401, detail="Token expirado o inválido")
 
@@ -60,6 +65,8 @@ async def get_current_user(request: Request) -> dict:
     if not user:
         raise HTTPException(status_code=404, detail="Ciudadano no encontrado")
 
+    # Inyectar email desde auth.users (no existe en public.users)
+    user["_auth_email"] = user_email
     return user
 
 
@@ -146,22 +153,29 @@ async def login(request: Request):
         if not user_db:
             raise ValueError("Perfil de ciudadano no encontrado en el Búnker")
 
-        # Verificar que la cuenta no esté suspendida en la tabla users.
-        # Supabase Auth autentica correctamente, pero el estado interno
-        # (shadow-ban, suspensión administrativa) vive en nuestra tabla.
-        if not user_db.get("is_active", True):
-            raise ValueError("Cuenta suspendida. Contacta al administrador.")
+        # Verificar shadow-ban (vive en public.users, no en Supabase Auth)
+        if user_db.get("is_shadow_banned", False):
+            # Shadow mode: simular error genérico, no revelar el ban
+            raise ValueError("Error de autenticación: Credenciales inválidas")
+
+        # ─── Mapeo de columnas reales → respuesta frontend ───
+        # Schema Beacon 2026: id, email, first_name, last_name, rank,
+        #   integrity_score, reputation_score, is_rut_verified, role, etc.
+        first = user_db.get("first_name", "")
+        last = user_db.get("last_name", "")
+        full_name = f"{first} {last}".strip() or "Ciudadano"
 
         return {
             "access_token": auth_response.session.access_token,
             "token_type": "bearer",
             "user": {
                 "id": user_db["id"],
-                "email": auth_response.user.email,
-                "full_name": user_db.get("full_name", "Ciudadano"),
+                "email": user_db.get("email", auth_response.user.email),
+                "full_name": full_name,
                 "rank": user_db.get("rank", "BRONZE"),
                 "integrity_score": float(user_db.get("integrity_score", 0.5)),
-                "is_verified": user_db.get("is_verified", False),
+                "reputation_score": float(user_db.get("reputation_score", 0.5)),
+                "is_verified": user_db.get("is_rut_verified", False),
                 "role": user_db.get("role", "user"),
             },
         }
@@ -196,19 +210,21 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     Retorna el perfil público del ciudadano autenticado.
     NUNCA incluye hashed_password, rut_hash ni datos forenses.
     """
+    # Mapeo de columnas reales → respuesta frontend (Schema Beacon 2026)
+    first = current_user.get("first_name", "")
+    last = current_user.get("last_name", "")
+    full_name = f"{first} {last}".strip() or "Ciudadano"
+
     return {
         "id": current_user["id"],
-        "email": current_user.get("email", ""),
-        "full_name": current_user.get("full_name", "Ciudadano"),
+        "email": current_user.get("email", current_user.get("_auth_email", "")),
+        "full_name": full_name,
         "rank": current_user.get("rank", "BRONZE"),
         "integrity_score": float(current_user.get("integrity_score", 0.5)),
-        "reputation_score": float(current_user.get("reputation_score", 0.0)),
-        "verification_level": current_user.get("verification_level", 1),
-        "is_verified": current_user.get("is_verified", False),
-        "commune": current_user.get("commune"),
-        "region": current_user.get("region"),
-        "age_range": current_user.get("age_range"),
-        "created_at": current_user.get("created_at"),
+        "reputation_score": float(current_user.get("reputation_score", 0.5)),
+        "verification_level": 2 if current_user.get("is_rut_verified") else 1,
+        "is_verified": current_user.get("is_rut_verified", False),
+        "role": current_user.get("role", "user"),
     }
 
 

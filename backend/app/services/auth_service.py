@@ -13,30 +13,35 @@ Reglas de Oro:
 "Entrar es fácil. Escalar es la prueba."
 """
 
-from datetime import datetime
 from typing import Optional
-from passlib.context import CryptContext
 
 from app.core.database import get_async_supabase_client
 from app.core.audit_logger import audit_bus
 from app.core.security.dna_scanner import gatekeeper
-from app.domain.enums import UserRank, VerificationLevel
 from app.domain.schemas.user import UserCreate
 
 
-# ─── Bcrypt para hashing de contraseñas ───
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# ─── Nota sobre contraseñas ───
+# La tabla public.users NO almacena hashed_password ni password_history.
+# Supabase Auth es la ÚNICA fuente de verdad para autenticación.
+# admin.create_user → crea el auth user con email+password.
+# sign_in_with_password → valida credenciales y devuelve JWT.
+# admin.update_user_by_id → cambia contraseñas (Admin API).
+
+# ─── Utilidad de hashing (usada por scripts de admin, NO por el flujo principal) ───
+from passlib.context import CryptContext
+
+_pwd_context = CryptContext(schemes=["pbkdf2_sha256", "bcrypt"], deprecated="bcrypt")
 
 
 def hash_password(password: str) -> str:
-    """Hashea la contraseña con bcrypt. Trunca a 72 bytes (límite duro de bcrypt)."""
-    truncated = password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
-    return pwd_context.hash(truncated)
+    """Utilidad de hashing. Usada por scripts admin. NO es el flujo principal."""
+    return _pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifica una contraseña contra su hash bcrypt."""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Utilidad de verificación. Usada por scripts admin."""
+    return _pwd_context.verify(plain_password, hashed_password)
 
 
 async def register_user(user_data: UserCreate, request_metadata: dict = None) -> dict:
@@ -44,11 +49,11 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     Registra un nuevo ciudadano en el Búnker Beacon.
 
     Flujo:
-      1. Ejecuta el DNA Scanner sobre los metadatos del request
-      2. Hashea la contraseña con bcrypt
-      3. Crea el registro en la tabla 'users' de Supabase
-      4. El ciudadano nace como BRONZE con integrity_score = 0.5
-      5. Registra el evento en el audit_log inmutable
+      1. DNA Scanner analiza metadatos del request
+      2. admin.create_user en Supabase Auth (email_confirm=True)
+      3. INSERT en public.users (first_name, last_name, rank, integrity, etc.)
+      4. El ciudadano nace como BRONZE, under_deep_study=True
+      5. Si CUALQUIER paso post-Auth falla → rollback (delete auth user)
 
     Args:
         user_data: Schema UserCreate validado por Pydantic
@@ -58,7 +63,7 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         Diccionario con el usuario creado, rango y resultado del DNA scan
 
     Raises:
-        Exception: Si el email ya existe o hay error en Supabase
+        Exception: Si el email ya existe, DISPLACED, o error en Supabase
     """
     supabase = get_async_supabase_client()
 
@@ -84,78 +89,98 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
          
     auth_user_id = auth_response.user.id
 
-    # ─── 3. Preparar datos para inserción en schema público ───
-    new_user = {
-        "id": auth_user_id,
-        "email": user_data.email,
-        "full_name": user_data.full_name,
-        "hashed_password": hash_password(user_data.password), # Fallback interno
-        "password_history": [hash_password(user_data.password)], # Control de rotación (fase 2)
-        "rank": UserRank.BRONZE,
-        "integrity_score": 0.5,
-        "reputation_score": 0.0,
-        "verification_level": VerificationLevel.EMAIL,
-        "created_at": datetime.utcnow().isoformat(),
-        "role": "user"
-    }
+    # ─── 3–5. Todo lo que sigue va dentro del rollback ───────────────────────
+    # Si CUALQUIER paso falla, el auth user se elimina para permitir reintento.
+    try:
+        # ─── 3. Preparar datos (Schema Beacon 2026 post-migración) ───
+        # public.users: id, email, first_name, last_name, rut_hash, rank,
+        #   integrity_score, reputation_score, is_rut_verified, is_shadow_banned,
+        #   comuna_id, age_range, gender, device_fingerprint_hash,
+        #   under_deep_study, is_active, role, updated_at
+        name_parts = (user_data.full_name or "").strip().split(" ", 1)
+        first_name = name_parts[0] if name_parts else ""
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
 
-    # Campos demográficos extendidos (Mina de Oro desde el registro)
-    if hasattr(user_data, "country") and user_data.country:
-        new_user["country"] = user_data.country
-    if hasattr(user_data, "commune") and user_data.commune:
-        new_user["commune"] = user_data.commune
-    if hasattr(user_data, "region") and user_data.region:
-        new_user["region"] = user_data.region
-    if hasattr(user_data, "age_range") and user_data.age_range:
-        new_user["age_range"] = user_data.age_range
+        new_user = {
+            "id": auth_user_id,
+            "email": user_data.email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "rank": "BRONZE",
+            "integrity_score": 0.5,
+            "reputation_score": 0.5,
+            "under_deep_study": True,  # Incubadora Forense: activa para todo novato
+            # role DEFAULT 'user', is_rut_verified DEFAULT false,
+            # is_shadow_banned DEFAULT false, is_active DEFAULT true → DB defaults
+        }
 
-    # ─── Audit: Intento de registro ───
-    audit_bus.log_event(
-        actor_id="ANONYMOUS",
-        action="IDENTITY_REGISTRATION_ATTEMPT",
-        entity_type="USER",
-        entity_id=user_data.email,
-        details={
-            "dna_score": dna_result["score"],
-            "dna_classification": dna_result["classification"],
-            "ip": request_metadata.get("ip", "unknown") if request_metadata else "unknown",
-            "has_commune": bool(new_user.get("commune")),
-            "has_region": bool(new_user.get("region")),
-        },
-    )
+        # ─── 3b. Datos opcionales de segmentación (Mina de Oro) ───
+        if hasattr(user_data, "age_range") and user_data.age_range:
+            new_user["age_range"] = user_data.age_range
 
-    # ─── 3. Insertar en Supabase ───
-    result = await supabase.table("users").insert(new_user).execute()
+        # ─── Audit: intento (no bloquea si audit_logs no tiene las columnas) ───
+        try:
+            audit_bus.log_event(
+                actor_id="ANONYMOUS",
+                action="IDENTITY_REGISTRATION_ATTEMPT",
+                entity_type="USER",
+                entity_id=user_data.email,
+                details={
+                    "dna_score": dna_result["score"],
+                    "dna_classification": dna_result["classification"],
+                    "ip": request_metadata.get("ip", "unknown") if request_metadata else "unknown",
+                },
+            )
+        except Exception:
+            pass  # audit_logs puede no estar listo — no bloquea el registro
 
-    if result.data:
+        # ─── 4. Insertar en tabla public.users ───
+        result = await supabase.table("users").insert(new_user).execute()
+
+        if not result.data:
+            raise Exception("Supabase devolvió data vacía al insertar usuario")
+
         user = result.data[0]
         user_id = user["id"]
 
-        # ─── 4. Registrar en el Audit Log (inmutable) ───
-        audit_bus.log_event(
-            actor_id=user_id,
-            action="USER_REGISTERED",
-            entity_type="USER",
-            entity_id=user_id,
-            details={
-                "rank": UserRank.BRONZE,
-                "dna_score": dna_result["score"],
-                "dna_classification": dna_result["classification"],
-                "dna_alerts": dna_result["alerts"],
-                "ip": request_metadata.get("ip", "unknown") if request_metadata else "unknown",
-            },
-        )
+        # ─── 5. Audit Log inmutable ───
+        try:
+            audit_bus.log_event(
+                actor_id=user_id,
+                action="USER_REGISTERED",
+                entity_type="USER",
+                entity_id=user_id,
+                details={
+                    "rank": "BRONZE",
+                    "dna_score": dna_result["score"],
+                    "dna_classification": dna_result["classification"],
+                    "dna_alerts": dna_result["alerts"],
+                    "ip": request_metadata.get("ip", "unknown") if request_metadata else "unknown",
+                },
+            )
+        except Exception:
+            pass  # audit_logs puede no estar listo — no bloquea
 
         return {
             "status": "success",
             "user_id": user_id,
-            "rank": UserRank.BRONZE,
-            "integrity_score": 0.5,
+            "rank": user.get("rank", "BRONZE"),
+            "integrity_score": float(user.get("integrity_score", 0.5)),
+            "reputation_score": float(user.get("reputation_score", 0.5)),
             "dna_classification": dna_result["classification"],
             "message": "Ciudadano registrado. Nivel: BRONZE. Verifica tu RUT para ascender.",
         }
 
-    raise Exception("Error al registrar el ciudadano en Supabase")
+    except Exception as err:
+        # Rollback: eliminar el auth user huérfano para permitir reintento limpio
+        try:
+            await supabase.auth.admin.delete_user(auth_user_id)
+        except Exception:
+            pass
+        raise Exception(
+            f"Error al completar el registro. Puedes intentarlo de nuevo. "
+            f"(Interno: {err})"
+        ) from err
 
 
 # login_user() fue removida en PR-07.
@@ -183,21 +208,18 @@ async def get_user_by_id(user_id: str) -> Optional[dict]:
 
 async def change_citizen_password(user_id: str, new_password: str) -> bool:
     """
-    Cambia la contraseña de un ciudadano con doble escritura:
-      1. Supabase Auth (fuente de verdad de autenticación)
-      2. Tabla users: hashed_password + password_history (historial interno)
+    Cambia la contraseña de un ciudadano via Supabase Auth (Admin API).
 
-    La escritura en Supabase Auth usa la Admin API (service_role),
-    por lo que nunca se expone la contraseña nueva al cliente.
-
-    Verifica que el ciudadano no reutilice ninguna de sus últimas 3 contraseñas.
+    La tabla public.users NO almacena hashed_password ni password_history
+    (esas columnas no existen en el schema actual).
+    Supabase Auth es la ÚNICA fuente de verdad para contraseñas.
 
     Args:
         user_id: UUID del ciudadano
         new_password: Nueva contraseña en texto plano (se descarta tras el hash)
 
     Raises:
-        ValueError: Si el usuario no existe o reutilizó contraseña reciente
+        ValueError: Si el usuario no existe o hay error en Supabase Auth
     """
     supabase = get_async_supabase_client()
 
@@ -205,50 +227,36 @@ async def change_citizen_password(user_id: str, new_password: str) -> bool:
     if not user:
         raise ValueError("Usuario no encontrado")
 
-    history = user.get("password_history", [])
-
-    # Verificar que no se reutilicen las últimas 3 contraseñas
-    for past_hash in history[-3:]:
-        if verify_password(new_password, past_hash):
-            raise ValueError(
-                "Directiva de Seguridad: No puedes reutilizar tus últimas 3 contraseñas."
-            )
-
-    new_hash = hash_password(new_password)
-    new_history = history + [new_hash]
-
-    # ─── 1. Sincronizar con Supabase Auth (fuente de verdad) ───
+    # ─── 1. Actualizar contraseña en Supabase Auth (fuente de verdad) ───
     # Usar Admin API para no requerir la contraseña actual.
-    # NUNCA se registra new_password en texto plano.
     try:
         await supabase.auth.admin.update_user_by_id(
             user_id,
             {"password": new_password},
         )
     except Exception as e:
-        # Si Supabase Auth falla, abortamos para no crear divergencia
-        audit_bus.log_event(
-            actor_id=user_id,
-            action="IDENTITY_PASSWORD_CHANGE_FAILED",
-            entity_type="USER",
-            entity_id=user_id,
-            details={"stage": "SUPABASE_AUTH", "error": str(e)},
-        )
+        try:
+            audit_bus.log_event(
+                actor_id=user_id,
+                action="IDENTITY_PASSWORD_CHANGE_FAILED",
+                entity_type="USER",
+                entity_id=user_id,
+                details={"stage": "SUPABASE_AUTH", "error": str(e)},
+            )
+        except Exception:
+            pass
         raise ValueError("Error al actualizar la contraseña en Supabase Auth.") from e
 
-    # ─── 2. Actualizar tabla users (historial interno) ───
-    await supabase.table("users").update({
-        "hashed_password": new_hash,
-        "password_history": new_history,
-    }).eq("id", user_id).execute()
-
-    # ─── 3. Audit Log inmutable (sin contraseña en plano) ───
-    audit_bus.log_event(
-        actor_id=user_id,
-        action="IDENTITY_PASSWORD_CHANGED",
-        entity_type="USER",
-        entity_id=user_id,
-        details={"rotated": True, "history_depth": len(new_history)},
-    )
+    # ─── 2. Audit Log (no bloquea si falla) ───
+    try:
+        audit_bus.log_event(
+            actor_id=user_id,
+            action="IDENTITY_PASSWORD_CHANGED",
+            entity_type="USER",
+            entity_id=user_id,
+            details={"rotated": True},
+        )
+    except Exception:
+        pass
 
     return True

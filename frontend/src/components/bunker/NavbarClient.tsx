@@ -94,16 +94,29 @@ export default function NavbarClient() {
                     {/* ─── Navigation Links ─── */}
                     <div className="flex items-center gap-5">
                         <Link
-                            href="/events"
-                            className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
-                        >
-                            Eventos
-                        </Link>
-                        <Link
                             href="/entities"
                             className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
                         >
+                            Entidades
+                        </Link>
+                        <Link
+                            href="/politicos"
+                            className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                        >
+                            Políticos
+                        </Link>
+                        <Link
+                            href="/empresas"
+                            className="hidden sm:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                        >
                             Empresas
+                        </Link>
+                        <Link
+                            href="/versus"
+                            className="hidden sm:block text-xs hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                            style={{ color: "#D4AF37" }}
+                        >
+                            VS
                         </Link>
 
                         {/* Botón Acceso al Búnker — adaptativo */}

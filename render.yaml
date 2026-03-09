@@ -37,4 +37,4 @@ services:
       #     property: connectionString
       # ── CORS — Frontend autorizado ──
       - key: CORS_ORIGINS
-        value: '["https://beacon-phi-green.vercel.app","http://localhost:3000","http://localhost:3001"]'
+        value: '["https://www.beaconchile.cl","https://beaconchile.cl","https://beacon-phi-green.vercel.app","http://localhost:3000","http://localhost:3001"]'

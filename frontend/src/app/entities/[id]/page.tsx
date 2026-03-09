@@ -3,26 +3,31 @@
  * ===========================================================
  * Ruta dinámica: /entities/[id]
  *
- * Arquitectura visual:
- *   1. Cabecera de Autoridad: degradado #0A0A0A → #8A2BE2
- *   2. Truth Meter: integrity_index circular (#39FF14)
- *   3. Evaluación Multidimensional: sliders por entity_type
- *   4. Botón de Veredicto: diferenciado por rango
- *   5. Botón Admin: "Generar Reporte de Verdad de Mercado"
+ * Carga el perfil real desde el backend usando el id de la URL.
+ * Muestra skeleton mientras carga, y mensaje amigable si no se encuentra.
  *
  * "Cada perfil es un juicio visual. La integridad se ve."
  */
 
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import TruthMeter from "@/components/status/TruthMeter";
 import VerdictButton from "@/components/status/VerdictButton";
 import usePermissions from "@/hooks/usePermissions";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 type EntityType = "POLITICO" | "PERSONA_PUBLICA" | "COMPANY" | "EVENT" | "POLL";
 type UserRank = "DISPLACED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+
+/** Mapeo de category (BBDD) → tipo visual */
+const CATEGORY_MAP: Record<string, { type: EntityType; label: string; icon: string }> = {
+    politico: { type: "POLITICO", label: "Político", icon: "⚖️" },
+    periodista: { type: "PERSONA_PUBLICA", label: "Persona Pública", icon: "👤" },
+    empresario: { type: "COMPANY", label: "Empresa", icon: "🏢" },
+};
 
 /** Sliders por tipo de entidad */
 const SLIDERS_BY_TYPE: Record<EntityType, { key: string; label: string; icon: string }[]> = {
@@ -53,26 +58,110 @@ const SLIDERS_BY_TYPE: Record<EntityType, { key: string; label: string; icon: st
     ],
 };
 
-/** Demo: entidad de ejemplo (en producción vendrá del backend) */
-const DEMO_ENTITY = {
-    id: "e-001",
-    name: "Gabriel Boric",
-    entity_type: "POLITICO" as EntityType,
-    metadata: {
-        role: "Presidente de la República de Chile",
-        party: "Convergencia Social",
-        bio: "Abogado y político. Presidente desde 2022.",
-        sector: "",
-    },
-    service_tags: [] as string[],
-    reputation_score: 3.72,
-    integrity_index: 78,
-    total_reviews: 1842,
-    is_verified: true,
-};
+interface BackendEntity {
+    id: string;
+    first_name: string;
+    last_name: string;
+    second_last_name?: string;
+    category: string;
+    position?: string;
+    region?: string;
+    district?: string;
+    bio?: string;
+    party?: string;
+    photo_path?: string;
+    official_links?: Record<string, unknown>;
+    reputation_score: number;
+    total_reviews: number;
+    is_verified: boolean;
+    rank: "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+    integrity_index: number;
+    service_tags?: string[];
+}
 
-/** Demo: rango del usuario actual */
-const DEMO_USER_RANK: UserRank = "GOLD";
+// ─── Skeleton de carga ───
+function ProfileSkeleton() {
+    return (
+        <div className="min-h-screen animate-pulse">
+            <section className="relative px-6 pt-10 pb-16 overflow-hidden"
+                style={{ background: "linear-gradient(180deg, rgba(138,43,226,0.08) 0%, rgba(10,10,10,1) 60%)" }}>
+                <div className="max-w-4xl mx-auto">
+                    <div className="w-32 h-4 rounded bg-white/5 mb-8" />
+                    <div className="flex gap-6 items-start">
+                        <div className="w-20 h-20 rounded-2xl bg-white/5 flex-shrink-0" />
+                        <div className="flex-1 space-y-3">
+                            <div className="w-56 h-7 rounded bg-white/5" />
+                            <div className="w-40 h-4 rounded bg-white/5" />
+                            <div className="flex gap-2">
+                                <div className="w-20 h-5 rounded bg-white/5" />
+                                <div className="w-20 h-5 rounded bg-white/5" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section className="px-6 -mt-8">
+                <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="rounded-xl h-40 bg-white/5" />
+                    ))}
+                </div>
+            </section>
+        </div>
+    );
+}
+
+// ─── Pantalla de error / no encontrado ───
+function NotFound({ message }: { message: string }) {
+    return (
+        <div className="min-h-screen flex items-center justify-center px-6">
+            <div className="text-center max-w-md">
+                <div
+                    className="w-20 h-20 rounded-2xl mx-auto mb-6 flex items-center justify-center"
+                    style={{
+                        background: "linear-gradient(135deg, rgba(255,7,58,0.15), rgba(138,43,226,0.15))",
+                        border: "1px solid rgba(255,7,58,0.3)",
+                    }}
+                >
+                    <span className="text-3xl">🔍</span>
+                </div>
+                <h1 className="text-xl font-bold text-foreground mb-2">
+                    No se encontró el resultado
+                </h1>
+                <p className="text-sm text-foreground-muted mb-2 font-mono">
+                    {message}
+                </p>
+                <p className="text-xs text-foreground-muted mb-8">
+                    Es posible que la persona, empresa o entidad que buscas no esté registrada en el Búnker, o haya sido eliminada.
+                </p>
+                <div className="flex items-center justify-center gap-4 flex-wrap">
+                    <Link
+                        href="/"
+                        className="px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all hover:opacity-80"
+                        style={{
+                            background: "rgba(0,229,255,0.08)",
+                            border: "1px solid rgba(0,229,255,0.25)",
+                            color: "#00E5FF",
+                        }}
+                    >
+                        ← Volver al inicio
+                    </Link>
+                    <Link
+                        href="/entities"
+                        className="px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all hover:opacity-80"
+                        style={{
+                            background: "rgba(212,175,55,0.08)",
+                            border: "1px solid rgba(212,175,55,0.25)",
+                            color: "#D4AF37",
+                        }}
+                    >
+                        Explorar Entidades →
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 interface EntityPageProps {
     params: Promise<{ id: string }>;
@@ -80,31 +169,53 @@ interface EntityPageProps {
 
 export default function EntityPage({ params }: EntityPageProps) {
     const { id } = use(params);
-    const entity = DEMO_ENTITY;
     const { user, permissions, isAuthenticated, openAuthModal } = usePermissions();
 
-    // Rango dinámico desde ACM (en producción vendrá del token JWT)
-    const userRank: UserRank = isAuthenticated
-        ? (user.rank as UserRank)
-        : "DISPLACED";
+    // ─── Todos los hooks SIEMPRE al inicio, antes de cualquier early return ───
+    const [entity, setEntity] = useState<BackendEntity | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    /** Indicador de voto local (en producción vendrá del backend via verify_territoriality) */
-    const isLocalVote = isAuthenticated && (entity.entity_type === "POLITICO" || entity.entity_type === "PERSONA_PUBLICA");
+    useEffect(() => {
+        setLoading(true);
+        setError(null);
 
-    /** Estado de los sliders de evaluación */
-    const [sliderValues, setSliderValues] = useState<Record<string, number>>(() => {
-        const initial: Record<string, number> = {};
-        SLIDERS_BY_TYPE[entity.entity_type].forEach((s) => {
-            initial[s.key] = 3;
-        });
-        return initial;
-    });
+        fetch(`${API_URL}/api/v1/entities/${id}`)
+            .then(async (res) => {
+                if (res.status === 404) {
+                    throw new Error("Esta entidad no existe o fue removida del Búnker.");
+                }
+                if (!res.ok) {
+                    throw new Error("Error al cargar el perfil. Intenta de nuevo más tarde.");
+                }
+                return res.json();
+            })
+            .then((data) => {
+                setEntity(data);
+                setLoading(false);
+            })
+            .catch((err) => {
+                setError(err.message);
+                setLoading(false);
+            });
+    }, [id]);
 
-    const handleSliderChange = (key: string, value: number) => {
-        setSliderValues((prev) => ({ ...prev, [key]: value }));
-    };
+    // ─── Early returns DESPUÉS de todos los hooks ───
+    if (loading) return <ProfileSkeleton />;
+    if (error || !entity) return <NotFound message={error || "Entidad no encontrada."} />;
 
-    /** Color del score según valor */
+    // ─── Datos derivados (solo se ejecutan cuando entity existe) ───
+    const cat = (entity.category || "politico").toLowerCase();
+    const typeConfig = CATEGORY_MAP[cat] || CATEGORY_MAP["politico"];
+    const entityType: EntityType = typeConfig.type;
+
+    const displayName = [entity.first_name, entity.last_name, entity.second_last_name]
+        .filter(Boolean)
+        .join(" ");
+
+    const userRank: UserRank = isAuthenticated ? (user.rank as UserRank) : "DISPLACED";
+    const isLocalVote = isAuthenticated && (entityType === "POLITICO" || entityType === "PERSONA_PUBLICA");
+
     const scoreColor =
         entity.reputation_score >= 4.0
             ? "#39FF14"
@@ -112,7 +223,6 @@ export default function EntityPage({ params }: EntityPageProps) {
                 ? "#FFD700"
                 : "#FF073A";
 
-    /** Labels de rango para veredictos */
     type VerdictType = { label: string; color: string; weight: string };
     const VERDICT_LABELS: Record<UserRank, VerdictType> = {
         DISPLACED: { label: "Pulso Social", color: "#555", weight: "0x" },
@@ -122,11 +232,12 @@ export default function EntityPage({ params }: EntityPageProps) {
         DIAMOND: { label: "Sentencia Suprema", color: "#b9f2ff", weight: "5x" },
     };
 
+    const activeSliders = SLIDERS_BY_TYPE[entityType] || SLIDERS_BY_TYPE.POLITICO;
+
     return (
         <div className="min-h-screen">
             {/* ═══════════════════════════════════════════
        *  CABECERA DE AUTORIDAD
-       *  Degradado #0A0A0A → #8A2BE2 (Púrpura Élite)
        * ═══════════════════════════════════════════ */}
             <section
                 className="relative px-6 pt-10 pb-16 overflow-hidden"
@@ -162,7 +273,7 @@ export default function EntityPage({ params }: EntityPageProps) {
                         </Link>
                         <span className="text-foreground-muted text-xs">/</span>
                         <span className="text-xs font-mono" style={{ color: "#8A2BE2" }}>
-                            {entity.name}
+                            {displayName}
                         </span>
                     </div>
 
@@ -170,21 +281,19 @@ export default function EntityPage({ params }: EntityPageProps) {
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                         {/* Avatar */}
                         <div
-                            className="w-20 h-20 rounded-2xl flex items-center justify-center neon-gold flex-shrink-0"
+                            className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0"
                             style={{
                                 background: "linear-gradient(135deg, #D4AF37, #f5d374)",
                             }}
                         >
-                            <span className="text-3xl">
-                                {entity.entity_type === "POLITICO" ? "⚖️" : entity.entity_type === "PERSONA_PUBLICA" ? "👤" : entity.entity_type === "COMPANY" ? "🏢" : "🎪"}
-                            </span>
+                            <span className="text-3xl">{typeConfig.icon}</span>
                         </div>
 
                         <div className="flex-1">
                             {/* Nombre */}
                             <div className="flex items-center gap-3 mb-1">
                                 <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
-                                    {entity.name}
+                                    {displayName}
                                 </h1>
                                 {entity.is_verified && (
                                     <span
@@ -200,18 +309,18 @@ export default function EntityPage({ params }: EntityPageProps) {
                                 )}
                             </div>
 
-                            {/* Tipo y metadata */}
+                            {/* Cargo y partido */}
                             <p className="text-sm text-foreground-muted mb-2">
-                                {entity.metadata.role || entity.metadata.sector}
-                                {entity.metadata.party && (
-                                    <span className="text-foreground-muted">
-                                        {" "}
-                                        · {entity.metadata.party}
-                                    </span>
+                                {entity.position || typeConfig.label}
+                                {entity.party && (
+                                    <span className="text-foreground-muted"> · {entity.party}</span>
+                                )}
+                                {entity.region && (
+                                    <span className="text-foreground-muted"> · {entity.region}</span>
                                 )}
                             </p>
 
-                            {/* Badges: entity_type + service_tags */}
+                            {/* Badges */}
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span
                                     className="text-[9px] px-2 py-0.5 rounded uppercase tracking-wider font-bold"
@@ -221,9 +330,9 @@ export default function EntityPage({ params }: EntityPageProps) {
                                         border: "1px solid rgba(192, 192, 192, 0.2)",
                                     }}
                                 >
-                                    {entity.entity_type}
+                                    {typeConfig.label}
                                 </span>
-                                {entity.service_tags.map((tag) => (
+                                {(entity.service_tags || []).map((tag) => (
                                     <span
                                         key={tag}
                                         className="text-[9px] px-2 py-0.5 rounded uppercase tracking-wider"
@@ -237,6 +346,13 @@ export default function EntityPage({ params }: EntityPageProps) {
                                     </span>
                                 ))}
                             </div>
+
+                            {/* Bio */}
+                            {entity.bio && (
+                                <p className="text-xs text-foreground-muted mt-3 leading-relaxed max-w-xl">
+                                    {entity.bio}
+                                </p>
+                            )}
                         </div>
 
                         {/* Score rápido */}
@@ -308,43 +424,30 @@ export default function EntityPage({ params }: EntityPageProps) {
                                 Impacto por Rango
                             </p>
                             <div className="space-y-2">
-                                {(["GOLD", "SILVER", "BRONZE", "DISPLACED"] as UserRank[]).map(
-                                    (r) => {
-                                        const v = VERDICT_LABELS[r];
-                                        const isCurrentRank = r === userRank;
-                                        return (
-                                            <div
-                                                key={r}
-                                                className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all ${isCurrentRank ? "ring-1" : ""
-                                                    }`}
-                                                style={{
-                                                    backgroundColor: isCurrentRank
-                                                        ? `${v.color}10`
-                                                        : "transparent",
-                                                    border: isCurrentRank ? `1px solid ${v.color}40` : "none",
-                                                }}
-                                            >
-                                                <div>
-                                                    <p
-                                                        className="text-[10px] font-bold uppercase tracking-wider"
-                                                        style={{ color: v.color }}
-                                                    >
-                                                        {r}
-                                                    </p>
-                                                    <p className="text-[9px] text-foreground-muted">
-                                                        {v.label}
-                                                    </p>
-                                                </div>
-                                                <span
-                                                    className="text-xs font-mono score-display font-bold"
-                                                    style={{ color: v.color }}
-                                                >
-                                                    {v.weight}
-                                                </span>
+                                {(["GOLD", "SILVER", "BRONZE", "DISPLACED"] as UserRank[]).map((r) => {
+                                    const v = VERDICT_LABELS[r];
+                                    const isCurrentRank = r === userRank;
+                                    return (
+                                        <div
+                                            key={r}
+                                            className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all ${isCurrentRank ? "ring-1" : ""}`}
+                                            style={{
+                                                backgroundColor: isCurrentRank ? `${v.color}10` : "transparent",
+                                                border: isCurrentRank ? `1px solid ${v.color}40` : "none",
+                                            }}
+                                        >
+                                            <div>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: v.color }}>
+                                                    {r}
+                                                </p>
+                                                <p className="text-[9px] text-foreground-muted">{v.label}</p>
                                             </div>
-                                        );
-                                    }
-                                )}
+                                            <span className="text-xs font-mono score-display font-bold" style={{ color: v.color }}>
+                                                {v.weight}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -353,7 +456,6 @@ export default function EntityPage({ params }: EntityPageProps) {
 
             {/* ═══════════════════════════════════════════
        *  EVALUACIÓN MULTIDIMENSIONAL
-       *  Sliders dinámicos por entity_type
        * ═══════════════════════════════════════════ */}
             <section className="px-6 py-10">
                 <div className="max-w-4xl mx-auto">
@@ -393,65 +495,11 @@ export default function EntityPage({ params }: EntityPageProps) {
                         </div>
 
                         {/* Sliders */}
-                        <div className="space-y-5">
-                            {SLIDERS_BY_TYPE[entity.entity_type].map((slider) => (
-                                <div key={slider.key}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm">{slider.icon}</span>
-                                            <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
-                                                {slider.label}
-                                            </label>
-                                        </div>
-                                        <span
-                                            className="text-sm font-mono score-display font-bold"
-                                            style={{
-                                                color:
-                                                    sliderValues[slider.key] >= 4
-                                                        ? "#39FF14"
-                                                        : sliderValues[slider.key] >= 3
-                                                            ? "#FFD700"
-                                                            : "#FF073A",
-                                            }}
-                                        >
-                                            {sliderValues[slider.key].toFixed(1)}
-                                        </span>
-                                    </div>
+                        <EvaluationSliders
+                            sliders={activeSliders}
+                        />
 
-                                    {/* Slider custom */}
-                                    <div className="relative">
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="5"
-                                            step="0.1"
-                                            value={sliderValues[slider.key]}
-                                            onChange={(e) =>
-                                                handleSliderChange(slider.key, parseFloat(e.target.value))
-                                            }
-                                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                                            style={{
-                                                background: `linear-gradient(to right, #FF073A 0%, #FFD700 50%, #39FF14 100%)`,
-                                                accentColor: "#D4AF37",
-                                            }}
-                                        />
-                                        {/* Marcadores 1-5 */}
-                                        <div className="flex justify-between mt-1">
-                                            {[1, 2, 3, 4, 5].map((n) => (
-                                                <span
-                                                    key={n}
-                                                    className="text-[8px] text-foreground-muted font-mono"
-                                                >
-                                                    {n}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* ── ACM: Overlay de bloqueo para anónimos ── */}
+                        {/* ACM: Overlay de bloqueo para anónimos */}
                         {!permissions.evaluate && (
                             <div
                                 className="absolute inset-0 z-20 rounded-xl flex items-center justify-center cursor-pointer"
@@ -482,69 +530,114 @@ export default function EntityPage({ params }: EntityPageProps) {
                             </div>
                         )}
 
-                        {/* Resumen promedio */}
-                        <div className="mt-6 pt-4 border-t border-beacon-border flex items-center justify-between">
-                            <span className="text-[10px] text-foreground-muted uppercase tracking-wider">
-                                Tu Veredicto Promedio
-                            </span>
-                            <span
-                                className="text-lg font-mono score-display font-bold"
+                        {/* Botón de Veredicto */}
+                        <div className="mt-6">
+                            <VerdictButton
+                                rank={userRank}
+                                entityName={displayName}
+                                onVerdict={() => {
+                                    console.log("Veredicto emitido:", {
+                                        entity_id: id,
+                                        rank: userRank,
+                                    });
+                                }}
+                            />
+                        </div>
+
+                        {/* Botón Admin Oculto */}
+                        <div className="mt-4">
+                            <button
+                                className="w-full py-3 px-6 rounded-lg text-[10px] font-mono uppercase tracking-[0.2em] transition-all opacity-30 hover:opacity-100"
                                 style={{
-                                    color: (() => {
-                                        const avg =
-                                            Object.values(sliderValues).reduce((a, b) => a + b, 0) /
-                                            Object.values(sliderValues).length;
-                                        return avg >= 4 ? "#39FF14" : avg >= 3 ? "#FFD700" : "#FF073A";
-                                    })(),
+                                    border: "1px dashed rgba(138, 43, 226, 0.2)",
+                                    color: "#8A2BE2",
+                                    backgroundColor: "rgba(138, 43, 226, 0.03)",
+                                }}
+                                onClick={() => {
+                                    console.log("📊 Generando Reporte para:", displayName);
                                 }}
                             >
-                                {(
-                                    Object.values(sliderValues).reduce((a, b) => a + b, 0) /
-                                    Object.values(sliderValues).length
-                                ).toFixed(2)}
-                            </span>
+                                🔮 Generar Reporte de Verdad de Mercado — Overlord Only
+                            </button>
                         </div>
-                    </div>
-
-                    {/* ─── Botón de Veredicto ─── */}
-                    <div className="mt-6">
-                        <VerdictButton
-                            rank={userRank}
-                            entityName={entity.name}
-                            onVerdict={() => {
-                                console.log("Veredicto emitido:", {
-                                    entity_id: id,
-                                    rank: userRank,
-                                    scores: sliderValues,
-                                    average:
-                                        Object.values(sliderValues).reduce((a, b) => a + b, 0) /
-                                        Object.values(sliderValues).length,
-                                });
-                            }}
-                        />
-                    </div>
-
-                    {/* ─── Botón Admin Oculto: Reporte de Verdad de Mercado ─── */}
-                    <div className="mt-4">
-                        <button
-                            className="w-full py-3 px-6 rounded-lg text-[10px] font-mono uppercase tracking-[0.2em] transition-all opacity-30 hover:opacity-100"
-                            style={{
-                                border: "1px dashed rgba(138, 43, 226, 0.2)",
-                                color: "#8A2BE2",
-                                backgroundColor: "rgba(138, 43, 226, 0.03)",
-                            }}
-                            onClick={() => {
-                                console.log(
-                                    "📊 Generando Reporte de Verdad de Mercado para:",
-                                    entity.name
-                                );
-                            }}
-                        >
-                            🔮 Generar Reporte de Verdad de Mercado — Overlord Only
-                        </button>
                     </div>
                 </div>
             </section>
+        </div>
+    );
+}
+
+// ─── Subcomponente de Sliders (autónomo, maneja su propio estado) ───
+function EvaluationSliders({
+    sliders,
+}: {
+    sliders: { key: string; label: string; icon: string }[];
+}) {
+    const [values, setValues] = useState<Record<string, number>>(() => {
+        const initial: Record<string, number> = {};
+        sliders.forEach((s) => { initial[s.key] = 3; });
+        return initial;
+    });
+
+    const handleChange = (key: string, value: number) => {
+        setValues((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const avg = Object.values(values).reduce((a, b) => a + b, 0) / Object.values(values).length;
+    const avgColor = avg >= 4 ? "#39FF14" : avg >= 3 ? "#FFD700" : "#FF073A";
+
+    return (
+        <div className="space-y-5">
+            {sliders.map((slider) => (
+                <div key={slider.key}>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm">{slider.icon}</span>
+                            <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                                {slider.label}
+                            </label>
+                        </div>
+                        <span
+                            className="text-sm font-mono score-display font-bold"
+                            style={{
+                                color: values[slider.key] >= 4 ? "#39FF14" : values[slider.key] >= 3 ? "#FFD700" : "#FF073A",
+                            }}
+                        >
+                            {(values[slider.key] || 3).toFixed(1)}
+                        </span>
+                    </div>
+                    <div className="relative">
+                        <input
+                            type="range"
+                            min="0"
+                            max="5"
+                            step="0.1"
+                            value={values[slider.key] || 3}
+                            onChange={(e) => handleChange(slider.key, parseFloat(e.target.value))}
+                            className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                            style={{
+                                background: `linear-gradient(to right, #FF073A 0%, #FFD700 50%, #39FF14 100%)`,
+                                accentColor: "#D4AF37",
+                            }}
+                        />
+                        <div className="flex justify-between mt-1">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                                <span key={n} className="text-[8px] text-foreground-muted font-mono">{n}</span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            ))}
+
+            {/* Resumen promedio */}
+            <div className="mt-6 pt-4 border-t border-beacon-border flex items-center justify-between">
+                <span className="text-[10px] text-foreground-muted uppercase tracking-wider">
+                    Tu Veredicto Promedio
+                </span>
+                <span className="text-lg font-mono score-display font-bold" style={{ color: avgColor }}>
+                    {avg.toFixed(2)}
+                </span>
+            </div>
         </div>
     );
 }
