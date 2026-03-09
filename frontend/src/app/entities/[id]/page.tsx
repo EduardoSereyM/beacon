@@ -176,6 +176,11 @@ export default function EntityPage({ params }: EntityPageProps) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // ─── Estado de votación ───
+    const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
+    const [voteStatus, setVoteStatus] = useState<"idle" | "loading" | "voted" | "error">("idle");
+    const [voteMessage, setVoteMessage] = useState("");
+
     useEffect(() => {
         setLoading(true);
         setError(null);
@@ -497,6 +502,7 @@ export default function EntityPage({ params }: EntityPageProps) {
                         {/* Sliders */}
                         <EvaluationSliders
                             sliders={activeSliders}
+                            onValuesChange={setSliderValues}
                         />
 
                         {/* ACM: Overlay de bloqueo para anónimos */}
@@ -535,30 +541,41 @@ export default function EntityPage({ params }: EntityPageProps) {
                             <VerdictButton
                                 rank={userRank}
                                 entityName={displayName}
-                                onVerdict={() => {
-                                    console.log("Veredicto emitido:", {
-                                        entity_id: id,
-                                        rank: userRank,
-                                    });
+                                voteStatus={voteStatus}
+                                voteMessage={voteMessage}
+                                onVerdict={async () => {
+                                    if (Object.keys(sliderValues).length === 0) return;
+                                    setVoteStatus("loading");
+                                    setVoteMessage("");
+                                    try {
+                                        const token = localStorage.getItem("beacon_token");
+                                        const res = await fetch(`${API_URL}/api/v1/entities/${id}/vote`, {
+                                            method: "POST",
+                                            headers: {
+                                                "Content-Type": "application/json",
+                                                "Authorization": `Bearer ${token}`,
+                                            },
+                                            body: JSON.stringify({ scores: sliderValues }),
+                                        });
+                                        if (!res.ok) {
+                                            const err = await res.json();
+                                            throw new Error(err.detail || "Error al emitir voto");
+                                        }
+                                        const data = await res.json();
+                                        setVoteStatus("voted");
+                                        setVoteMessage(`✓ Veredicto registrado — Score actualizado: ${data.new_score.toFixed(2)} (${data.total_reviews} veredictos)`);
+                                        // Actualizar score localmente
+                                        setEntity((prev) => prev ? {
+                                            ...prev,
+                                            reputation_score: data.new_score,
+                                            total_reviews: data.total_reviews,
+                                        } : null);
+                                    } catch (err) {
+                                        setVoteStatus("error");
+                                        setVoteMessage(err instanceof Error ? err.message : "Error al emitir voto");
+                                    }
                                 }}
                             />
-                        </div>
-
-                        {/* Botón Admin Oculto */}
-                        <div className="mt-4">
-                            <button
-                                className="w-full py-3 px-6 rounded-lg text-[10px] font-mono uppercase tracking-[0.2em] transition-all opacity-30 hover:opacity-100"
-                                style={{
-                                    border: "1px dashed rgba(138, 43, 226, 0.2)",
-                                    color: "#8A2BE2",
-                                    backgroundColor: "rgba(138, 43, 226, 0.03)",
-                                }}
-                                onClick={() => {
-                                    console.log("📊 Generando Reporte para:", displayName);
-                                }}
-                            >
-                                🔮 Generar Reporte de Verdad de Mercado — Overlord Only
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -567,17 +584,25 @@ export default function EntityPage({ params }: EntityPageProps) {
     );
 }
 
-// ─── Subcomponente de Sliders (autónomo, maneja su propio estado) ───
+// ─── Subcomponente de Sliders ───
 function EvaluationSliders({
     sliders,
+    onValuesChange,
 }: {
     sliders: { key: string; label: string; icon: string }[];
+    onValuesChange?: (values: Record<string, number>) => void;
 }) {
     const [values, setValues] = useState<Record<string, number>>(() => {
         const initial: Record<string, number> = {};
         sliders.forEach((s) => { initial[s.key] = 3; });
         return initial;
     });
+
+    // Notificar al padre en cada cambio
+    useEffect(() => {
+        onValuesChange?.(values);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [values]);
 
     const handleChange = (key: string, value: number) => {
         setValues((prev) => ({ ...prev, [key]: value }));

@@ -109,6 +109,15 @@ app.include_router(
     tags=["Entities"],
 )
 
+# ─── Votes Router ───
+from app.api.v1.endpoints.votes import router as votes_router  # noqa: E402
+
+app.include_router(
+    votes_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Votes"],
+)
+
 # ─── Admin Routers (Aislamiento de Responsabilidades) ───
 from app.api.v1.admin.entities_admin import router as admin_entities_router  # noqa: E402
 from app.api.v1.admin.aum_endpoint import router as admin_aum_router  # noqa: E402

@@ -122,18 +122,26 @@ export default function NavbarClient() {
                         {/* Botón Acceso al Búnker — adaptativo */}
                         {isAuthenticated ? (
                             <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-mono text-foreground-muted">
-                                    {user.full_name}
+                                {/* Separador visual */}
+                                <div
+                                    className="hidden sm:block w-px h-5 self-center"
+                                    style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                                />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.03em" }}>
+                                        {user.email || user.full_name}
+                                    </span>
                                     <span
-                                        className="ml-1.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase"
+                                        className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
                                         style={{
                                             backgroundColor: "rgba(212, 175, 55, 0.15)",
                                             color: "#D4AF37",
+                                            border: "1px solid rgba(212,175,55,0.25)",
                                         }}
                                     >
                                         {user.rank}
                                     </span>
-                                </span>
+                                </div>
                                 <button
                                     onClick={logout}
                                     className="text-[10px] text-foreground-muted hover:text-white transition-colors font-mono"
