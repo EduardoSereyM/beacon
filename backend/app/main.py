@@ -132,6 +132,7 @@ from app.api.v1.admin.entities_admin import router as admin_entities_router     
 from app.api.v1.admin.aum_endpoint import router as admin_aum_router              # noqa: E402
 from app.api.v1.admin.stats_endpoint import router as admin_stats_router          # noqa: E402
 from app.api.v1.admin.dimensions_admin import router as admin_dimensions_router   # noqa: E402
+from app.api.v1.admin.audit_endpoint import router as admin_audit_router          # noqa: E402
 
 app.include_router(
     admin_entities_router,
@@ -155,6 +156,12 @@ app.include_router(
     admin_dimensions_router,
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Admin — Dimensions"],
+)
+
+app.include_router(
+    admin_audit_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — Audit"],
 )
 
 

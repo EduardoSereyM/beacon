@@ -14,11 +14,82 @@ import "./globals.css";
 import NavbarClient from "@/components/bunker/NavbarClient";
 
 export const metadata: Metadata = {
-  title: "Beacon Protocol — Motor de Integridad Digital",
+  metadataBase: new URL("https://www.beaconchile.cl"),
+
+  title: {
+    default: "Beacon Protocol — Motor de Integridad Digital",
+    template: "%s | Beacon Protocol",
+  },
   description:
-    "Infraestructura de confianza humana verificada. " +
-    "Donde tu voz tiene peso y tu integridad tiene valor.",
-  keywords: ["beacon", "integridad", "reputación", "votación", "verificación"],
+    "Evalúa políticos, empresarios y personajes públicos de Chile. " +
+    "Verificación humana forense. La verdad validada.",
+  keywords: [
+    "beacon",
+    "integridad",
+    "reputación",
+    "votación",
+    "verificación",
+    "políticos Chile",
+    "empresarios Chile",
+    "transparencia",
+    "accountability",
+    "Motor de Integridad Digital",
+  ],
+  authors: [{ name: "Beacon Protocol", url: "https://www.beaconchile.cl" }],
+  creator: "Beacon Protocol",
+  publisher: "Beacon Protocol",
+
+  alternates: {
+    canonical: "/",
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+
+  openGraph: {
+    type: "website",
+    locale: "es_CL",
+    url: "https://www.beaconchile.cl",
+    siteName: "Beacon Protocol",
+    title: "Beacon Protocol — Motor de Integridad Digital",
+    description:
+      "Evalúa políticos, empresarios y personajes públicos de Chile. " +
+      "Verificación humana forense. La verdad validada.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Beacon Protocol — Motor de Integridad Digital",
+        type: "image/png",
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "Beacon Protocol — Motor de Integridad Digital",
+    description:
+      "Evalúa políticos, empresarios y personajes públicos de Chile. " +
+      "Verificación humana forense. La verdad validada.",
+    images: ["/og-image.png"],
+    site: "@beaconprotocol",
+  },
+
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

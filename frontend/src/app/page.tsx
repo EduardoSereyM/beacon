@@ -17,6 +17,52 @@ export const metadata: Metadata = {
   title: "Beacon Protocol — Motor de Integridad Digital",
   description:
     "Evalúa políticos, empresarios y personajes públicos de Chile. Verificación humana forense. La verdad validada.",
+  alternates: {
+    canonical: "https://www.beaconchile.cl",
+  },
+  openGraph: {
+    title: "Beacon Protocol — Motor de Integridad Digital",
+    description:
+      "Evalúa políticos, empresarios y personajes públicos de Chile. " +
+      "Verificación humana forense. La verdad validada.",
+    url: "https://www.beaconchile.cl",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Beacon Protocol — Motor de Integridad Digital",
+      },
+    ],
+  },
+};
+
+// ─── JSON-LD Schema.org ───
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Beacon Protocol",
+  alternateName: "Beacon",
+  url: "https://www.beaconchile.cl",
+  description:
+    "Motor de Integridad Digital — Evalúa políticos, empresarios y personajes públicos de Chile.",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: "https://www.beaconchile.cl/entities?q={search_term_string}",
+    },
+    "query-input": "required name=search_term_string",
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "Beacon Protocol",
+    url: "https://www.beaconchile.cl",
+    logo: {
+      "@type": "ImageObject",
+      url: "https://www.beaconchile.cl/favicon.ico",
+    },
+  },
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -159,6 +205,11 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen">
+      {/* ─── JSON-LD ─── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <style>{`
         @keyframes beaconPulse {
           0%, 100% { opacity: 1; box-shadow: 0 0 0px transparent; }
