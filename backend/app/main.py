@@ -121,6 +121,7 @@ app.include_router(
 # ─── Admin Routers (Aislamiento de Responsabilidades) ───
 from app.api.v1.admin.entities_admin import router as admin_entities_router  # noqa: E402
 from app.api.v1.admin.aum_endpoint import router as admin_aum_router  # noqa: E402
+from app.api.v1.admin.stats_endpoint import router as admin_stats_router  # noqa: E402
 
 app.include_router(
     admin_entities_router,
@@ -132,6 +133,12 @@ app.include_router(
     admin_aum_router,
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Admin — AUM"],
+)
+
+app.include_router(
+    admin_stats_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — Stats"],
 )
 
 
