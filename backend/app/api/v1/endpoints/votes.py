@@ -54,15 +54,19 @@ async def submit_vote(
     """
     supabase = get_async_supabase_client()
 
-    # 1. Verificar que la entidad existe y está activa
-    entity_result = await (
-        supabase.table("entities")
-        .select("id, reputation_score, total_reviews")
-        .eq("id", entity_id)
-        .eq("is_active", True)
-        .single()
-        .execute()
-    )
+    try:
+        # 1. Verificar que la entidad existe y está activa
+        entity_result = await (
+            supabase.table("entities")
+            .select("id, reputation_score, total_reviews")
+            .eq("id", entity_id)
+            .eq("is_active", True)
+            .single()
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Entidad no encontrada o inactiva: entity={entity_id} | {e}")
+        raise HTTPException(status_code=404, detail="Entidad no encontrada o no disponible")
 
     if not entity_result.data:
         raise HTTPException(status_code=404, detail="Entidad no encontrada")
@@ -89,16 +93,20 @@ async def submit_vote(
     # Clamp al rango [0, 5]
     new_score = max(0.0, min(5.0, round(new_score, 4)))
 
-    # 4. Persistir en Supabase
-    await (
-        supabase.table("entities")
-        .update({
-            "reputation_score": new_score,
-            "total_reviews": new_n,
-        })
-        .eq("id", entity_id)
-        .execute()
-    )
+    try:
+        # 4. Persistir en Supabase
+        await (
+            supabase.table("entities")
+            .update({
+                "reputation_score": new_score,
+                "total_reviews": new_n,
+            })
+            .eq("id", entity_id)
+            .execute()
+        )
+    except Exception as e:
+        logger.error(f"Error persistiendo voto: entity={entity_id} | {e}")
+        raise HTTPException(status_code=503, detail="Error al guardar el veredicto. Intenta nuevamente.")
 
     logger.info(
         f"Voto | entity={entity_id} | user={current_user.get('id')} "

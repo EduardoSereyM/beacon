@@ -339,16 +339,25 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     }),
                 });
 
+                const data = await res.json();
+
                 if (!res.ok) {
-                    const data = await res.json();
+                    // Rate limit de Supabase (429) — mensaje compacto
+                    if (res.status === 429) {
+                        throw new Error("⏳ Límite de emails alcanzado. Espera unos minutos e intenta con otro email.");
+                    }
                     throw new Error(data.detail || "Error en el registro");
                 }
 
-                setSuccess(`📧 Registro exitoso. Hemos enviado un email de confirmación a ${email}. Revisa tu bandeja y haz clic en el enlace para activar tu cuenta.`);
+                // Mensaje adaptado: con o sin confirmación de email (según si el backend está en DEBUG)
+                const successMsg = data.email_confirmation_required
+                    ? `📧 Registro exitoso. Hemos enviado un email de confirmación a ${email}. Revisa tu bandeja y haz clic en el enlace para activar tu cuenta.`
+                    : `✅ Cuenta activada. Ya puedes iniciar sesión.`;
+                setSuccess(successMsg);
                 setTimeout(() => {
                     setMode("login");
                     setSuccess("");
-                }, 6000);
+                }, 4000);
             }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Error interno del servidor");

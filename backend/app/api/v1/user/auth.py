@@ -108,6 +108,17 @@ async def register(user_in: UserCreate, request: Request):
         result = await register_user(user_in, request_metadata=metadata)
         return result
     except Exception as e:
+        error_msg = str(e).lower()
+        # Rate limit de emails de Supabase (plan gratuito: 2 emails/hora)
+        if "rate limit" in error_msg or "email rate" in error_msg or "over_email_send_rate_limit" in error_msg:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Límite de emails alcanzado. Supabase permite 2 emails de confirmación "
+                    "por hora en plan gratuito. Espera unos minutos e intenta nuevamente, "
+                    "o usa una dirección de email diferente."
+                ),
+            )
         raise HTTPException(status_code=400, detail=str(e))
 
 

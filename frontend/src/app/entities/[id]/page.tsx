@@ -181,6 +181,19 @@ export default function EntityPage({ params }: EntityPageProps) {
     const [voteStatus, setVoteStatus] = useState<"idle" | "loading" | "voted" | "error">("idle");
     const [voteMessage, setVoteMessage] = useState("");
 
+    // ─── Limpiar error de sesión cuando el usuario re-inicia sesión ───
+    // AuthModal dispara StorageEvent("storage") sintético tras login exitoso
+    useEffect(() => {
+        const handleReAuth = (e: StorageEvent) => {
+            if (e.key === "beacon_user" && e.newValue && voteStatus === "error") {
+                setVoteStatus("idle");
+                setVoteMessage("");
+            }
+        };
+        window.addEventListener("storage", handleReAuth);
+        return () => window.removeEventListener("storage", handleReAuth);
+    }, [voteStatus]);
+
     useEffect(() => {
         setLoading(true);
         setError(null);

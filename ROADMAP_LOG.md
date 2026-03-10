@@ -104,7 +104,13 @@
 ### 2. Seguridad Perimetral y Autenticación
 - [x] Flujo delegado: DNA Scanner → Supabase Auth (`sign_up`/`sign_in`) → RBAC JWT Inyectado.
 - [x] Identidad Forense: Hashing inmutable de RUT vía `rut_validator.py` (Módulo 11 + SHA-256) en tiempo de vuelo.
-- [x] **Fix Login**: `sign_up()` → `admin.create_user(email_confirm=True)` para evitar usuarios sin confirmar.
+- [x] **Confirmación de Email** (`2026-03-09`): Cambio de `admin.create_user(email_confirm=True)` → `sign_up()` real con `email_redirect_to`. Supabase ahora envía email real al usuario.
+  - Nuevo endpoint `POST /api/v1/user/auth/confirm-email` — verifica token OTP.
+  - Nueva página `/auth/callback` en Next.js — receptor del token con estados verificando/éxito/error.
+  - Template HTML con marca BEACON (dark premium, botón dorado/púrpura).
+  - Supabase Dashboard configurado: "Confirm email" activado + Redirect URLs (`localhost:3000`, `beaconchile.cl`, `vercel.app`).
+  - `FRONTEND_URL=https://www.beaconchile.cl` en `config.py` y `.env`.
+  - `AuthModal.tsx` mejorado: mensaje claro post-registro + error específico si email no está confirmado.
 
 ### 3. Ingeniería Civil (Lógica de Votaciones MVP)
 - [x] Aislamiento de categorías: `POLITICO` vs `PERSONA_PUBLICA` diferenciando roles.
@@ -175,6 +181,9 @@
 
 ### Recovery Flow
 - [ ] Servicio de recuperación de credenciales ('Olvidé mi contraseña') vía tokens firmados por email, integrado con Supabase Auth + audit_logs.
+
+> ⚠️ **SMTP rate limit Supabase gratuito** — máx. ~3 emails/hora. Para producción configurar Resend SMTP:
+> Supabase → Authentication → Email → SMTP Settings. Host: `smtp.resend.com`, Port: `465`, User: `resend`, Pass: API Key de Resend.
 
 ### Anti-Brigada (Rate Limiting en Votos)
 - [ ] Un voto por usuario por entidad — tabla `entity_reviews` para trazabilidad de votos por usuario.
@@ -269,6 +278,7 @@ Autor: Beacon Protocol — Motor de Integridad Digital
 Commits de referencia:
 - `223bafd` — Home Server Component + ISR + CORS fix producción
 - `7e15a4e` — Vote endpoint Bayesiano + VerdictButton estados + Navbar refinements
+- `2544971` — Confirmación de email: sign_up real + /auth/callback + template BEACON
 
 _"Lo que vale, brilla. Lo que no, desaparece."_
 

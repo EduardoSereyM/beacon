@@ -74,6 +74,7 @@ REDIS_URL=redis://localhost:6379/0               # Opcional en local
 JWT_SECRET_KEY=beacon-sovereign-key-2026-...
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+FRONTEND_URL=https://www.beaconchile.cl      # URL del frontend (para email redirect)
 RUT_HASH_SALT=beacon-forensic-salt-2026-...      # SHA-256 + salt para RUT
 DEBUG=True                                        # Activa /docs y /redoc
 ```
@@ -96,7 +97,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
 | Método | Ruta | Auth | Descripción |
 |---|---|---|---|
 | GET | `/health` | — | Health check del servidor |
-| POST | `/user/auth/register` | — | Registro con RUT hash + email |
+| POST | `/user/auth/register` | — | Registro → envía email de confirmación |
+| POST | `/user/auth/confirm-email` | — | Verifica token OTP del email |
 | POST | `/user/auth/login` | — | Login → JWT (60 min) |
 | GET | `/entities` | — | Lista paginada de entidades |
 | GET | `/entities/filters` | — | DISTINCT de region y party |
@@ -128,6 +130,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
 | USER | `beacon@testdesarrollo.cl` | `Password#2026` | BRONZE |
 
 > Si algún usuario da 400 al login → confirmar manualmente en Supabase Dashboard → Auth → Users → "Confirm email".
+
+> ⚠️ **SMPT rate limit** — Supabase gratuito permite ~3 emails/hora. Para producción configurar Resend SMTP en Supabase → Authentication → Email → SMTP Settings.
 
 ---
 
@@ -177,6 +181,8 @@ backend/
 
 frontend/
   src/
+    app/
+      auth/callback/     → page.tsx — Receptor del token de confirmación de email
     app/                → page.tsx (Home SSR), entities/[id]/page.tsx
     components/
       bunker/           → NavbarClient.tsx, AuthModal.tsx (UI élite)
@@ -197,6 +203,7 @@ frontend/
 - [x] **Navbar refinado**: separador `|` + texto usuario más grande + borde en badge de rango
 - [x] **"Generar Reporte" eliminado**: era stub sin backend
 - [x] **Revisión completa del proyecto** (`2026-03-09`): estado de fases, endpoints, componentes, deudas técnicas relevadas y documentadas
+- [x] **Confirmación de email** (`2026-03-09`): `sign_up()` con `email_redirect_to`, página `/auth/callback`, endpoint `/confirm-email`, template HTML de email con marca BEACON
 
 ---
 
@@ -242,12 +249,13 @@ frontend/
 | Archivo | Función |
 |---|---|
 | `backend/app/main.py` | Entry point FastAPI + registro de routers |
-| `backend/app/core/config.py` | Settings Pydantic (lee .env) |
+| `backend/app/core/config.py` | Settings Pydantic (lee .env) · incluye `FRONTEND_URL` |
 | `backend/app/api/v1/endpoints/votes.py` | Endpoint Bayesiano de votación |
 | `backend/app/api/v1/endpoints/entities.py` | CRUD entidades + filtros |
-| `backend/app/api/v1/user/auth.py` | Login / Registro / JWT |
+| `backend/app/api/v1/user/auth.py` | Login / Registro / Confirm-email / JWT |
 | `backend/app/core/security/dna_scanner.py` | Gatekeeper HUMAN/SUSPICIOUS/DISPLACED |
 | `backend/app/core/security/access_control_matrix.py` | ACM con herencia recursiva |
+| `frontend/src/app/auth/callback/page.tsx` | Receptor del token de confirmación de email |
 | `frontend/src/app/page.tsx` | Home Server Component (ISR 60s) |
 | `frontend/src/app/entities/[id]/page.tsx` | Detalle de entidad + votación |
 | `frontend/src/components/bunker/NavbarClient.tsx` | Navbar adaptativo (auth/anon) |
@@ -260,6 +268,6 @@ frontend/
 ---
 
 <sub>
-Actualizado: `2026-03-09` · Commits: `223bafd` (Home ISR) · `7e15a4e` (Votes + Navbar) · Revisión completa 2026-03-09
+Actualizado: `2026-03-09` · Commits: `223bafd` (Home ISR) · `7e15a4e` (Votes + Navbar) · `2544971` (Email Confirmation) · Revisión completa 2026-03-09
 _"Lo que vale, brilla. Lo que no, desaparece."_
 </sub>
