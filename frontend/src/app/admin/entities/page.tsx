@@ -652,8 +652,43 @@ export default function AdminEntities() {
                                             borderBottom: "1px solid rgba(255,255,255,0.02)",
                                         }}
                                     >
-                                        <td className="p-3 text-foreground font-medium">
-                                            {entity.first_name} {entity.last_name}
+                                        <td className="p-3">
+                                            <div className="flex items-center gap-2">
+                                                {entity.photo_path ? (
+                                                    <img
+                                                        src={entity.photo_path}
+                                                        alt={entity.first_name}
+                                                        style={{
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: "50%",
+                                                            objectFit: "cover",
+                                                            border: "1px solid rgba(212,175,55,0.3)",
+                                                            flexShrink: 0,
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div
+                                                        style={{
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: "50%",
+                                                            backgroundColor: "rgba(255,255,255,0.06)",
+                                                            border: "1px solid rgba(255,255,255,0.1)",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            flexShrink: 0,
+                                                            fontSize: 13,
+                                                        }}
+                                                    >
+                                                        👤
+                                                    </div>
+                                                )}
+                                                <span className="text-foreground font-medium">
+                                                    {entity.first_name} {entity.last_name}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="p-3 text-foreground-muted">
                                             {entity.position || "—"}

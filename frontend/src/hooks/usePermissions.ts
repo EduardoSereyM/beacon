@@ -196,7 +196,7 @@ export default function usePermissions(): PermissionsResult {
                     // Logout en otra pestaña
                     setUser({
                         id: null, email: null, full_name: null,
-                        rank: "ANONYMOUS", is_verified: false, integrity_score: 0,
+                        rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
                     });
                 }
             }
@@ -223,7 +223,7 @@ export default function usePermissions(): PermissionsResult {
         localStorage.removeItem("beacon_user");
         setUser({
             id: null, email: null, full_name: null,
-            rank: "ANONYMOUS", is_verified: false, integrity_score: 0,
+            rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
         });
     }, []);
 
