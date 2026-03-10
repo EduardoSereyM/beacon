@@ -53,6 +53,26 @@ async def submit_vote(
     Requiere autenticación mínima BRONZE.
     """
     supabase = get_async_supabase_client()
+    user_id = current_user.get("id")
+
+    # 0. Anti-brigada: un voto por usuario por entidad
+    try:
+        existing = await (
+            supabase.table("entity_reviews")
+            .select("id")
+            .eq("entity_id", entity_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if existing.data:
+            raise HTTPException(
+                status_code=409,
+                detail="Ya emitiste tu veredicto sobre esta entidad. Solo se permite un voto por ciudadano.",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Anti-brigada check fallido (no bloquea): entity={entity_id} | {e}")
 
     try:
         # 1. Verificar que la entidad existe y está activa
@@ -94,7 +114,7 @@ async def submit_vote(
     new_score = max(0.0, min(5.0, round(new_score, 4)))
 
     try:
-        # 4. Persistir en Supabase
+        # 4. Persistir score en entities
         await (
             supabase.table("entities")
             .update({
@@ -108,8 +128,22 @@ async def submit_vote(
         logger.error(f"Error persistiendo voto: entity={entity_id} | {e}")
         raise HTTPException(status_code=503, detail="Error al guardar el veredicto. Intenta nuevamente.")
 
+    # 5. Registrar review para anti-brigada (best-effort — no bloquea si falla)
+    try:
+        await (
+            supabase.table("entity_reviews")
+            .insert({
+                "entity_id": entity_id,
+                "user_id": user_id,
+                "vote_avg": round(vote_avg, 4),
+            })
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"No se pudo registrar entity_review (anti-brigada): entity={entity_id} | {e}")
+
     logger.info(
-        f"Voto | entity={entity_id} | user={current_user.get('id')} "
+        f"Voto | entity={entity_id} | user={user_id} "
         f"| avg={vote_avg:.2f} | new_score={new_score:.4f} | total={new_n}"
     )
 

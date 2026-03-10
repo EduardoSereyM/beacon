@@ -78,7 +78,7 @@ async def list_entities(
         .select("*")
         .eq("is_active", True)
         .is_("deleted_at", "null")
-        .order("updated_at", desc=True)
+        .order("reputation_score", desc=True)
         .range(offset, offset + limit - 1)
     )
 
@@ -119,11 +119,11 @@ async def list_entities(
             "is_active": row.get("is_active", True),
             # ─── Campos derivados para el frontend ───
             "email": links.get("email", ""),
-            "reputation_score": 0.0,
-            "total_reviews": 0,
+            "reputation_score": round(float(row.get("reputation_score") or 0.0), 2),
+            "total_reviews": int(row.get("total_reviews") or 0),
             "is_verified": True,
             "rank": "BRONZE",
-            "integrity_index": 50,
+            "integrity_index": int(round(float(row.get("reputation_score") or 0.0) / 5.0 * 100)),
         })
 
     return {
@@ -168,9 +168,9 @@ async def get_entity(entity_id: str):
         "official_links": links,
         "is_active": row.get("is_active", True),
         "email": links.get("email", ""),
-        "reputation_score": 0.0,
-        "total_reviews": 0,
+        "reputation_score": round(float(row.get("reputation_score") or 0.0), 2),
+        "total_reviews": int(row.get("total_reviews") or 0),
         "is_verified": True,
         "rank": "BRONZE",
-        "integrity_index": 50,
+        "integrity_index": int(round(float(row.get("reputation_score") or 0.0) / 5.0 * 100)),
     }

@@ -151,8 +151,6 @@ async def verify_rut(user_id: str, rut: str) -> dict:
 
 async def update_demographic_profile(
     user_id: str,
-    commune: Optional[str] = None,
-    region: Optional[str] = None,
     age_range: Optional[str] = None,
 ) -> dict:
     """
@@ -160,19 +158,16 @@ async def update_demographic_profile(
     Cada dato entregado alimenta la "Mina de Oro"
     y acerca al usuario al rango GOLD.
 
-    La segmentación (commune, region, age_range) permite:
-      - Vender data de alta fidelidad a conglomerados (sin PII)
-      - Calcular coherencia territorial para detectar brigadas
-      - Aumentar el poder de voto del ciudadano comprometido
-
     Args:
         user_id: UUID del ciudadano
-        commune: Comuna (ej: "Providencia")
-        region: Región (ej: "Metropolitana")
         age_range: Rango etario (ej: "25-34")
 
     Returns:
         Diccionario con el resultado de la actualización
+
+    NOTE: commune y region fueron removidos (P5-DEUDA).
+    La tabla users usa comuna_id (FK) — requiere lookup table.
+    Pendiente implementar en P5 con endpoint dedicado.
     """
     supabase = get_async_supabase_client()
 
@@ -180,12 +175,6 @@ async def update_demographic_profile(
     update_data = {"updated_at": datetime.utcnow().isoformat()}
     fields_updated = []
 
-    if commune is not None:
-        update_data["commune"] = commune
-        fields_updated.append("commune")
-    if region is not None:
-        update_data["region"] = region
-        fields_updated.append("region")
     if age_range is not None:
         update_data["age_range"] = age_range
         fields_updated.append("age_range")
