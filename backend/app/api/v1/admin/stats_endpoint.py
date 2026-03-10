@@ -55,7 +55,7 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
     try:
         audit_all = await (
             supabase.table("audit_logs")
-            .select("id, action, entity_type, entity_id, actor_id, details, created_at")
+            .select("*")
             .order("created_at", desc=True)
             .limit(10)
             .execute()
@@ -85,24 +85,37 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
 
     shadow_banned = sum(1 for u in users if u.get("is_shadow_banned"))
 
-    # ── Audit logs formateados ───────────────────────────────────────────────
-    # Columnas reales: action, entity_type, entity_id, actor_id, details, created_at
+    # ── Audit logs formateados (tolerante a cualquier esquema) ──────────────
     recent_actions = []
     for log in audit_logs:
         details = log.get("details") or {}
-        # Intentar extraer nombre legible desde details
         new_data = details.get("new_data") or {}
         label = (
             (new_data.get("first_name", "") + " " + new_data.get("last_name", "")).strip()
             or details.get("email", "")
-            or log.get("entity_id", "—")
+            or log.get("entity_id", "")
+            or "—"
+        )
+        # Soportar tanto 'action' como posibles variantes
+        action_val = (
+            log.get("action")
+            or log.get("event_type")
+            or log.get("type")
+            or "—"
+        )
+        table_val = (
+            log.get("entity_type")
+            or log.get("table_name")
+            or log.get("resource")
+            or ""
         )
         recent_actions.append({
-            "id":         log.get("id"),
-            "action":     log.get("action", ""),
-            "table_name": log.get("entity_type", ""),
-            "label":      label or "—",
+            "id":         log.get("id", ""),
+            "action":     action_val,
+            "table_name": table_val,
+            "label":      label,
             "created_at": log.get("created_at", ""),
+            "_raw":       log,   # debug: el frontend puede ignorarlo
         })
 
     return {

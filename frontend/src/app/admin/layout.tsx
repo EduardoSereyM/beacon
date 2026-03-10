@@ -20,8 +20,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 /** Menú lateral del Overlord */
 const ADMIN_NAV = [
-    { href: "/admin", label: "Dashboard", icon: "🛡️" },
-    { href: "/admin/entities", label: "Entidades", icon: "⚖️" },
+    { href: "/admin",            label: "Dashboard",   icon: "🛡️" },
+    { href: "/admin/entities",   label: "Entidades",   icon: "⚖️" },
+    { href: "/admin/dimensions", label: "Dimensiones", icon: "🎚️" },
+    { href: "/admin/audit",      label: "Audit Log",   icon: "📜" },
 ];
 
 export default function AdminLayout({

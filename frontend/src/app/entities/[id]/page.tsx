@@ -19,42 +19,53 @@ import usePermissions from "@/hooks/usePermissions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-type EntityType = "POLITICO" | "PERSONA_PUBLICA" | "COMPANY" | "EVENT" | "POLL";
 type UserRank = "DISPLACED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
 
-/** Mapeo de category (BBDD) → tipo visual */
-const CATEGORY_MAP: Record<string, { type: EntityType; label: string; icon: string }> = {
-    politico: { type: "POLITICO", label: "Político", icon: "⚖️" },
-    periodista: { type: "PERSONA_PUBLICA", label: "Persona Pública", icon: "👤" },
-    empresario: { type: "COMPANY", label: "Empresa", icon: "🏢" },
+/** Mapeo de category (BBDD) → etiqueta visual */
+const CATEGORY_META: Record<string, { label: string; icon: string }> = {
+    politico:   { label: "Político",         icon: "⚖️" },
+    periodista: { label: "Persona Pública",   icon: "👤" },
+    empresario: { label: "Empresario",        icon: "💼" },
+    empresa:    { label: "Empresa",           icon: "🏢" },
+    evento:     { label: "Evento",            icon: "📅" },
 };
 
-/** Sliders por tipo de entidad */
-const SLIDERS_BY_TYPE: Record<EntityType, { key: string; label: string; icon: string }[]> = {
-    POLITICO: [
-        { key: "transparencia", label: "Transparencia", icon: "⚖️" },
-        { key: "gestion", label: "Gestión", icon: "📊" },
-        { key: "coherencia", label: "Coherencia", icon: "✅" },
+/** Dimensión de evaluación (viene desde la API) */
+interface Dimension {
+    id: string;
+    key: string;
+    label: string;
+    icon: string;
+    display_order: number;
+}
+
+/** Fallback hardcodeado en caso de que el API falle */
+const FALLBACK_DIMENSIONS: Record<string, Dimension[]> = {
+    politico:   [
+        { id: "f1", key: "transparencia", label: "Transparencia", icon: "⚖️", display_order: 1 },
+        { id: "f2", key: "gestion",       label: "Gestión",       icon: "📊", display_order: 2 },
+        { id: "f3", key: "coherencia",    label: "Coherencia",    icon: "✅", display_order: 3 },
     ],
-    PERSONA_PUBLICA: [
-        { key: "probidad", label: "Probidad", icon: "💎" },
-        { key: "confianza", label: "Confianza", icon: "🤝" },
-        { key: "influencia", label: "Influencia", icon: "⭐" },
+    periodista: [
+        { id: "f4", key: "probidad",    label: "Probidad",    icon: "💎", display_order: 1 },
+        { id: "f5", key: "confianza",   label: "Confianza",   icon: "🤝", display_order: 2 },
+        { id: "f6", key: "influencia",  label: "Influencia",  icon: "⭐", display_order: 3 },
     ],
-    COMPANY: [
-        { key: "servicio_cliente", label: "Servicio al Cliente", icon: "🎧" },
-        { key: "etica_corporativa", label: "Ética Corporativa", icon: "🏛️" },
-        { key: "calidad_producto", label: "Calidad de Producto", icon: "⭐" },
-        { key: "transparencia", label: "Transparencia", icon: "🔍" },
+    empresario: [
+        { id: "f7", key: "probidad",   label: "Probidad",   icon: "💎", display_order: 1 },
+        { id: "f8", key: "confianza",  label: "Confianza",  icon: "🤝", display_order: 2 },
+        { id: "f9", key: "influencia", label: "Influencia", icon: "⭐", display_order: 3 },
     ],
-    EVENT: [
-        { key: "organizacion", label: "Organización", icon: "📋" },
-        { key: "experiencia", label: "Experiencia", icon: "🎪" },
-        { key: "seguridad", label: "Seguridad", icon: "🛡️" },
+    empresa: [
+        { id: "fa", key: "servicio_cliente",  label: "Servicio al Cliente",  icon: "🎧",  display_order: 1 },
+        { id: "fb", key: "etica_corporativa", label: "Ética Corporativa",    icon: "🏛️", display_order: 2 },
+        { id: "fc", key: "calidad_producto",  label: "Calidad de Producto",  icon: "⭐",  display_order: 3 },
+        { id: "fd", key: "transparencia",     label: "Transparencia",        icon: "🔍",  display_order: 4 },
     ],
-    POLL: [
-        { key: "relevancia", label: "Relevancia", icon: "📌" },
-        { key: "claridad", label: "Claridad", icon: "💡" },
+    evento: [
+        { id: "fe", key: "organizacion", label: "Organización", icon: "📋",  display_order: 1 },
+        { id: "ff", key: "experiencia",  label: "Experiencia",  icon: "🎪",  display_order: 2 },
+        { id: "fg", key: "seguridad",    label: "Seguridad",    icon: "🛡️", display_order: 3 },
     ],
 };
 
@@ -172,9 +183,10 @@ export default function EntityPage({ params }: EntityPageProps) {
     const { user, permissions, isAuthenticated, openAuthModal } = usePermissions();
 
     // ─── Todos los hooks SIEMPRE al inicio, antes de cualquier early return ───
-    const [entity, setEntity] = useState<BackendEntity | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [entity, setEntity]         = useState<BackendEntity | null>(null);
+    const [dimensions, setDimensions] = useState<Dimension[]>([]);
+    const [loading, setLoading]       = useState(true);
+    const [error, setError]           = useState<string | null>(null);
 
     // ─── Estado de votación ───
     const [sliderValues, setSliderValues] = useState<Record<string, number>>({});
@@ -200,16 +212,26 @@ export default function EntityPage({ params }: EntityPageProps) {
 
         fetch(`${API_URL}/api/v1/entities/${id}`)
             .then(async (res) => {
-                if (res.status === 404) {
-                    throw new Error("Esta entidad no existe o fue removida del Búnker.");
-                }
-                if (!res.ok) {
-                    throw new Error("Error al cargar el perfil. Intenta de nuevo más tarde.");
-                }
+                if (res.status === 404) throw new Error("Esta entidad no existe o fue removida del Búnker.");
+                if (!res.ok)           throw new Error("Error al cargar el perfil. Intenta de nuevo más tarde.");
                 return res.json();
             })
-            .then((data) => {
+            .then(async (data) => {
                 setEntity(data);
+                // Cargar dimensiones desde la API para esta categoría
+                const cat = (data.category || "politico").toLowerCase();
+                try {
+                    const dimRes = await fetch(`${API_URL}/api/v1/dimensions?category=${cat}`);
+                    if (dimRes.ok) {
+                        const dimData = await dimRes.json();
+                        const dims: Dimension[] = dimData.dimensions || [];
+                        setDimensions(dims.length > 0 ? dims : (FALLBACK_DIMENSIONS[cat] || FALLBACK_DIMENSIONS["politico"]));
+                    } else {
+                        setDimensions(FALLBACK_DIMENSIONS[cat] || FALLBACK_DIMENSIONS["politico"]);
+                    }
+                } catch {
+                    setDimensions(FALLBACK_DIMENSIONS[cat] || FALLBACK_DIMENSIONS["politico"]);
+                }
                 setLoading(false);
             })
             .catch((err) => {
@@ -224,15 +246,14 @@ export default function EntityPage({ params }: EntityPageProps) {
 
     // ─── Datos derivados (solo se ejecutan cuando entity existe) ───
     const cat = (entity.category || "politico").toLowerCase();
-    const typeConfig = CATEGORY_MAP[cat] || CATEGORY_MAP["politico"];
-    const entityType: EntityType = typeConfig.type;
+    const typeConfig = CATEGORY_META[cat] || CATEGORY_META["politico"];
 
     const displayName = [entity.first_name, entity.last_name, entity.second_last_name]
         .filter(Boolean)
         .join(" ");
 
     const userRank: UserRank = isAuthenticated ? (user.rank as UserRank) : "DISPLACED";
-    const isLocalVote = isAuthenticated && (entityType === "POLITICO" || entityType === "PERSONA_PUBLICA");
+    const isLocalVote = isAuthenticated && ["politico", "periodista"].includes(cat);
 
     const scoreColor =
         entity.reputation_score >= 4.0
@@ -250,7 +271,7 @@ export default function EntityPage({ params }: EntityPageProps) {
         DIAMOND: { label: "Sentencia Suprema", color: "#b9f2ff", weight: "5x" },
     };
 
-    const activeSliders = SLIDERS_BY_TYPE[entityType] || SLIDERS_BY_TYPE.POLITICO;
+    const activeSliders = dimensions;
 
     return (
         <div className="min-h-screen">
