@@ -300,7 +300,7 @@ async def admin_upload_entity_photo(
     supabase = get_async_supabase_client()
 
     try:
-        supabase.storage.from_(STORAGE_BUCKET).upload(
+        await supabase.storage.from_(STORAGE_BUCKET).upload(
             path=filename,
             file=contents,
             file_options={"content-type": file.content_type, "upsert": "false"},
@@ -309,7 +309,7 @@ async def admin_upload_entity_photo(
         raise HTTPException(status_code=500, detail=f"Error subiendo imagen al Storage: {e}")
 
     # URL pública del objeto
-    public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
+    public_url = await supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
 
     audit_bus.log_event(
         actor_id=admin["user_id"],
