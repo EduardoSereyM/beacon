@@ -279,20 +279,22 @@ export default function EntityPage({ params }: EntityPageProps) {
        *  CABECERA DE AUTORIDAD
        * ═══════════════════════════════════════════ */}
             <section
-                className="relative px-6 pt-10 pb-16 overflow-hidden"
+                className="relative px-6 pt-10 pb-16"
                 style={{
                     background:
                         "linear-gradient(180deg, rgba(138, 43, 226, 0.08) 0%, rgba(10, 10, 10, 1) 60%)",
                 }}
             >
-                {/* Glow sutil púrpura arriba */}
-                <div
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] pointer-events-none"
-                    style={{
-                        background:
-                            "radial-gradient(ellipse at center, rgba(138, 43, 226, 0.12) 0%, transparent 70%)",
-                    }}
-                />
+                {/* Glow sutil púrpura arriba — overflow-hidden acá para no clipar las cards inferiores */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div
+                        className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px]"
+                        style={{
+                            background:
+                                "radial-gradient(ellipse at center, rgba(138, 43, 226, 0.12) 0%, transparent 70%)",
+                        }}
+                    />
+                </div>
 
                 <div className="max-w-4xl mx-auto relative z-10">
                     {/* Breadcrumb */}

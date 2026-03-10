@@ -33,6 +33,7 @@ const ACTION_META: Record<string, { color: string; bg: string }> = {
     IDENTITY_REGISTRATION_ATTEMPT:  { color: "#888",    bg: "rgba(128,128,128,0.06)" },
     SHADOW_BAN_APPLIED:             { color: "#FF073A", bg: "rgba(255,7,58,0.08)"    },
     SHADOW_BAN_LIFTED:              { color: "#39FF14", bg: "rgba(57,255,20,0.08)"   },
+    VOTE_SUBMITTED:                 { color: "#8A2BE2", bg: "rgba(138,43,226,0.08)"  },
     VOTE_SHADOW_FILTERED:           { color: "#FF8C00", bg: "rgba(255,140,0,0.08)"   },
     BRIGADE_DETECTED:               { color: "#FF073A", bg: "rgba(255,7,58,0.08)"    },
     RUT_VALIDATION_FAILED:          { color: "#FF8C00", bg: "rgba(255,140,0,0.08)"   },

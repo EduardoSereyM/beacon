@@ -10,13 +10,14 @@ Fórmula Bayesiana: score = (m·C + Σ_votos) / (m + n)
 "El peso de tu voto depende del peso de tu integridad."
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, field_validator
 from typing import Dict
 import logging
 
 from app.core.database import get_async_supabase_client
 from app.api.v1.user.auth import get_current_user
+from app.core.audit_logger import audit_bus
 
 logger = logging.getLogger("beacon.votes")
 
@@ -45,6 +46,7 @@ class VotePayload(BaseModel):
 async def submit_vote(
     entity_id: str,
     payload: VotePayload,
+    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
 ):
     """
@@ -145,6 +147,20 @@ async def submit_vote(
     logger.info(
         f"Voto | entity={entity_id} | user={user_id} "
         f"| avg={vote_avg:.2f} | new_score={new_score:.4f} | total={new_n}"
+    )
+
+    background_tasks.add_task(
+        audit_bus.log_event,
+        actor_id=user_id,
+        action="VOTE_SUBMITTED",
+        entity_type="ENTITY",
+        entity_id=entity_id,
+        details={
+            "vote_avg": round(vote_avg, 4),
+            "scores": payload.scores,
+            "new_score": round(new_score, 4),
+            "total_reviews": new_n,
+        },
     )
 
     return {
