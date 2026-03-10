@@ -23,10 +23,39 @@ interface Entity {
     region?: string;
     district?: string;
     bio?: string;
+    photo_path?: string;
+    party?: string;
     official_links?: Record<string, string>;
     is_active?: boolean;
-    party?: string;
 }
+
+const CATEGORIES = [
+    { value: "politico",   label: "Político/a" },
+    { value: "periodista", label: "Periodista / Persona Pública" },
+    { value: "empresario", label: "Empresario/a" },
+    { value: "empresa",    label: "Empresa / Organización" },
+    { value: "evento",     label: "Evento" },
+];
+
+const REGIONES_CHILE = [
+    "Arica y Parinacota",
+    "Tarapacá",
+    "Antofagasta",
+    "Atacama",
+    "Coquimbo",
+    "Valparaíso",
+    "Metropolitana",
+    "O'Higgins",
+    "Maule",
+    "Ñuble",
+    "Biobío",
+    "La Araucanía",
+    "Los Ríos",
+    "Los Lagos",
+    "Aysén",
+    "Magallanes",
+    "Nacional",
+];
 
 const EMPTY_FORM: Omit<Entity, "id"> = {
     first_name: "",
@@ -37,6 +66,8 @@ const EMPTY_FORM: Omit<Entity, "id"> = {
     region: "",
     district: "",
     bio: "",
+    photo_path: "",
+    party: "",
     official_links: {},
 };
 
@@ -61,6 +92,7 @@ export default function AdminEntities() {
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [changeReason, setChangeReason] = useState("");
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [searchFilter, setSearchFilter] = useState("");
 
@@ -114,6 +146,8 @@ export default function AdminEntities() {
             region: entity.region || "",
             district: entity.district || "",
             bio: entity.bio || "",
+            photo_path: entity.photo_path || "",
+            party: entity.party || "",
             official_links: entity.official_links || {},
         });
         setChangeReason("");
@@ -122,8 +156,9 @@ export default function AdminEntities() {
 
     /** Guardar (crear o editar) */
     const handleSave = async () => {
-        if (!formData.first_name || !formData.last_name) {
-            setMessage({ type: "error", text: "Nombre y Apellido son obligatorios" });
+        const needsLastName = !["empresa", "evento"].includes(formData.category);
+        if (!formData.first_name || (needsLastName && !formData.last_name)) {
+            setMessage({ type: "error", text: needsLastName ? "Nombre y Apellido son obligatorios" : "Nombre es obligatorio" });
             return;
         }
 
@@ -188,6 +223,33 @@ export default function AdminEntities() {
             }
         } catch {
             setMessage({ type: "error", text: "Error de conexión" });
+        }
+    };
+
+    /** Upload de foto al bucket de Supabase Storage */
+    const handlePhotoUpload = async (file: File) => {
+        setUploading(true);
+        setMessage(null);
+        try {
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch(`${API_URL}/api/v1/admin/entities/upload-photo`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: fd,
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                setMessage({ type: "error", text: err.detail || "Error subiendo imagen" });
+                return;
+            }
+            const data = await res.json();
+            setFormData((prev) => ({ ...prev, photo_path: data.url }));
+            setMessage({ type: "success", text: "Imagen subida correctamente" });
+        } catch {
+            setMessage({ type: "error", text: "Error de conexión al subir imagen" });
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -264,46 +326,8 @@ export default function AdminEntities() {
                         </h2>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {/* Nombre */}
-                            <div>
-                                <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
-                                    Nombre *
-                                </label>
-                                <input
-                                    style={inputStyle}
-                                    value={formData.first_name}
-                                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                                    placeholder="Carmen Gloria"
-                                />
-                            </div>
-
-                            {/* Apellido */}
-                            <div>
-                                <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
-                                    Apellido *
-                                </label>
-                                <input
-                                    style={inputStyle}
-                                    value={formData.last_name}
-                                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                                    placeholder="Aravena"
-                                />
-                            </div>
-
-                            {/* Segundo Apellido */}
-                            <div>
-                                <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
-                                    Segundo Apellido
-                                </label>
-                                <input
-                                    style={inputStyle}
-                                    value={formData.second_last_name}
-                                    onChange={(e) => setFormData({ ...formData, second_last_name: e.target.value })}
-                                />
-                            </div>
-
-                            {/* Categoría */}
-                            <div>
+                            {/* Categoría — primero para que el resto de campos se adapten */}
+                            <div className="sm:col-span-2">
                                 <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
                                     Categoría *
                                 </label>
@@ -312,62 +336,207 @@ export default function AdminEntities() {
                                     value={formData.category}
                                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                                 >
-                                    <option value="politico">Político</option>
-                                    <option value="periodista">Periodista / Persona Pública</option>
-                                    <option value="empresario">Empresario</option>
+                                    {CATEGORIES.map((c) => (
+                                        <option key={c.value} value={c.value}>{c.label}</option>
+                                    ))}
                                 </select>
                             </div>
 
-                            {/* Cargo */}
+                            {/* Nombre */}
                             <div>
                                 <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
-                                    Cargo / Posición
+                                    {["empresa", "evento"].includes(formData.category) ? "Nombre *" : "Nombre *"}
+                                </label>
+                                <input
+                                    style={inputStyle}
+                                    value={formData.first_name}
+                                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                                    placeholder={["empresa", "evento"].includes(formData.category) ? "Ej: LATAM Airlines" : "Carmen Gloria"}
+                                />
+                            </div>
+
+                            {/* Apellido — oculto para empresa/evento */}
+                            {!["empresa", "evento"].includes(formData.category) ? (
+                                <div>
+                                    <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
+                                        Apellido *
+                                    </label>
+                                    <input
+                                        style={inputStyle}
+                                        value={formData.last_name}
+                                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                                        placeholder="Aravena"
+                                    />
+                                </div>
+                            ) : (
+                                /* Placeholder invisible para mantener grid 2 col */
+                                <div />
+                            )}
+
+                            {/* Segundo Apellido — solo personas */}
+                            {!["empresa", "evento"].includes(formData.category) && (
+                                <div>
+                                    <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
+                                        Segundo Apellido
+                                    </label>
+                                    <input
+                                        style={inputStyle}
+                                        value={formData.second_last_name}
+                                        onChange={(e) => setFormData({ ...formData, second_last_name: e.target.value })}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Cargo / Posición */}
+                            <div>
+                                <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
+                                    {formData.category === "empresa" ? "Sector / Rubro"
+                                        : formData.category === "evento" ? "Tipo de Evento"
+                                        : "Cargo / Posición"}
                                 </label>
                                 <input
                                     style={inputStyle}
                                     value={formData.position}
                                     onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                                    placeholder="Senador, Diputado, CEO..."
+                                    placeholder={
+                                        formData.category === "empresa" ? "Aerolínea, Retail, Banca..."
+                                        : formData.category === "evento" ? "Elección, Escándalo, Hito..."
+                                        : "Senador, Diputado, CEO..."
+                                    }
                                 />
                             </div>
+
+                            {/* Partido — solo políticos */}
+                            {formData.category === "politico" && (
+                                <div>
+                                    <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
+                                        Partido Político
+                                    </label>
+                                    <input
+                                        style={inputStyle}
+                                        value={formData.party}
+                                        onChange={(e) => setFormData({ ...formData, party: e.target.value })}
+                                        placeholder="RN, UDI, PS, Independiente..."
+                                    />
+                                </div>
+                            )}
 
                             {/* Región */}
                             <div>
                                 <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
                                     Región
                                 </label>
-                                <input
-                                    style={inputStyle}
+                                <select
+                                    style={{ ...inputStyle, cursor: "pointer" }}
                                     value={formData.region}
                                     onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                                    placeholder="Región de Valparaíso"
-                                />
+                                >
+                                    <option value="">— Sin región —</option>
+                                    {REGIONES_CHILE.map((r) => (
+                                        <option key={r} value={r}>{r}</option>
+                                    ))}
+                                </select>
                             </div>
 
-                            {/* Distrito */}
-                            <div>
+                            {/* Distrito — solo políticos */}
+                            {formData.category === "politico" && (
+                                <div>
+                                    <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
+                                        Distrito / Circunscripción
+                                    </label>
+                                    <input
+                                        style={inputStyle}
+                                        value={formData.district}
+                                        onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                                        placeholder="Distrito 7"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Foto — Upload al bucket Supabase Storage */}
+                            <div className="sm:col-span-2">
                                 <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
-                                    Distrito / Circunscripción
+                                    Fotografía
                                 </label>
-                                <input
-                                    style={inputStyle}
-                                    value={formData.district}
-                                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                                    placeholder="Distrito 7"
-                                />
+                                <div className="flex items-start gap-4">
+                                    {/* Preview */}
+                                    <div
+                                        className="w-20 h-20 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center"
+                                        style={{ border: "1px solid rgba(212,175,55,0.2)", background: "rgba(255,255,255,0.02)" }}
+                                    >
+                                        {formData.photo_path ? (
+                                            <img
+                                                src={formData.photo_path}
+                                                alt="preview"
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                            />
+                                        ) : (
+                                            <span className="text-2xl opacity-30">📷</span>
+                                        )}
+                                    </div>
+
+                                    {/* Controles */}
+                                    <div className="flex-1 space-y-2">
+                                        <label
+                                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-mono uppercase tracking-wider cursor-pointer transition-all hover:scale-105"
+                                            style={{
+                                                background: uploading ? "rgba(212,175,55,0.1)" : "rgba(212,175,55,0.15)",
+                                                border: "1px solid rgba(212,175,55,0.3)",
+                                                color: "#D4AF37",
+                                                opacity: uploading ? 0.7 : 1,
+                                            }}
+                                        >
+                                            {uploading ? "⏳ Subiendo..." : "📁 Seleccionar imagen"}
+                                            <input
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/webp"
+                                                className="hidden"
+                                                disabled={uploading}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) handlePhotoUpload(file);
+                                                    e.target.value = "";
+                                                }}
+                                            />
+                                        </label>
+                                        <p className="text-[9px] text-foreground-muted font-mono">
+                                            JPEG · PNG · WEBP · Máx 5 MB
+                                        </p>
+                                        {formData.photo_path && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] text-foreground-muted font-mono truncate max-w-[200px]">
+                                                    {formData.photo_path.split("/").pop()}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData((prev) => ({ ...prev, photo_path: "" }))}
+                                                    className="text-[9px] font-mono"
+                                                    style={{ color: "#FF073A" }}
+                                                >
+                                                    ✕ quitar
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         {/* Bio */}
                         <div className="mt-4">
                             <label className="text-[9px] text-foreground-muted uppercase tracking-wider block mb-1">
-                                Biografía
+                                Biografía / Descripción
                             </label>
                             <textarea
                                 style={{ ...inputStyle, minHeight: "80px", resize: "vertical" }}
                                 value={formData.bio}
                                 onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                                placeholder="Senador por Región de Valparaíso. Partido: Independiente."
+                                placeholder={
+                                    formData.category === "empresa"
+                                        ? "Descripción de la empresa, historia, sector..."
+                                        : "Trayectoria, cargos previos, contexto relevante..."
+                                }
                             />
                         </div>
 

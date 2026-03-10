@@ -36,26 +36,23 @@ export default function AdminLayout({
 
     useEffect(() => {
         const token = localStorage.getItem("beacon_token");
-        if (!token) {
+        const userRaw = localStorage.getItem("beacon_user");
+
+        if (!token || !userRaw) {
             router.push("/");
+            setLoading(false);
             return;
         }
 
         try {
-            // Decodificar JWT (payload está en base64)
-            const parts = token.split(".");
-            if (parts.length !== 3) {
-                router.push("/");
-                return;
-            }
-            const payload = JSON.parse(atob(parts[1]));
+            const user = JSON.parse(userRaw);
 
-            if (payload.role !== "admin") {
+            if (user.role !== "admin") {
                 router.push("/");
                 return;
             }
 
-            setAdminEmail(payload.email || "Overlord");
+            setAdminEmail(user.email || "Overlord");
             setIsAdmin(true);
         } catch {
             router.push("/");

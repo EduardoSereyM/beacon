@@ -16,7 +16,7 @@ import logoDorado from "@/asset/brand/LogoBeaconCian.png";
 
 export default function NavbarClient() {
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const { user, isAuthenticated, logout } = usePermissions();
+    const { user, isAuthenticated, isAdmin, logout } = usePermissions();
 
     // Escuchar evento custom desde usePermissions.openAuthModal()
     useEffect(() => {
@@ -106,6 +106,22 @@ export default function NavbarClient() {
                                     className="hidden sm:block w-px h-5 self-center"
                                     style={{ backgroundColor: "rgba(77, 255, 131, 1)" }}
                                 />
+
+                                {/* Link Admin — solo visible para role=admin */}
+                                {isAdmin && (
+                                    <Link
+                                        href="/admin"
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
+                                        style={{
+                                            background: "rgba(212,175,55,0.12)",
+                                            border: "1px solid rgba(212,175,55,0.35)",
+                                            color: "#D4AF37",
+                                        }}
+                                    >
+                                        🛡️ Admin
+                                    </Link>
+                                )}
+
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.03em" }}>
                                         {user.email || user.full_name}

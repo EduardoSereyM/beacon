@@ -16,12 +16,17 @@ Endpoints:
 "El Overlord edita la realidad. El Escriba registra cada cambio."
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File
 from datetime import datetime
+import uuid
 
 from app.core.database import get_async_supabase_client
 from app.core.audit_logger import audit_bus
 from app.api.v1.admin.require_admin import require_admin_role
+
+STORAGE_BUCKET = "imagenes"
+ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
+MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 
 router = APIRouter(prefix="/admin", tags=["Admin — Entities"])
 
@@ -75,7 +80,7 @@ async def admin_create_entity(
             )
 
     # Validar category contra CHECK constraint
-    valid_categories = ["politico", "periodista", "empresario"]
+    valid_categories = ["politico", "periodista", "empresario", "empresa", "evento"]
     cat = entity_data.get("category", "").lower()
     if cat not in valid_categories:
         raise HTTPException(
@@ -173,7 +178,7 @@ async def admin_update_entity(
 
     # Validar category si se envía
     if "category" in payload:
-        valid_categories = ["politico", "periodista", "empresario"]
+        valid_categories = ["politico", "periodista", "empresario", "empresa", "evento"]
         if payload["category"].lower() not in valid_categories:
             raise HTTPException(
                 status_code=400,
@@ -262,3 +267,56 @@ async def admin_delete_entity(
     )
 
     return {"status": "soft_deleted", "entity_id": entity_id}
+
+
+@router.post("/entities/upload-photo", summary="[ADMIN] Subir foto de entidad al Storage")
+async def admin_upload_entity_photo(
+    file: UploadFile = File(...),
+    admin: dict = Depends(require_admin_role),
+):
+    """
+    Recibe una imagen (JPEG/PNG/WEBP ≤ 5 MB), la sube al bucket 'imagenes'
+    de Supabase Storage y devuelve la URL pública para guardar en photo_path.
+    """
+    # Validar MIME
+    if file.content_type not in ALLOWED_MIME:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de archivo no permitido: {file.content_type}. Use JPEG, PNG o WEBP.",
+        )
+
+    # Leer y validar tamaño
+    contents = await file.read()
+    if len(contents) > MAX_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Archivo demasiado grande ({len(contents) // 1024} KB). Máximo 5 MB.",
+        )
+
+    # Nombre único con extensión original
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "jpg"
+    filename = f"entities/{uuid.uuid4().hex}.{ext}"
+
+    supabase = get_async_supabase_client()
+
+    try:
+        supabase.storage.from_(STORAGE_BUCKET).upload(
+            path=filename,
+            file=contents,
+            file_options={"content-type": file.content_type, "upsert": "false"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error subiendo imagen al Storage: {e}")
+
+    # URL pública del objeto
+    public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
+
+    audit_bus.log_event(
+        actor_id=admin["user_id"],
+        action="OVERLORD_ACTION_UPLOAD_PHOTO",
+        entity_type="STORAGE",
+        entity_id=filename,
+        details={"filename": filename, "size_bytes": len(contents), "content_type": file.content_type},
+    )
+
+    return {"url": public_url, "path": filename}

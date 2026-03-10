@@ -23,6 +23,7 @@ interface UserState {
     email: string | null;
     full_name: string | null;
     rank: Role;
+    role: string;
     is_verified: boolean;
     integrity_score: number;
 }
@@ -52,6 +53,7 @@ interface PermissionsResult {
     voting: VotingConfig;
     isAuthenticated: boolean;
     isVerified: boolean;
+    isAdmin: boolean;
     shouldTriggerAuthModal: boolean;
     openAuthModal: () => void;
     logout: () => void;
@@ -146,6 +148,7 @@ export default function usePermissions(): PermissionsResult {
         email: null,
         full_name: null,
         rank: "ANONYMOUS",
+        role: "user",
         is_verified: false,
         integrity_score: 0,
     });
@@ -164,6 +167,7 @@ export default function usePermissions(): PermissionsResult {
                     email: parsed.email || null,
                     full_name: parsed.full_name || null,
                     rank: (parsed.rank as Role) || "BRONZE",
+                    role: parsed.role || "user",
                     is_verified: parsed.is_verified || false,
                     integrity_score: parsed.integrity_score || 0.5,
                 });
@@ -184,6 +188,7 @@ export default function usePermissions(): PermissionsResult {
                         email: parsed.email,
                         full_name: parsed.full_name,
                         rank: parsed.rank || "BRONZE",
+                        role: parsed.role || "user",
                         is_verified: parsed.is_verified || false,
                         integrity_score: parsed.integrity_score || 0.5,
                     });
@@ -205,6 +210,7 @@ export default function usePermissions(): PermissionsResult {
 
     const isAuthenticated = user.id !== null;
     const isVerified = user.is_verified;
+    const isAdmin = user.role === "admin";
 
     const openAuthModal = useCallback(() => {
         setAuthModalRequested(true);
@@ -227,6 +233,7 @@ export default function usePermissions(): PermissionsResult {
         voting,
         isAuthenticated,
         isVerified,
+        isAdmin,
         shouldTriggerAuthModal: !isAuthenticated,
         openAuthModal,
         logout,
