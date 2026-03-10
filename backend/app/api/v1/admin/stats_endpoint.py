@@ -28,12 +28,11 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
     import asyncio
     supabase = get_async_supabase_client()
 
-    # ── Consultas paralelas ──────────────────────────────────────────────────
+    # ── Consultas paralelas (solo las que no pueden fallar) ─────────────────
     (
         entities_all,
         users_all,
         votes_all,
-        audit_all,
     ) = await asyncio.gather(
         supabase.table("entities").select(
             "id, first_name, last_name, category, is_active, reputation_score, total_reviews, photo_path"
@@ -44,15 +43,27 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
         supabase.table("entity_reviews").select(
             "id, created_at"
         ).execute(),
-        supabase.table("audit_logs").select(
-            "id, action, table_name, user_id, created_at, new_data"
-        ).order("created_at", desc=True).limit(10).execute(),
     )
 
-    entities   = entities_all.data  or []
-    users      = users_all.data     or []
-    votes      = votes_all.data     or []
-    audit_logs = audit_all.data     or []
+    entities = entities_all.data or []
+    users    = users_all.data    or []
+    votes    = votes_all.data    or []
+
+    # ── Audit logs: columnas reales del audit_logger ─────────────────────────
+    # Columnas: actor_id, action, entity_type, entity_id, details, created_at
+    audit_logs = []
+    try:
+        audit_all = await (
+            supabase.table("audit_logs")
+            .select("id, action, entity_type, entity_id, actor_id, details, created_at")
+            .order("created_at", desc=True)
+            .limit(10)
+            .execute()
+        )
+        audit_logs = audit_all.data or []
+    except Exception as e:
+        import logging
+        logging.getLogger("beacon.admin").warning(f"audit_logs no disponible: {e}")
 
     # ── Métricas de entidades ────────────────────────────────────────────────
     active_entities   = [e for e in entities if e.get("is_active")]
@@ -75,16 +86,22 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
     shadow_banned = sum(1 for u in users if u.get("is_shadow_banned"))
 
     # ── Audit logs formateados ───────────────────────────────────────────────
+    # Columnas reales: action, entity_type, entity_id, actor_id, details, created_at
     recent_actions = []
     for log in audit_logs:
-        new_data = log.get("new_data") or {}
-        label = new_data.get("first_name", "") + " " + new_data.get("last_name", "")
-        label = label.strip() or new_data.get("email", "—")
+        details = log.get("details") or {}
+        # Intentar extraer nombre legible desde details
+        new_data = details.get("new_data") or {}
+        label = (
+            (new_data.get("first_name", "") + " " + new_data.get("last_name", "")).strip()
+            or details.get("email", "")
+            or log.get("entity_id", "—")
+        )
         recent_actions.append({
             "id":         log.get("id"),
             "action":     log.get("action", ""),
-            "table_name": log.get("table_name", ""),
-            "label":      label,
+            "table_name": log.get("entity_type", ""),
+            "label":      label or "—",
             "created_at": log.get("created_at", ""),
         })
 
