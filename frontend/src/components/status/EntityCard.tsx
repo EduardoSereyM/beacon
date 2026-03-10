@@ -82,13 +82,15 @@ const RANK_STYLES: Record<
 
 /** Mapeo de category (BBDD) → tipo visual */
 const CATEGORY_MAP: Record<string, { type: EntityType; label: string; icon: string; color: string }> = {
-    politico: { type: "POLITICO", label: "Político", icon: "⚖️", color: "#D4AF37" },
-    periodista: { type: "PERSONA_PUBLICA", label: "Persona", icon: "👤", color: "#C0C0C0" },
-    empresario: { type: "COMPANY", label: "Empresa", icon: "🏢", color: "#00E5FF" },
+    politico:   { type: "POLITICO",      label: "Político",   icon: "⚖️",  color: "#D4AF37" },
+    periodista: { type: "PERSONA_PUBLICA", label: "Personaje", icon: "👤",  color: "#C0C0C0" },
+    empresario: { type: "PERSONA_PUBLICA", label: "Empresario",icon: "💼",  color: "#00E5FF" },
+    empresa:    { type: "COMPANY",        label: "Empresa",    icon: "🏢",  color: "#00E5FF" },
+    evento:     { type: "EVENT",          label: "Evento",     icon: "📅",  color: "#8A2BE2" },
 };
 
 /** Fallback para tipos de entidad */
-const TYPE_FALLBACK = { type: "POLITICO" as EntityType, label: "Político", icon: "⚖️", color: "#D4AF37" };
+const TYPE_FALLBACK = { type: "POLITICO" as EntityType, label: "Entidad", icon: "👤", color: "#888" };
 
 interface EntityCardProps {
     entity: EntityData;
@@ -125,13 +127,11 @@ export default function EntityCard({ entity }: EntityCardProps) {
     return (
         <a
             href={`/${entityType === "EVENT" ? "events" : "entities"}/${entity.id}`}
-            className={`block rounded-xl overflow-hidden transition-all duration-300 ${entity.rank === "GOLD" || entity.rank === "DIAMOND"
-                ? "elite-card"
-                : ""
-                }`}
+            className={`flex flex-col h-full rounded-xl overflow-hidden transition-all duration-300 ${
+                entity.rank === "GOLD" || entity.rank === "DIAMOND" ? "elite-card" : ""
+            }`}
             style={{
-                border: `1px solid ${isHovered ? rankStyle.borderColor : `${rankStyle.borderColor}25`
-                    }`,
+                border: `1px solid ${isHovered ? rankStyle.borderColor : `${rankStyle.borderColor}25`}`,
                 boxShadow: isHovered
                     ? `0 0 15px ${rankStyle.borderColor}20, 0 4px 20px rgba(0,0,0,0.4)`
                     : "none",
@@ -142,49 +142,48 @@ export default function EntityCard({ entity }: EntityCardProps) {
             onMouseLeave={() => setIsHovered(false)}
         >
             {/* ─── Header: Avatar + Info ─── */}
-            <div className="p-4 pb-3">
+            <div className="p-4 pb-3 flex-1">
                 <div className="flex items-start gap-3">
-                    {/* Avatar */}
+                    {/* Avatar: foto real si existe, si no emoji de categoría */}
                     <div
-                        className={`w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-500 ${entity.rank === "GOLD" || entity.rank === "DIAMOND"
-                            ? rankStyle.neonClass
-                            : ""
-                            }`}
+                        className="w-11 h-11 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center"
                         style={{
-                            background: isHovered
-                                ? `linear-gradient(135deg, ${rankStyle.borderColor}, ${rankStyle.borderColor}80)`
-                                : `${rankStyle.borderColor}15`,
-                            filter: isHovered ? "grayscale(0)" : "grayscale(0.5)",
+                            background: entity.photo_path
+                                ? "transparent"
+                                : isHovered
+                                    ? `linear-gradient(135deg, ${rankStyle.borderColor}, ${rankStyle.borderColor}80)`
+                                    : `${rankStyle.borderColor}15`,
                         }}
                     >
-                        <span
-                            className="text-lg transition-all duration-300"
-                            style={{
-                                filter: isHovered ? "brightness(1.2)" : "brightness(0.8)",
-                            }}
-                        >
-                            {typeConfig.icon}
-                        </span>
+                        {entity.photo_path ? (
+                            <img
+                                src={entity.photo_path}
+                                alt={displayName}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                        ) : (
+                            <span className="text-lg">{typeConfig.icon}</span>
+                        )}
                     </div>
 
-                    {/* Nombre y metadata (campos de BBDD) */}
+                    {/* Nombre y metadata */}
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                             <h3 className="text-sm font-semibold text-foreground truncate">
                                 {displayName}
                             </h3>
                             {entity.is_verified && (
-                                <span title="Verificado por el Protocolo">✓</span>
+                                <span title="Verificado" style={{ color: "#D4AF37", fontSize: 11 }}>✓</span>
                             )}
                         </div>
 
-                        {/* Subtítulo: position de la BBDD */}
+                        {/* Cargo */}
                         <p className="text-[10px] text-foreground-muted truncate mt-0.5">
                             {subtitle}
                         </p>
 
-                        {/* Tags de tipo + rango + partido */}
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {/* Badges: solo categoría + partido (sin rank de usuario) */}
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                             <span
                                 className="text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-medium"
                                 style={{
@@ -194,22 +193,13 @@ export default function EntityCard({ entity }: EntityCardProps) {
                             >
                                 {typeConfig.label}
                             </span>
-                            <span
-                                className="text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold"
-                                style={{
-                                    backgroundColor: `${rankStyle.borderColor}20`,
-                                    color: rankStyle.borderColor,
-                                }}
-                            >
-                                {rankStyle.emoji} {rankStyle.label}
-                            </span>
                             {entity.party && (
                                 <span
                                     className="text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider"
                                     style={{
-                                        backgroundColor: "rgba(138, 43, 226, 0.12)",
+                                        backgroundColor: "rgba(138,43,226,0.12)",
                                         color: "#B388FF",
-                                        border: "1px solid rgba(138, 43, 226, 0.2)",
+                                        border: "1px solid rgba(138,43,226,0.2)",
                                     }}
                                 >
                                     {entity.party}

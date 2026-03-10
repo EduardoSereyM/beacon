@@ -308,7 +308,7 @@ export default function AdminEntities() {
             {/* ═══ FORMULARIO MODAL ═══ */}
             {showForm && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center"
+                    className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-6"
                     style={{ background: "rgba(0,0,0,0.85)" }}
                     onClick={() => setShowForm(false)}
                 >

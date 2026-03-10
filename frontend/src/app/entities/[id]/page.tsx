@@ -320,12 +320,22 @@ export default function EntityPage({ params }: EntityPageProps) {
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                         {/* Avatar */}
                         <div
-                            className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0"
+                            className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                             style={{
-                                background: "linear-gradient(135deg, #D4AF37, #f5d374)",
+                                background: entity.photo_path
+                                    ? "transparent"
+                                    : "linear-gradient(135deg, #D4AF37, #f5d374)",
                             }}
                         >
-                            <span className="text-3xl">{typeConfig.icon}</span>
+                            {entity.photo_path ? (
+                                <img
+                                    src={entity.photo_path}
+                                    alt={displayName}
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                            ) : (
+                                <span className="text-3xl">{typeConfig.icon}</span>
+                            )}
                         </div>
 
                         <div className="flex-1">
