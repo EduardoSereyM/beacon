@@ -295,8 +295,6 @@ async def update_profile(
     try:
         result = await update_demographic_profile(
             user_id=current_user["id"],
-            commune=profile_data.commune,
-            region=profile_data.region,
             age_range=profile_data.age_range,
         )
         return result

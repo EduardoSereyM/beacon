@@ -115,7 +115,7 @@ async def admin_create_entity(
     new_entity = result.data[0]
 
     # Auditoría obligatoria
-    audit_bus.log_event(
+    await audit_bus.alog_event(
         actor_id=admin["user_id"],
         action="OVERLORD_ACTION_CREATE_ENTITY",
         entity_type="ENTITY",
@@ -200,7 +200,7 @@ async def admin_update_entity(
         raise HTTPException(status_code=500, detail="Error al actualizar entidad")
 
     # Auditoría forzada con old_data y new_data
-    audit_bus.log_event(
+    await audit_bus.alog_event(
         actor_id=admin["user_id"],
         action="OVERLORD_ACTION_UPDATE_ENTITY",
         entity_type="ENTITY",
@@ -255,7 +255,7 @@ async def admin_delete_entity(
     )
 
     # Auditoría
-    audit_bus.log_event(
+    await audit_bus.alog_event(
         actor_id=admin["user_id"],
         action="OVERLORD_ACTION_DELETE_ENTITY",
         entity_type="ENTITY",
@@ -311,7 +311,7 @@ async def admin_upload_entity_photo(
     # URL pública del objeto
     public_url = await supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
 
-    audit_bus.log_event(
+    await audit_bus.alog_event(
         actor_id=admin["user_id"],
         action="OVERLORD_ACTION_UPLOAD_PHOTO",
         entity_type="STORAGE",

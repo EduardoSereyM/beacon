@@ -51,7 +51,7 @@ async def verify_rut(user_id: str, rut: str) -> dict:
     # ─── Paso 1: Validación del Dígito Verificador ───
     if not validate_rut(rut):
         # Registrar intento fallido en audit
-        audit_bus.log_event(
+        await audit_bus.alog_event(
             actor_id=user_id,
             action="RUT_VALIDATION_FAILED",
             entity_type="USER",
@@ -76,7 +76,7 @@ async def verify_rut(user_id: str, rut: str) -> dict:
 
     if existing.data:
         # Posible intento de multicuenta
-        audit_bus.log_event(
+        await audit_bus.alog_event(
             actor_id=user_id,
             action="RUT_DUPLICATE_ATTEMPT",
             entity_type="USER",
@@ -110,7 +110,7 @@ async def verify_rut(user_id: str, rut: str) -> dict:
 
     if result.data:
         # ─── Paso 5: Registrar Ascensión en Audit Log ───
-        audit_bus.log_event(
+        await audit_bus.alog_event(
             actor_id=user_id,
             action="USER_VERIFIED_RUT",
             entity_type="USER",
@@ -123,7 +123,7 @@ async def verify_rut(user_id: str, rut: str) -> dict:
             },
         )
 
-        audit_bus.log_event(
+        await audit_bus.alog_event(
             actor_id=user_id,
             action="USER_RANK_CHANGED",
             entity_type="USER",
@@ -204,7 +204,7 @@ async def update_demographic_profile(
 
     if result.data:
         # Registrar actualización demográfica en el Audit Log
-        audit_bus.log_event(
+        await audit_bus.alog_event(
             actor_id=user_id,
             action="PROFILE_DEMOGRAPHIC_UPDATED",
             entity_type="USER",
