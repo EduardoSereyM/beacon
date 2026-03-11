@@ -18,6 +18,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useAuthStore } from "@/store";
 
 // ═══════════════════════════════════════════
 //  DATOS GEOGRÁFICOS (Cascada País → Región → Comuna)
@@ -138,6 +139,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+    const { setAuth } = useAuthStore();
     const [mode, setMode] = useState<"login" | "register">("login");
     const [isAnimating, setIsAnimating] = useState(false);
     const [showAdminInterstitial, setShowAdminInterstitial] = useState(false);
@@ -301,6 +303,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 }
 
                 const data = await res.json();
+
+                // Fuente de verdad única: Zustand store con persist (beacon-auth)
+                setAuth(data.access_token, data.user);
+
+                // Retrocompatibilidad: legacy keys que usa admin/layout.tsx y entities/[id]
+                // TODO P3: migrar todos los consumidores a useAuthStore y eliminar estas líneas
                 localStorage.setItem("beacon_token", data.access_token);
                 localStorage.setItem("beacon_user", JSON.stringify(data.user));
 

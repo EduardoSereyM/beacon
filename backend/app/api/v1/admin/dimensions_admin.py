@@ -15,6 +15,7 @@ Endpoints:
 from fastapi import APIRouter, HTTPException, Depends, Query
 
 from app.core.database import get_async_supabase_client
+from app.core.audit_logger import audit_bus
 from app.api.v1.admin.require_admin import require_admin_role
 
 router = APIRouter(prefix="/admin", tags=["Admin — Dimensions"])
@@ -111,11 +112,36 @@ async def admin_delete_dimension(
     admin: dict = Depends(require_admin_role),
 ):
     supabase = get_async_supabase_client()
+
+    # Verificar existencia antes de eliminar (evita 200 fantasma)
+    check = await (
+        supabase.table("evaluation_dimensions")
+        .select("id, category, key, label")
+        .eq("id", dim_id)
+        .execute()
+    )
+    if not check.data:
+        raise HTTPException(status_code=404, detail="Dimensión no encontrada")
+
+    dim_data = check.data[0]
+
     await (
         supabase.table("evaluation_dimensions")
         .delete()
         .eq("id", dim_id)
         .execute()
+    )
+
+    # Audit log: hard delete — trazabilidad obligatoria
+    await audit_bus.alog_event(
+        actor_id=admin.get("id", "SYSTEM"),
+        action="OVERLORD_ACTION_DELETE_DIMENSION",
+        entity_type="DIMENSION",
+        entity_id=dim_id,
+        details={
+            "deleted_data": dim_data,
+            "warning": "HARD_DELETE — no hay soft delete en evaluation_dimensions",
+        },
     )
 
     return {"status": "deleted", "id": dim_id}

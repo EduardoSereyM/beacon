@@ -1,3 +1,3 @@
-// Hooks — useDNACapture, useIntegrity, useSovereignAuth
-// Custom hooks para captura forense y autenticación
-export { };
+// Hooks — Custom hooks para captura forense y autenticación
+export { default as usePermissions } from "./usePermissions";
+export { useEntityPulse } from "./useEntityPulse";
