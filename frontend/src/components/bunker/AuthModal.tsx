@@ -179,6 +179,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const [region, setRegion] = useState("");
     const [commune, setCommune] = useState("");
     const [ageRange, setAgeRange] = useState("");
+    const [birthYear, setBirthYear] = useState("");
 
     // ─── UI State ───
     const [loading, setLoading] = useState(false);
@@ -249,7 +250,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         if (mode === "login") {
             return email.length > 0 && password.length >= 8; // En login no bloqueamos por complejidad para evitar revelar reglas a atacantes en cuentas viejas
         }
-        // Registro: email, nombre, password válida, confirmPassword, región, comuna, rango etario
+        // Registro: email, nombre, password válida, confirmPassword, región, comuna, rango etario, año nacimiento
+        const birthYearNum = parseInt(birthYear, 10);
+        const birthYearValid = birthYear.length === 4 && birthYearNum >= 1920 && birthYearNum <= 2010;
+
         const baseValid =
             email.length > 0 &&
             fullName.length >= 2 &&
@@ -257,13 +261,14 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             confirmPassword === password &&
             region.length > 0 &&
             commune.length > 0 &&
-            ageRange.length > 0;
+            ageRange.length > 0 &&
+            birthYearValid;
 
         // RUT es opcional, pero si se escribe debe ser válido
         if (rutClean.length > 0 && !rutValid) return false;
 
         return baseValid;
-    }, [mode, email, password, confirmPassword, fullName, region, commune, ageRange, rutClean, rutValid, pwdValidations]);
+    }, [mode, email, password, confirmPassword, fullName, region, commune, ageRange, birthYear, rutClean, rutValid, pwdValidations]);
 
     // Timestamp de inicio para DNA Scanner (fill_duration)
     const [formStartTime] = useState(() => performance.now());
@@ -341,9 +346,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         email,
                         full_name: fullName,
                         password,
+                        birth_year: birthYear ? parseInt(birthYear, 10) : undefined,
                         country: country || undefined,
-                        commune: commune || undefined,
                         region: region || undefined,
+                        commune: commune || undefined,
                         age_range: ageRange || undefined,
                     }),
                 });
@@ -738,6 +744,45 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             ))}
                                         </select>
                                     </div>
+                                </div>
+
+                                {/* ─── Año de Nacimiento ─── */}
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                        Año de Nacimiento *
+                                        <span
+                                            className="ml-1 text-[9px] normal-case"
+                                            style={{ color: "#D4AF37" }}
+                                            title="Requerido para verificación de identidad (VERIFIED)"
+                                        >
+                                            🔑 Requerido para VERIFICADO
+                                        </span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        placeholder="ej: 1990"
+                                        value={birthYear}
+                                        onChange={(e) => setBirthYear(e.target.value)}
+                                        min={1920}
+                                        max={2010}
+                                        required
+                                        className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
+                                        style={{
+                                            backgroundColor: "#0F0F0F",
+                                            border: `1px solid ${
+                                                birthYear.length === 4 && parseInt(birthYear) >= 1920 && parseInt(birthYear) <= 2010
+                                                    ? `${CYAN}30`
+                                                    : birthYear.length > 0
+                                                    ? "rgba(255,100,100,0.4)"
+                                                    : "rgba(255,255,255,0.1)"
+                                            }`,
+                                        }}
+                                    />
+                                    {birthYear.length > 0 && (parseInt(birthYear) < 1920 || parseInt(birthYear) > 2010) && (
+                                        <p className="text-[9px] mt-1" style={{ color: "#FF6B6B" }}>
+                                            Ingresa un año entre 1920 y 2010
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* ─── Rango Etario ─── */}

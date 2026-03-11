@@ -83,7 +83,7 @@ async def register(user_in: UserCreate, request: Request):
     Flujo:
       1. Captura de ADN Digital (IP, User-Agent, timing)
       2. Análisis forense del DNA Scanner
-      3. Si pasa el filtro → Registro como BRONZE (score 0.5)
+      3. Si pasa el filtro → Registro como BASIC (score 0.5)
       4. Si es DISPLACED → Rechazo silencioso
     """
     # ─── 1. Captura de ADN Digital ───
@@ -224,7 +224,7 @@ async def login(request: Request):
                 "id": user_db["id"],
                 "email": user_db.get("email", auth_response.user.email),
                 "full_name": full_name,
-                "rank": user_db.get("rank", "BRONZE"),
+                "rank": user_db.get("rank", "BASIC"),
                 "integrity_score": float(user_db.get("integrity_score", 0.5)),
                 "reputation_score": float(user_db.get("reputation_score", 0.5)),
                 "is_verified": user_db.get("is_rut_verified", False),
@@ -235,19 +235,19 @@ async def login(request: Request):
         raise HTTPException(status_code=401, detail=f"Error de autenticación: {str(e)}")
 
 
-@router.post("/verify-identity", summary="Verificar RUT (Ascensión a SILVER)")
+@router.post("/verify-identity", summary="Verificar RUT (Ascensión a VERIFIED)")
 async def verify_identity(
     rut_data: UserVerifyRUT,
     current_user: dict = Depends(get_current_user),
 ):
     """
     El Rito de Paso: el ciudadano entrega su RUT y Beacon
-    lo promueve de BRONZE a SILVER.
+    evalúa si asciende a VERIFIED.
 
-    Requisitos:
-      - Usuario autenticado con JWT
-      - RUT chileno válido (Módulo 11)
-      - RUT no duplicado en el sistema
+    Requisitos para VERIFIED:
+      - RUT chileno válido (Módulo 11) — este endpoint
+      - birth_year + country + region + commune — vía /profile
+      Si todos los campos están presentes → rango VERIFIED automático.
     """
     try:
         result = await verify_rut(current_user["id"], rut_data.rut)
@@ -271,7 +271,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "id": current_user["id"],
         "email": current_user.get("email", current_user.get("_auth_email", "")),
         "full_name": full_name,
-        "rank": current_user.get("rank", "BRONZE"),
+        "rank": current_user.get("rank", "BASIC"),
         "integrity_score": float(current_user.get("integrity_score", 0.5)),
         "reputation_score": float(current_user.get("reputation_score", 0.5)),
         "verification_level": 2 if current_user.get("is_rut_verified") else 1,
@@ -289,13 +289,18 @@ async def update_profile(
     Actualiza los datos demográficos del ciudadano.
     Cada dato entregado:
       - Alimenta la "Mina de Oro" (segmentación B2B)
-      - Aumenta el integrity_score (+0.02 por campo)
-      - Acerca al usuario al rango GOLD
+      - Aumenta el integrity_score (+0.02 por campo relevante)
+      - Puede desencadenar el ascenso automático a VERIFIED si todos los
+        campos están presentes: RUT + birth_year + country + region + commune
     """
     try:
         result = await update_demographic_profile(
             user_id=current_user["id"],
             age_range=profile_data.age_range,
+            birth_year=profile_data.birth_year,
+            country=profile_data.country,
+            region=profile_data.region,
+            commune=profile_data.commune,
         )
         return result
     except Exception as e:

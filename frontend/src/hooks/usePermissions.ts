@@ -4,6 +4,8 @@
  * Lee el rol del usuario desde localStorage y resuelve permisos
  * según la Matriz de Control de Acceso (ACM).
  *
+ * Sistema de rangos v1: BASIC (0.5x) / VERIFIED (1.0x)
+ *
  * La Matriz espejo (frontend) replica la lógica del backend para
  * que la UI se adapte ANTES de hacer llamadas al servidor.
  * El backend SIEMPRE valida de nuevo (defensa en profundidad).
@@ -16,7 +18,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // ─── Tipos ───
-type Role = "ANONYMOUS" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+type Role = "ANONYMOUS" | "BASIC" | "VERIFIED";
 
 interface UserState {
     id: string | null;
@@ -53,6 +55,7 @@ interface PermissionsResult {
     voting: VotingConfig;
     isAuthenticated: boolean;
     isVerified: boolean;
+    isBasic: boolean;
     isAdmin: boolean;
     shouldTriggerAuthModal: boolean;
     openAuthModal: () => void;
@@ -74,37 +77,31 @@ const ACM_PERMISSIONS: Record<Role, Partial<Permissions>> = {
         propose_dynamic_sliders: false,
         priority_audit: false,
     },
-    BRONZE: {
+    BASIC: {
         evaluate: true,
         view_own_impact: true,
         edit_own_verdict: true,
     },
-    SILVER: {
+    VERIFIED: {
         verified_badge: true,
         view_advanced_metrics: true,
         view_integrity_stats: true,
-    },
-    GOLD: {
         propose_dynamic_sliders: true,
         priority_audit: true,
     },
-    DIAMOND: {},
 };
 
+// Pesos reflejan config_params del backend (VOTE_WEIGHT_BASIC=0.5, VOTE_WEIGHT_VERIFIED=1.0)
 const ACM_VOTING: Record<Role, VotingConfig> = {
     ANONYMOUS: { base_weight: 0.0, territorial_bonus_eligible: false },
-    BRONZE: { base_weight: 1.0, territorial_bonus_eligible: true },
-    SILVER: { base_weight: 1.5, territorial_bonus_eligible: true },
-    GOLD: { base_weight: 2.5, territorial_bonus_eligible: true },
-    DIAMOND: { base_weight: 5.0, territorial_bonus_eligible: true },
+    BASIC:     { base_weight: 0.5, territorial_bonus_eligible: true },
+    VERIFIED:  { base_weight: 1.0, territorial_bonus_eligible: true },
 };
 
 const INHERITANCE_CHAIN: Record<Role, Role | null> = {
     ANONYMOUS: null,
-    BRONZE: "ANONYMOUS",
-    SILVER: "BRONZE",
-    GOLD: "SILVER",
-    DIAMOND: "GOLD",
+    BASIC:     "ANONYMOUS",
+    VERIFIED:  "BASIC",
 };
 
 /** Resuelve permisos con herencia */
@@ -123,7 +120,7 @@ function resolvePermissions(role: Role): Permissions {
         priority_audit: false,
     };
 
-    // Construir cadena de herencia
+    // Construir cadena de herencia ANONYMOUS → BASIC → VERIFIED
     const chain: Role[] = [];
     let current: Role | null = role;
     while (current) {
@@ -131,13 +128,27 @@ function resolvePermissions(role: Role): Permissions {
         current = INHERITANCE_CHAIN[current];
     }
 
-    // Aplicar permisos en orden (ANONYMOUS → BRONZE → ... → role)
+    // Aplicar permisos en orden
     for (const r of chain) {
         const overrides = ACM_PERMISSIONS[r];
         Object.assign(base, overrides);
     }
 
     return base;
+}
+
+// ─── Helper: normalizar rank legacy → v1 ──────────────────────────────
+// Protección de compatibilidad: si el backend devuelve un rank del sistema
+// de 4 rangos (BRONZE/SILVER/GOLD/DIAMOND), lo mapea al sistema v1.
+function normalizeRank(raw: string | null | undefined): Role {
+    if (!raw) return "ANONYMOUS";
+    const upper = raw.toUpperCase();
+    if (upper === "VERIFIED") return "VERIFIED";
+    if (upper === "BASIC")    return "BASIC";
+    // Legacy mapping (en transición)
+    if (upper === "SILVER" || upper === "GOLD" || upper === "DIAMOND") return "VERIFIED";
+    if (upper === "BRONZE") return "BASIC";
+    return "ANONYMOUS";
 }
 
 // ─── Hook principal ───
@@ -161,12 +172,11 @@ export default function usePermissions(): PermissionsResult {
             const stored = localStorage.getItem("beacon_user");
             if (stored) {
                 const parsed = JSON.parse(stored);
-                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setUser({
                     id: parsed.id || null,
                     email: parsed.email || null,
                     full_name: parsed.full_name || null,
-                    rank: (parsed.rank as Role) || "BRONZE",
+                    rank: normalizeRank(parsed.rank),
                     role: parsed.role || "user",
                     is_verified: parsed.is_verified || false,
                     integrity_score: parsed.integrity_score || 0.5,
@@ -187,13 +197,12 @@ export default function usePermissions(): PermissionsResult {
                         id: parsed.id,
                         email: parsed.email,
                         full_name: parsed.full_name,
-                        rank: parsed.rank || "BRONZE",
+                        rank: normalizeRank(parsed.rank),
                         role: parsed.role || "user",
                         is_verified: parsed.is_verified || false,
                         integrity_score: parsed.integrity_score || 0.5,
                     });
                 } else {
-                    // Logout en otra pestaña
                     setUser({
                         id: null, email: null, full_name: null,
                         rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
@@ -209,12 +218,12 @@ export default function usePermissions(): PermissionsResult {
     const voting = useMemo(() => ACM_VOTING[user.rank], [user.rank]);
 
     const isAuthenticated = user.id !== null;
-    const isVerified = user.is_verified;
+    const isVerified = user.rank === "VERIFIED";
+    const isBasic = user.rank === "BASIC";
     const isAdmin = user.role === "admin";
 
     const openAuthModal = useCallback(() => {
         setAuthModalRequested(true);
-        // Disparar evento custom para que NavbarClient abra el modal
         window.dispatchEvent(new CustomEvent("beacon:open-auth-modal"));
     }, []);
 
@@ -233,6 +242,7 @@ export default function usePermissions(): PermissionsResult {
         voting,
         isAuthenticated,
         isVerified,
+        isBasic,
         isAdmin,
         shouldTriggerAuthModal: !isAuthenticated,
         openAuthModal,
