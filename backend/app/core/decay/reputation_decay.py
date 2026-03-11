@@ -31,7 +31,6 @@ Seguridad:
 import math
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 logger = logging.getLogger("beacon.decay")
 

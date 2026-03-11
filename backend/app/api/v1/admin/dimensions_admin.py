@@ -13,7 +13,6 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
-from datetime import datetime
 
 from app.core.database import get_async_supabase_client
 from app.api.v1.admin.require_admin import require_admin_role
@@ -112,7 +111,7 @@ async def admin_delete_dimension(
     admin: dict = Depends(require_admin_role),
 ):
     supabase = get_async_supabase_client()
-    result = await (
+    await (
         supabase.table("evaluation_dimensions")
         .delete()
         .eq("id", dim_id)
