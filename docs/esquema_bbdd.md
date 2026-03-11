@@ -1,6 +1,6 @@
 # Esquema de Base de Datos — BEACON Protocol
 
-> **Baseline generado:** 2026-03-11 (desde migraciones SQL del repositorio)
+> **Baseline generado:** 2026-03-11 · **Última actualización:** 2026-03-11 (migrations 012 y 013 aplicadas)
 > **Para obtener el esquema REAL de Supabase:**
 > ```bash
 > cd backend
@@ -87,6 +87,7 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
         timestamptz deleted_at
+        timestamptz last_reviewed_at "migration 013 — usado por decay job"
     }
 
     ENTITY_REVIEWS {
@@ -273,11 +274,11 @@ _Panel de control del Overlord — Configuración dinámica del búnker._
 |-----|-------|-------------|
 | `SECURITY_LEVEL` | `GREEN` | Nivel global: GREEN, YELLOW, RED |
 | `CAPTCHA_THRESHOLD` | `0.01` | % de requests que reciben CAPTCHA en modo GREEN |
-| `VOTE_WEIGHT_BRONZE` | `1.0` | Multiplicador de voto — **no implementado** en código |
-| `VOTE_WEIGHT_SILVER` | `1.5` | Multiplicador de voto — **no implementado** en código |
-| `VOTE_WEIGHT_GOLD` | `2.5` | Multiplicador de voto — **no implementado** en código |
-| `VOTE_WEIGHT_DIAMOND` | `5.0` | Multiplicador de voto — **no implementado** en código |
-| `DECAY_HALF_LIFE_DAYS` | `180` | Vida media del decaimiento temporal — **no implementado** |
+| `VOTE_WEIGHT_BRONZE` | `1.0` | Multiplicador de voto — ✅ implementado en `votes.py` (PR-1, 2026-03-10) |
+| `VOTE_WEIGHT_SILVER` | `1.5` | Multiplicador de voto — ✅ implementado en `votes.py` (PR-1, 2026-03-10) |
+| `VOTE_WEIGHT_GOLD` | `2.5` | Multiplicador de voto — ✅ implementado en `votes.py` (PR-1, 2026-03-10) |
+| `VOTE_WEIGHT_DIAMOND` | `5.0` | Multiplicador de voto — ✅ implementado en `votes.py` (PR-1, 2026-03-10) |
+| `DECAY_HALF_LIFE_DAYS` | `180` | Vida media del decaimiento — ✅ implementado en `reputation_decay.py` (PR-12, 2026-03-10) |
 | `PROBATION_DAYS` | `30` | Días de cuarentena para cuentas nuevas — **no implementado** |
 | `MAX_VOTES_PER_HOUR` | `20` | Máximo votos/hora/usuario — **no implementado** |
 | `SHADOW_BAN_THRESHOLD` | `0.2` | integrity_score mínimo — **no implementado** |
@@ -316,6 +317,7 @@ _Super-Tabla multiclase: PERSON, COMPANY, EVENT, POLL. Cada fila es un activo ev
 | 20 | `created_at` | `TIMESTAMPTZ` | NULL | `now()` | — |
 | 21 | `updated_at` | `TIMESTAMPTZ` | NULL | `now()` | — |
 | 22 | `deleted_at` | `TIMESTAMPTZ` | NULL | — | Fecha de soft delete |
+| 23 | `last_reviewed_at` | `TIMESTAMPTZ` | NULL | — | Timestamp del último voto recibido — usado por el decay job (migration 013) |
 
 > **Deuda técnica — Schema duality:** Migration 002 define la tabla con `name TEXT NOT NULL UNIQUE` y `metadata JSONB`, pero el backend real usa `first_name`, `last_name`, `category`, `position`, etc. como columnas individuales. Estas columnas NO aparecen en migration 002. Migration 005 solo agrega `party`. Las columnas `first_name`, `last_name`, `second_last_name`, `category`, `position`, `district`, `bio`, `photo_path`, `official_links`, `deleted_at`, `updated_by` fueron agregadas sin migración documentada en el repositorio.
 
@@ -493,7 +495,7 @@ Bucket `imagenes`: almacena fotos de entidades bajo el path `entities/{uuid}.{ex
 
 | # | Brecha | Impacto | Referencia |
 |---|--------|---------|------------|
-| 1 | Columnas `first_name`, `last_name`, `category`, `position`, `district`, `bio`, `photo_path`, `official_links`, `deleted_at`, `updated_by` en `entities` no aparecen en ninguna migración del repo | ALTA — el schema real de producción diverge de lo documentado | migrations/002, 005 |
+| 1 | Columnas `first_name`, `last_name`, `category`, `position`, `district`, `bio`, `photo_path`, `official_links`, `deleted_at`, `updated_by` en `entities` — documentadas en migration 012 (`ADD COLUMN IF NOT EXISTS`). Aplicada en producción (2026-03-10). | RESUELTA ✅ | migrations/012 |
 | 2 | Columnas `first_name`, `last_name`, `role`, `is_rut_verified`, `age_range` en `users` no están en migration 001 | ALTA — misma causa | migrations/001, 004 |
 | 3 | Migration 001 usa `audit_logs.id BIGSERIAL`; migration 011 redefine como `UUID` | MEDIA — riesgo de inconsistencia si las migraciones se aplicaron parcialmente | migrations/001, 011 |
 | 4 | `entity_type_enum` definido en migration 002 pero el backend usa `category TEXT` con CHECK | BAJA — el ENUM puede estar en la BBDD sin ser usado | migrations/002 |
@@ -508,7 +510,7 @@ Bucket `imagenes`: almacena fotos de entidades bajo el path `entities/{uuid}.{ex
 | Schemas documentados | 3 (`public`, `auth`, `storage`) |
 | Tablas en `public` | 6 |
 | Tablas en `auth` (Supabase) | ~15 (gestionadas internamente) |
-| Columnas en `public` | ~70 |
+| Columnas en `public` | ~71 |
 | Constraints | ~25 |
 | Índices en `public` | ~25 |
 | Políticas RLS | ~10 |

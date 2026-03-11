@@ -1,7 +1,7 @@
 # 🛡️ BEACON PROTOCOL — Guía de Desarrollo Local
 
 > **Mantra:** _"Lo que no es íntegro, no existe."_
-> **Estado:** Fase 2 — 90% completado · Producción activa en [www.beaconchile.cl](https://www.beaconchile.cl)
+> **Estado:** Fase 2 — ✅ COMPLETADA · Producción activa en [www.beaconchile.cl](https://www.beaconchile.cl)
 
 ---
 
@@ -103,21 +103,24 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
 | GET | `/entities` | — | Lista paginada de entidades |
 | GET | `/entities/filters` | — | DISTINCT de region y party |
 | GET | `/entities/{id}` | — | Detalle de entidad |
-| POST | `/entities/{id}/vote` | ✅ JWT | Emitir veredicto Bayesiano |
-| GET | `/realtime/pulse` | — | Pulse de actualizaciones |
+| POST | `/entities/{id}/vote` | ✅ JWT | Veredicto Bayesiano ponderado por rango |
+| WS | `/realtime/pulse/{id}` | — | WebSocket tiempo real |
+| GET | `/user/auth/me` | ✅ JWT | Perfil del ciudadano |
+| PUT | `/user/auth/profile` | ✅ JWT | Datos demográficos |
+| GET | `/admin/*` | ✅ Admin | Panel Overlord (entities, stats, aum, audit, decay) |
 
 ### Parámetros de `/entities`
 
 ```
-?category=politico|empresario|periodista|...
+?category=politico|empresario|periodista|empresa|evento
 &region=RM|...
 &party=...
 &search=nombre
-&limit=9          (default)
+&limit=50          (default, max 200)
 &offset=0
 ```
 
-> ⚠️ **Pendiente:** Sort por `reputation_score DESC`. Actualmente ordena por `updated_at`.
+Sort: `reputation_score DESC` (PR fix ya aplicado).
 
 ---
 
@@ -140,10 +143,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
 ### Tablas principales
 
 ```
-entities          → Personajes públicos (reputation_score, total_reviews, is_active)
-profiles          → Perfil de usuario BEACON (rut_hash, rank, region, commune, age_range)
+entities          → Personajes públicos (reputation_score, total_reviews, last_reviewed_at, is_active)
+users             → Ciudadanos (rut_hash, rank, integrity_score, is_shadow_banned)
+entity_reviews    → Veredictos emitidos (UNIQUE entity_id+user_id → anti-brigada)
+evaluation_dimensions → Dimensiones de evaluación por categoría
 audit_logs        → Trazabilidad forense inmutable (append-only)
-geography_cl      → Regiones y comunas de Chile
+config_params     → Configuración dinámica (VOTE_WEIGHT_*, DECAY_HALF_LIFE_DAYS)
 ```
 
 ### Sistema de Rangos
@@ -152,14 +157,24 @@ geography_cl      → Regiones y comunas de Chile
 ANONYMOUS → BRONZE (registro) → SILVER (verificación RUT SMS) → GOLD → DIAMOND
 ```
 
-### Fórmula Bayesiana de Reputación
+### Fórmula Bayesiana de Reputación (con pesos por rango — PR-1 ✅)
 
 ```
-score = (m·C + Σ_votos) / (m + n)
+vote_weighted = vote_avg × VOTE_WEIGHT_{rank}   ← Leído de config_params
+score = (m·C + Σ_votos_ponderados) / (m + n)
   m = 30   → Peso del prior (protege contra brigadas en entidades nuevas)
   C = 3.0  → Media neutral del prior
   n = total de votos recibidos
 ```
+
+### Fórmula de Decay Temporal (PR-12 ✅)
+
+```
+new_score = C + (old_score − C) × exp(−ln(2) × elapsed_days / half_life)
+  C = 3.0 (prior) · half_life = config_params.DECAY_HALF_LIFE_DAYS (default 180d)
+```
+
+Cron recomendado: `0 3 * * * python scripts/run_decay.py`
 
 ---
 
@@ -169,15 +184,19 @@ score = (m·C + Σ_votos) / (m + n)
 backend/
   app/
     api/v1/
-      endpoints/        → entities.py, votes.py, realtime.py
+      endpoints/        → entities.py, votes.py, realtime.py, dimensions.py
       user/             → auth.py
-      admin/            → entities_admin.py, aum_endpoint.py
+      admin/            → entities_admin.py, aum_endpoint.py, stats_endpoint.py,
+                          audit_endpoint.py, dimensions_admin.py, decay_endpoint.py
     core/
       security/         → dna_scanner.py, panic_gate_extreme.py, stealth_ban.py
       valuation/        → user_asset_calculator.py
+      decay/            → reputation_decay.py (PR-12)
     forensics/
       displaced/        → shadow logs de bots
     services/           → auth_service.py, identity_service.py
+  migrations/           → 008 al 013 (aplicadas en producción)
+  scripts/              → run_decay.py (cron ejecutable)
 
 frontend/
   src/
@@ -193,54 +212,66 @@ frontend/
 
 ---
 
-## ✅ Hecho (esta sesión)
+## ✅ Hecho — Historial completo
 
-- [x] **Home SSR + ISR**: `page.tsx` convertido a Server Component con `revalidate = 60`
-- [x] **CORS fix producción**: `CORS_ORIGINS` actualizado en Render Dashboard para `www.beaconchile.cl`
-- [x] **Endpoint de votos**: `POST /entities/{id}/vote` con fórmula Bayesiana (m=30, C=3.0)
-- [x] **VerdictButton funcional**: estados `idle → loading → voted | error` + feedback visual por rango
-- [x] **Estado de sliders levantado**: `onValuesChange` callback → padre recoge valores y llama API
-- [x] **Navbar refinado**: separador `|` + texto usuario más grande + borde en badge de rango
-- [x] **"Generar Reporte" eliminado**: era stub sin backend
-- [x] **Revisión completa del proyecto** (`2026-03-09`): estado de fases, endpoints, componentes, deudas técnicas relevadas y documentadas
-- [x] **Confirmación de email** (`2026-03-09`): `sign_up()` con `email_redirect_to`, página `/auth/callback`, endpoint `/confirm-email`, template HTML de email con marca BEACON
+### Sprint 2026-03-09 (Fase 2 base)
+- [x] **Home SSR + ISR**: `page.tsx` Server Component con `revalidate = 60`
+- [x] **CORS producción**: `CORS_ORIGINS` en Render Dashboard para `www.beaconchile.cl`
+- [x] **Votación Bayesiana básica**: `POST /entities/{id}/vote` (m=30, C=3.0)
+- [x] **VerdictButton**: estados `idle → loading → voted | error`
+- [x] **Anti-brigada**: `entity_reviews` UNIQUE(entity_id, user_id)
+- [x] **reputation_score/total_reviews** reales desde DB en `/entities`
+- [x] **Sort `reputation_score DESC`** en listado
+- [x] **Confirmación de email**: `sign_up()` real + `/auth/callback` + template HTML
+- [x] **Navbar**: badge rango + email + separador + Salir
+
+### Sprint 2026-03-10/11 — Blindaje P0+P1+P2 (commits `7c36282`, `6fead90`, `249bd6f`, `78dc9dd`, `512eb25`)
+- [x] **PR-1** `votes.py`: `VOTE_WEIGHT_{rank}` leído de `config_params` — meritocracia real
+- [x] **PR-2** `votes.py`: `publish_verdict_pulse` via `background_tasks` — WebSocket activo
+- [x] **PR-3** `auth.py`: fix `TypeError` en `update_demographic_profile` callsite
+- [x] **PR-4** `audit_logger.py`: `alog_event()` async — 9 call sites actualizados
+- [x] **PR-5** `entities.py`: `is_verified`/`rank` hardcoding eliminado
+- [x] **PR-6** `aum_endpoint.py`: sin demo data — 503 si Supabase falla
+- [x] **PR-7** `stats_endpoint.py`: `COUNT` SQL — cero filas traídas a Python
+- [x] **PR-8** `database.py`: `AsyncClient` singleton
+- [x] **PR-9** `migrations/012`: columnas reales de `entities` documentadas (aplicada ✅)
+- [x] **PR-10** `main.py`: `lifespan` reemplaza `@on_event` deprecado
+- [x] **PR-11** `vote_engine.py`: anotado como ROADMAP P3 (no eliminado — 13 tests)
+- [x] **PR-12**: Decay job completo (`reputation_decay.py`, `decay_endpoint.py`, `run_decay.py`, `migration 013` aplicada ✅)
+- [x] **Lint fix**: `Optional` y `datetime` unused imports eliminados (ruff CI verde)
 
 ---
 
 ## 🔲 Pendientes (en orden de prioridad)
 
 ### P3 — VS/Versus
-- Backend: `GET /api/v1/versus` (lista eventos) + `POST /api/v1/versus/{id}/vote`
+- Backend: `GET /api/v1/versus` + `POST /api/v1/versus/{id}/vote`
 - Tabla: `event_votes` (votos de evento — NO afectan `reputation_score` permanente)
 - Frontend: `/versus` — UI head-to-head, dos entidades lado a lado
 
 ### P4 — Páginas de Sección con Filtros
-- `/politicos`, `/empresas`, `/periodistas` — cada una con filtros propios
-- Ordenar `/entities` por `reputation_score DESC` (actualmente: `updated_at`)
+- `/politicos`, `/empresas`, `/periodistas` — filtros propios por región/partido
 
 ### P5 — Verificación RUT (BRONZE → SILVER)
-- `POST /api/v1/user/auth/verify-identity`
-- Frontend: flujo de upgrade de rango en perfil
+- `POST /api/v1/user/auth/verify-identity` ya existe — falta el formulario en el perfil del usuario
 
 ### Recovery Flow
-- "Olvidé mi contraseña" → tokens firmados por email + audit_log
-
-### Anti-Brigada (Rate Limiting en Votos)
-- Tabla `entity_reviews`: un voto por usuario por entidad (prevenir doble voto)
-- Rate limiting: mínimo 3s entre votos
-
-### Deuda Técnica
-- `identity_service.py`: columnas viejas (`commune`, `region` como text) → migrar a `comuna_id` FK
-- `create_admin.py` / `create_test_users.py`: referencian `hashed_password` (columna eliminada)
-- Sort en `/entities` por `reputation_score DESC`
-- `entities.py`: `reputation_score` y `total_reviews` hardcodeados a 0 — no lee desde DB
+- "Olvidé mi contraseña" → tokens firmados por email + audit_log (P6)
 
 ### P6 — Scraping & Enrichment de Entidades
 - `scrapers/` vacío (solo README) → implementar scripts con Playwright
-- **Fuentes objetivo**: Cámara de Diputados, Senado, BCN, Wikipedia, LinkedIn, redes sociales
-- **Campos a completar**: `photo_path`, `bio`, `official_links`, `district`, `position`, `party`
-- Cada dato debe incluir `source_url` + `last_scraped_at` (Directives 2026)
-- Ver estrategia detallada en `ROADMAP_LOG.md` → Sección P6
+- Fuentes: Cámara, Senado, BCN, Wikipedia
+- Campos: `photo_path`, `bio`, `official_links`, `district`, `position`, `party`
+
+### Deuda Técnica pendiente
+| ID | Problema | Severidad |
+|----|---------|-----------|
+| DT-4 | `dimensions_admin.py` DELETE sin audit log ni verificación de existencia | 🔴 ALTA |
+| DT-8 | `get_supabase_client()` sync usado en `audit_logger.py` (`.client` property) | 🟡 MEDIA |
+| DT-10 | `commune`/`region` como TEXT libre, sin FK a `geography_cl` | 🟡 MEDIA |
+| DT-11 | `scripts/create_admin.py` referencia `hashed_password` eliminada | 🟡 MEDIA |
+| DT-12 | `vote_engine.py` — planificado P3, 13 tests, anotado como ROADMAP | 🟢 BAJA |
+| DT-14/15 | Frontend: `index.ts` vacíos + dual auth `localStorage`/`Zustand` | 🟢 BAJA |
 
 ---
 
@@ -250,11 +281,19 @@ frontend/
 |---|---|
 | `backend/app/main.py` | Entry point FastAPI + registro de routers |
 | `backend/app/core/config.py` | Settings Pydantic (lee .env) · incluye `FRONTEND_URL` |
-| `backend/app/api/v1/endpoints/votes.py` | Endpoint Bayesiano de votación |
-| `backend/app/api/v1/endpoints/entities.py` | CRUD entidades + filtros |
-| `backend/app/api/v1/user/auth.py` | Login / Registro / Confirm-email / JWT |
+| `backend/app/main.py` | Entry point + lifespan (singleton init) |
+| `backend/app/core/database.py` | AsyncClient singleton (PR-8) |
+| `backend/app/core/audit_logger.py` | `alog_event()` async (PR-4) |
+| `backend/app/api/v1/endpoints/votes.py` | Votación Bayesiana + peso por rango + WebSocket pulse (PR-1, PR-2) |
+| `backend/app/api/v1/endpoints/entities.py` | Listado + filtros + detalle (PR-5) |
+| `backend/app/api/v1/user/auth.py` | Login / Registro / Confirm-email / JWT (PR-3) |
+| `backend/app/core/decay/reputation_decay.py` | Decay job + fórmula (PR-12) |
+| `backend/app/api/v1/admin/decay_endpoint.py` | GET /admin/decay/preview · POST /admin/decay/run |
 | `backend/app/core/security/dna_scanner.py` | Gatekeeper HUMAN/SUSPICIOUS/DISPLACED |
 | `backend/app/core/security/access_control_matrix.py` | ACM con herencia recursiva |
+| `backend/scripts/run_decay.py` | Cron ejecutable para decay diario |
+| `backend/migrations/012_*.sql` | Columnas reales de entities (aplicada) |
+| `backend/migrations/013_*.sql` | `last_reviewed_at` para decay (aplicada) |
 | `frontend/src/app/auth/callback/page.tsx` | Receptor del token de confirmación de email |
 | `frontend/src/app/page.tsx` | Home Server Component (ISR 60s) |
 | `frontend/src/app/entities/[id]/page.tsx` | Detalle de entidad + votación |
@@ -264,10 +303,12 @@ frontend/
 | `frontend/src/hooks/usePermissions.ts` | ACM espejo frontend |
 | `frontend/vercel.json` | API URL hardcodeada para producción |
 | `ROADMAP_LOG.md` | Registro oficial de hitos y pendientes |
+| `docs/apis.md` | Contratos de todos los endpoints (26+) |
+| `docs/esquema_bbdd.md` | Schema completo de la BBDD |
 
 ---
 
 <sub>
-Actualizado: `2026-03-09` · Commits: `223bafd` (Home ISR) · `7e15a4e` (Votes + Navbar) · `2544971` (Email Confirmation) · Revisión completa 2026-03-09
+Actualizado: `2026-03-11` · Commits relevantes: `223bafd` · `7e15a4e` · `2544971` · `7c36282` · `6fead90` · `249bd6f` · `78dc9dd` · `512eb25`
 _"Lo que vale, brilla. Lo que no, desaparece."_
 </sub>

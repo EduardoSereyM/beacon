@@ -165,6 +165,63 @@
 
 ---
 
+## ✅ Sprint 2026-03-10/11 — Blindaje Total (P0 + P1 + P2)
+
+> **Commits:** `7c36282` (P0) · `6fead90` (P1) · `249bd6f` (P2) · `78dc9dd` (merge) · `512eb25` (lint)
+> **Migraciones aplicadas en producción:** `012`, `013`
+
+### P0 — 6 bugs críticos resueltos
+
+| PR | Archivo | Fix |
+|----|---------|-----|
+| PR-1 | `votes.py` | Lee `VOTE_WEIGHT_{rank}` desde `config_params`. La meritocracia es real. Fallback a `1.0` si Redis/DB no responde |
+| PR-2 | `votes.py` | `background_tasks.add_task(publish_verdict_pulse, ...)` tras UPDATE exitoso. WebSockets reciben datos |
+| PR-3 | `auth.py` | Eliminados `commune=` y `region=` del callsite. `PUT /profile` ya no lanza `TypeError` al 100% de las llamadas |
+| PR-4 | `audit_logger.py` | `alog_event()` convertido a `async` — ya no bloquea el event loop. 9 call sites actualizados en `entities_admin.py` e `identity_service.py` |
+| PR-5 | `entities.py` | Eliminados `"is_verified": True` y `"rank": "BRONZE"` hardcodeados en `list_entities` y `get_entity` |
+| PR-9 | `migrations/012_*.sql` | `ADD COLUMN IF NOT EXISTS` para todas las columnas reales de `entities`. Idempotente |
+
+### P1 — Demo data, performance y arquitectura
+
+| PR | Archivo | Fix |
+|----|---------|-----|
+| PR-6 | `aum_endpoint.py` | Sin demo data. Retorna 503 si Supabase falla. Response incluye `source: "SUPABASE_LIVE"` |
+| PR-7 | `stats_endpoint.py` | `entity_reviews` usa `count="exact"` + `limit(0)` → PostgREST retorna solo el COUNT. Cero filas traídas a Python |
+| PR-8 | `database.py` | `AsyncClient` singleton — `get_async_supabase_client()` reutiliza la misma instancia. `init_async_client()` para startup explícito |
+| PR-10 | `main.py` | `@app.on_event` eliminado. `lifespan` context manager gestiona startup/shutdown. Inicializa el singleton en arranque |
+
+### P2 — Decay temporal y roadmap
+
+| PR | Archivos | Detalle |
+|----|---------|---------|
+| PR-11 | `vote_engine.py` | No eliminado — tiene 13 tests + shadow mode + bonus territorial. Anotado como ROADMAP P3 |
+| PR-12 | 5 archivos nuevos | Decay job completo (ver tabla abajo) |
+
+**Componentes del PR-12 (Decay):**
+
+```
+backend/
+├── migrations/013_add_last_reviewed_at_to_entities.sql
+│   └── ADD COLUMN last_reviewed_at + índice para el job
+├── app/core/decay/reputation_decay.py
+│   └── compute_decayed_score() + ReputationDecayJob (dry_run, batch, audit)
+├── app/api/v1/admin/decay_endpoint.py
+│   ├── GET  /admin/decay/preview  → dry-run visual
+│   └── POST /admin/decay/run      → aplica decay
+└── scripts/run_decay.py
+    └── Ejecutable cron: 0 3 * * * python scripts/run_decay.py
+```
+
+**Fórmula de decay:**
+```
+new_score = C + (old_score − C) × e^(−ln2 × elapsed_days / half_life)
+C = 3.0 (prior Bayesiano) · half_life = DECAY_HALF_LIFE_DAYS (config_params, default 180d)
+```
+
+A los 180 días: un 5.0 decae a 4.0. A los 360 días: a 3.5. Converge a 3.0 (neutral perpetuo).
+
+---
+
 ## 🔲 Pendientes Críticos — Fase 2 (Cierre MVP)
 
 ### P3 — VS/Versus
