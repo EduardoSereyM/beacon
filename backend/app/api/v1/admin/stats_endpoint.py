@@ -28,26 +28,29 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
     import asyncio
     supabase = get_async_supabase_client()
 
-    # ── Consultas paralelas (solo las que no pueden fallar) ─────────────────
+    # ── Consultas paralelas ───────────────────────────────────────────────────
+    # entity_reviews: solo COUNT via PostgREST (count="exact" + limit 0).
+    # users: columnas mínimas para métricas (rank, is_shadow_banned).
+    # entities: columnas mínimas para top-5 y desgloses por categoría.
     (
         entities_all,
         users_all,
-        votes_all,
+        votes_count_result,
     ) = await asyncio.gather(
         supabase.table("entities").select(
             "id, first_name, last_name, category, is_active, reputation_score, total_reviews, photo_path"
         ).execute(),
         supabase.table("users").select(
-            "id, rank, is_shadow_banned, created_at"
+            "rank, is_shadow_banned"
         ).execute(),
         supabase.table("entity_reviews").select(
-            "id, created_at"
-        ).execute(),
+            "*", count="exact"
+        ).limit(0).execute(),
     )
 
-    entities = entities_all.data or []
-    users    = users_all.data    or []
-    votes    = votes_all.data    or []
+    entities    = entities_all.data or []
+    users       = users_all.data    or []
+    total_votes = votes_count_result.count or 0
 
     # ── Audit logs: columnas reales del audit_logger ─────────────────────────
     # Columnas: actor_id, action, entity_type, entity_id, details, created_at
@@ -124,7 +127,7 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
         "active_entities":   len(active_entities),
         "inactive_entities": len(inactive_entities),
         "total_users":       len(users),
-        "total_votes":       len(votes),
+        "total_votes":       total_votes,
         "shadow_banned":     shadow_banned,
 
         # Desgloses
