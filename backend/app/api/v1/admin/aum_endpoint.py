@@ -6,10 +6,15 @@ Endpoints exclusivos para el administrador del sistema.
 /admin/aum → Valor total de la red (Assets Under Management)
 """
 
-from fastapi import APIRouter, Depends
+import logging
 
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.core.database import get_async_supabase_client
 from app.core.valuation.user_asset_calculator import asset_calculator
 from app.api.v1.admin.require_admin import require_admin_role
+
+logger = logging.getLogger("beacon.admin.aum")
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -19,42 +24,33 @@ async def get_total_aum(admin: dict = Depends(require_admin_role)):
     """
     Assets Under Management — Valor total de la red Beacon.
 
-    Lee todos los usuarios de Supabase y calcula el valor
-    total de la plataforma usando el UserAssetCalculator.
-
-    Para el MVP, usa datos de demostración.
-    En producción, se conectará a la tabla 'users' de Supabase.
+    Lee los usuarios de Supabase y calcula el valor total de la plataforma
+    usando el UserAssetCalculator. Retorna 503 si la BBDD no está disponible.
     """
     try:
-        from app.core.database import get_async_supabase_client
         supabase = get_async_supabase_client()
-
         result = await supabase.table("users").select(
             "id, rank, integrity_score, commune, age_range, region, rut_hash"
         ).execute()
+    except Exception as e:
+        logger.error(f"Error consultando users para AUM: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de valuación temporalmente no disponible. Intenta nuevamente.",
+        )
 
-        if result.data:
-            aum = asset_calculator.calculate_total_platform_value(result.data)
-            return {
-                "status": "success",
-                "data": aum,
-                "source": "SUPABASE_LIVE",
-            }
+    if not result.data:
+        return {
+            "status": "success",
+            "data": asset_calculator.calculate_total_platform_value([]),
+            "source": "SUPABASE_LIVE",
+            "total_users": 0,
+        }
 
-    except Exception:
-        pass
-
-    # Fallback: datos de demostración para el MVP
-    demo_users = [
-        {"rank": "BRONZE", "integrity_score": 0.6},
-        {"rank": "SILVER", "integrity_score": 0.8, "commune": "Valparaíso", "rut_hash": "abc123"},
-        {"rank": "GOLD", "integrity_score": 0.95, "commune": "Santiago", "age_range": "30-40", "rut_hash": "def456"},
-        {"rank": "DIAMOND", "integrity_score": 1.0, "commune": "Viña del Mar", "age_range": "40-50", "region": "Valparaíso", "rut_hash": "ghi789"},
-    ]
-
-    aum = asset_calculator.calculate_total_platform_value(demo_users)
+    aum = asset_calculator.calculate_total_platform_value(result.data)
     return {
         "status": "success",
         "data": aum,
-        "source": "DEMO_DATA",
+        "source": "SUPABASE_LIVE",
+        "total_users": len(result.data),
     }

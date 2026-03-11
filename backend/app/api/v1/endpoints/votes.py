@@ -10,6 +10,8 @@ Fórmula Bayesiana: score = (m·C + Σ_votos) / (m + n)
 "El peso de tu voto depende del peso de tu integridad."
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, field_validator
 from typing import Dict
@@ -17,6 +19,7 @@ import logging
 
 from app.core.database import get_async_supabase_client
 from app.api.v1.user.auth import get_current_user
+from app.api.v1.endpoints.realtime import publish_verdict_pulse
 from app.core.audit_logger import audit_bus
 
 logger = logging.getLogger("beacon.votes")
@@ -100,7 +103,27 @@ async def submit_vote(
     # 2. Promedio del veredicto multidimensional
     vote_avg = sum(payload.scores.values()) / len(payload.scores)
 
-    # 3. Fórmula Bayesiana incremental
+    # 2b. Peso del voto según rango del ciudadano (Meritocracia)
+    user_rank = current_user.get("rank", "BRONZE")
+    weight_key = f"VOTE_WEIGHT_{user_rank}"
+    vote_weight = 1.0
+    try:
+        weight_row = await (
+            supabase.table("config_params")
+            .select("value")
+            .eq("key", weight_key)
+            .single()
+            .execute()
+        )
+        if weight_row.data:
+            vote_weight = float(weight_row.data["value"])
+    except Exception:
+        # Si config_params no está disponible, el voto tiene peso BRONZE (1.0)
+        logger.warning(f"No se pudo leer {weight_key} de config_params, usando 1.0")
+
+    # 3. Fórmula Bayesiana incremental con peso por rango
+    # El peso amplifica la contribución del voto al raw_sum,
+    # equivalente a contar el voto como `vote_weight` votos BRONZE.
     # Revertir bayesian → raw_sum: bayesian = (m·C + raw_sum) / (m + n)
     # ⟹ raw_sum = bayesian · (m + n) - m·C
     if old_n > 0:
@@ -109,7 +132,7 @@ async def submit_vote(
         raw_sum = 0.0
 
     new_n = old_n + 1
-    new_raw_sum = raw_sum + vote_avg
+    new_raw_sum = raw_sum + (vote_avg * vote_weight)
     new_score = (BAYESIAN_M * BAYESIAN_C + new_raw_sum) / (BAYESIAN_M + new_n)
 
     # Clamp al rango [0, 5]
@@ -122,6 +145,7 @@ async def submit_vote(
             .update({
                 "reputation_score": new_score,
                 "total_reviews": new_n,
+                "last_reviewed_at": datetime.now(timezone.utc).isoformat(),
             })
             .eq("id", entity_id)
             .execute()
@@ -129,6 +153,17 @@ async def submit_vote(
     except Exception as e:
         logger.error(f"Error persistiendo voto: entity={entity_id} | {e}")
         raise HTTPException(status_code=503, detail="Error al guardar el veredicto. Intenta nuevamente.")
+
+    # 4b. Propagar actualización a WebSocket via Redis Pub/Sub
+    background_tasks.add_task(
+        publish_verdict_pulse,
+        entity_id=entity_id,
+        new_score=new_score,
+        total_votes=new_n,
+        integrity_index=round(new_score / 5.0, 4),
+        is_gold_verdict=user_rank in ("GOLD", "DIAMOND"),
+        voter_rank=user_rank,
+    )
 
     # 5. Registrar review para anti-brigada (best-effort — no bloquea si falla)
     try:
@@ -145,8 +180,8 @@ async def submit_vote(
         logger.warning(f"No se pudo registrar entity_review (anti-brigada): entity={entity_id} | {e}")
 
     logger.info(
-        f"Voto | entity={entity_id} | user={user_id} "
-        f"| avg={vote_avg:.2f} | new_score={new_score:.4f} | total={new_n}"
+        f"Voto | entity={entity_id} | user={user_id} | rank={user_rank} "
+        f"| avg={vote_avg:.2f} | weight={vote_weight} | new_score={new_score:.4f} | total={new_n}"
     )
 
     background_tasks.add_task(
@@ -157,6 +192,8 @@ async def submit_vote(
         entity_id=entity_id,
         details={
             "vote_avg": round(vote_avg, 4),
+            "vote_weight": vote_weight,
+            "voter_rank": user_rank,
             "scores": payload.scores,
             "new_score": round(new_score, 4),
             "total_reviews": new_n,
@@ -168,4 +205,6 @@ async def submit_vote(
         "new_score": round(new_score, 2),
         "total_reviews": new_n,
         "your_vote": round(vote_avg, 2),
+        "vote_weight": vote_weight,
+        "voter_rank": user_rank,
     }

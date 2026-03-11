@@ -21,10 +21,8 @@ from datetime import datetime
 from typing import Dict, Any
 import logging
 
-# NOTA: get_supabase_client NO se importa aquí a nivel de módulo.
-# El import se hace de forma lazy dentro de la property `client`,
-# para que importar audit_logger (y por ende stealth_ban, dna_scanner, etc.)
-# no dispare la carga de config.py → Settings() → lectura del .env.
+# NOTA: los imports de database se hacen de forma lazy (dentro de los métodos),
+# para no disparar config.py → Settings() → lectura del .env al importar el módulo.
 # Esto permite tests unitarios sin Supabase ni variables de entorno.
 
 logger = logging.getLogger("beacon.audit")
@@ -112,6 +110,41 @@ class AuditLogger:
         except Exception as e:
             # El audit NUNCA debe detener el flujo principal
             # Pero registramos el error en los logs del servidor
+            logger.error(
+                f"❌ AUDIT WRITE FAILED | {action} | {e}",
+                exc_info=True,
+            )
+
+    async def alog_event(
+        self,
+        actor_id: str,
+        action: str,
+        entity_type: str,
+        entity_id: str,
+        details: Dict[str, Any],
+    ) -> None:
+        """
+        Versión async de log_event para usar dentro de endpoints async.
+        Usa el cliente async de Supabase para no bloquear el event loop.
+        """
+        payload = {
+            "actor_id": actor_id,
+            "action": action,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "details": details,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+
+        try:
+            from app.core.database import get_async_supabase_client
+            supabase = get_async_supabase_client()
+            await supabase.table("audit_logs").insert(payload).execute()
+            logger.info(
+                f"📜 AUDIT | {action} | actor={actor_id} | "
+                f"entity={entity_type}:{entity_id}"
+            )
+        except Exception as e:
             logger.error(
                 f"❌ AUDIT WRITE FAILED | {action} | {e}",
                 exc_info=True,

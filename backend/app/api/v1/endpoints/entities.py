@@ -121,8 +121,6 @@ async def list_entities(
             "email": links.get("email", ""),
             "reputation_score": round(float(row.get("reputation_score") or 0.0), 2),
             "total_reviews": int(row.get("total_reviews") or 0),
-            "is_verified": True,
-            "rank": "BRONZE",
             "integrity_index": int(round(float(row.get("reputation_score") or 0.0) / 5.0 * 100)),
         })
 
@@ -170,7 +168,5 @@ async def get_entity(entity_id: str):
         "email": links.get("email", ""),
         "reputation_score": round(float(row.get("reputation_score") or 0.0), 2),
         "total_reviews": int(row.get("total_reviews") or 0),
-        "is_verified": True,
-        "rank": "BRONZE",
         "integrity_index": int(round(float(row.get("reputation_score") or 0.0) / 5.0 * 100)),
     }

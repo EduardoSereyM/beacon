@@ -1,6 +1,21 @@
 """
 BEACON PROTOCOL — Vote Engine (Motor de Votos para Personajes Públicos)
 ========================================================================
+ESTADO: ROADMAP P3 — Implementado y testeado, pendiente integración con votes.py.
+
+Este módulo contiene lógica avanzada que el endpoint /vote aún no usa:
+  - Shadow Mode: votos de DNA < 70 se marcan is_counted=False (sin alertar al bot)
+  - Bonus Territorial Quirúrgico: 1.5x solo para SILVER+ en PERSON con jurisdicción local
+  - Fricción Inteligente: pide justificación si fill_duration < 3s y todos sliders = 1
+  - Upsert: sobreescribe voto previo del mismo usuario→entidad
+
+Integración pendiente (P3):
+  1. Reemplazar la lógica inline de votes.py con process_vote()
+  2. Persistir VoteResult en entity_reviews (reemplaza el INSERT simple actual)
+  3. Activar bonus territorial cuando se complete geo_logic.verify_territoriality()
+
+Tests: backend/tests/test_mina_de_oro.py (13 tests, sin dependencia de DB)
+
 Sistema de evaluación cívica con las siguientes reglas:
 
 Voto Único (MVP / Upsert):

@@ -11,12 +11,15 @@ Incluye:
 - Manejo global de excepciones (nunca revelar info técnica sensible)
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
 from app.core.config import settings
+from app.core.database import init_async_client
 
 # ─── Logging ───
 logging.basicConfig(
@@ -24,6 +27,62 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("beacon.core")
+
+# ─── Lifespan (reemplaza @app.on_event, FastAPI ≥ 0.93) ───
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Gestiona el ciclo de vida completo de la aplicación.
+    startup → yield → shutdown
+    """
+    # ── STARTUP ──────────────────────────────────────────────────────────
+    logger.info("=" * 60)
+    logger.info(f"🛡️  {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info("   Motor de Integridad y Meritocracia Digital")
+    logger.info("   'Lo que no es íntegro, no existe.'")
+    logger.info("=" * 60)
+
+    # Inicializar singleton del cliente async (PR-8: un cliente, no N por request)
+    init_async_client()
+    logger.info("✅ Supabase AsyncClient inicializado (singleton)")
+
+    # Redis: El Demonio de la Pre-gestión
+    try:
+        import redis.asyncio as aioredis
+
+        redis_client = aioredis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=3,
+        )
+        await redis_client.ping()
+        app.state.redis = redis_client
+
+        from app.core.security.panic_gate_extreme import panic_gate
+        panic_gate.set_redis_client(redis_client)
+
+        logger.info("🔴 Redis conectado → Panic Gate ARMADO (propagación <2ms)")
+
+    except Exception as e:
+        app.state.redis = None
+        logger.warning(
+            f"⚠️  Redis no disponible → Modo degradado (YELLOW fail-safe). "
+            f"Detalle interno: {e}"
+        )
+
+    yield
+
+    # ── SHUTDOWN ─────────────────────────────────────────────────────────
+    logger.info("🛑 Beacon Protocol — Apagando el búnker...")
+
+    redis_client = getattr(app.state, "redis", None)
+    if redis_client:
+        try:
+            await redis_client.close()
+            logger.info("🔴 Redis desconectado limpiamente.")
+        except Exception as e:
+            logger.warning(f"⚠️  Error cerrando Redis: {e}")
+
 
 # ─── Inicialización de la App ───
 app = FastAPI(
@@ -35,6 +94,7 @@ app = FastAPI(
     ),
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
+    lifespan=lifespan,
 )
 
 
@@ -164,65 +224,13 @@ app.include_router(
     tags=["Admin — Audit"],
 )
 
+from app.api.v1.admin.decay_endpoint import router as admin_decay_router  # noqa: E402
 
-@app.on_event("startup")
-async def startup_event():
-    """
-    Inicialización al arrancar el servidor.
-    1. Conectar a Redis (El Demonio de la Pre-gestión)
-    2. Inyectar Redis en el Panic Gate (propagación instantánea)
-    3. Verificar conexión con ping
-    """
-    logger.info("=" * 60)
-    logger.info(f"🛡️  {settings.APP_NAME} v{settings.APP_VERSION}")
-    logger.info("   Motor de Integridad y Meritocracia Digital")
-    logger.info("   'Lo que no es íntegro, no existe.'")
-    logger.info("=" * 60)
-
-    # ─── Redis: El Demonio de la Pre-gestión ───
-    try:
-        import redis.asyncio as aioredis
-
-        redis_client = aioredis.from_url(
-            settings.REDIS_URL,
-            decode_responses=True,
-            socket_connect_timeout=3,
-        )
-        # Verificar conexión
-        await redis_client.ping()
-
-        # Guardar referencia global
-        app.state.redis = redis_client
-
-        # Inyectar en Panic Gate (propagación instantánea)
-        from app.core.security.panic_gate_extreme import panic_gate
-        panic_gate.set_redis_client(redis_client)
-
-        logger.info("🔴 Redis conectado → Panic Gate ARMADO (propagación <2ms)")
-
-    except Exception as e:
-        # Modo degradado: sin Redis, Panic Gate opera en YELLOW (fail-safe)
-        app.state.redis = None
-        logger.warning(
-            f"⚠️  Redis no disponible → Modo degradado (YELLOW fail-safe). "
-            f"Detalle interno: {e}"
-        )
+app.include_router(
+    admin_decay_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — Decay"],
+)
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Limpieza al detener el servidor.
-    Cierra conexiones a Redis de forma limpia.
-    """
-    logger.info("🛑 Beacon Protocol — Apagando el búnker...")
-
-    # ─── Cerrar Redis ───
-    redis_client = getattr(app.state, "redis", None)
-    if redis_client:
-        try:
-            await redis_client.close()
-            logger.info("🔴 Redis desconectado limpiamente.")
-        except Exception as e:
-            logger.warning(f"⚠️  Error cerrando Redis: {e}")
 
