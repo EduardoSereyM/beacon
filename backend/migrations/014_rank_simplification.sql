@@ -28,7 +28,8 @@ UPDATE public.users SET rank = 'VERIFIED' WHERE rank IN ('SILVER', 'GOLD', 'DIAM
 -- ─── 3. Actualizar DEFAULT y CHECK del rank ───────────────────────────────
 ALTER TABLE public.users ALTER COLUMN rank SET DEFAULT 'BASIC';
 
--- Eliminar constraint anterior (PostgreSQL la autogenera como users_rank_check)
+-- Eliminar constraints de rank (pueden tener distintos nombres según la migración original)
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS check_rank_values;
 ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_rank_check;
 ALTER TABLE public.users ADD CONSTRAINT users_rank_check
     CHECK (rank IN ('BASIC', 'VERIFIED'));
