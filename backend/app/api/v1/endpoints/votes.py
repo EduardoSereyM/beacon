@@ -10,6 +10,8 @@ Fórmula Bayesiana: score = (m·C + Σ_votos) / (m + n)
 "El peso de tu voto depende del peso de tu integridad."
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, field_validator
 from typing import Dict
@@ -143,6 +145,7 @@ async def submit_vote(
             .update({
                 "reputation_score": new_score,
                 "total_reviews": new_n,
+                "last_reviewed_at": datetime.now(timezone.utc).isoformat(),
             })
             .eq("id", entity_id)
             .execute()

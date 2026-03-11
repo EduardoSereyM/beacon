@@ -224,5 +224,13 @@ app.include_router(
     tags=["Admin — Audit"],
 )
 
+from app.api.v1.admin.decay_endpoint import router as admin_decay_router  # noqa: E402
+
+app.include_router(
+    admin_decay_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — Decay"],
+)
+
 
 
