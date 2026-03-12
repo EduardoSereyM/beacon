@@ -341,11 +341,28 @@ async def reset_password(request: Request):
                 raise HTTPException(status_code=400, detail="Token inválido o expirado")
             user_id = auth_response.user.id
 
-        # 2. Actualizar contraseña via admin (no expone la nueva clave)
-        await supabase.auth.admin.update_user_by_id(
-            user_id,
-            {"password": new_password},
-        )
+        # 2. Actualizar contraseña via REST directo con service_role
+        # (evita contaminación de sesión del cliente singleton post-verify_otp)
+        import httpx
+        from app.core.config import get_settings
+        settings = get_settings()
+
+        async with httpx.AsyncClient() as http:
+            r = await http.put(
+                f"{settings.SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+                headers={
+                    "apikey": settings.SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={"password": new_password},
+            )
+            if r.status_code != 200:
+                err = r.json()
+                raise HTTPException(
+                    status_code=400,
+                    detail=err.get("message", "Error al actualizar contraseña"),
+                )
 
         return {
             "status": "updated",
