@@ -1,6 +1,6 @@
 # Esquema de Base de Datos — BEACON Protocol
 
-> **Baseline generado:** 2026-03-11 · **Última actualización:** 2026-03-11 (migrations 012 y 013 aplicadas)
+> **Baseline generado:** 2026-03-12 (actualizado con migraciones 014 + 015)
 > **Para obtener el esquema REAL de Supabase:**
 > ```bash
 > cd backend
@@ -50,9 +50,12 @@ erDiagram
         text rut_hash "SHA-256, UNIQUE"
         int verification_level "1=Email, 2=RUT, 3=Admin"
         bool is_verified
-        text rank "BRONZE|SILVER|GOLD|DIAMOND"
+        bool is_rut_verified
+        text rank "BASIC|VERIFIED"
+        numeric vote_penalty "DEFAULT 1.0, overlord-controlled"
         float integrity_score "0.0 - 1.0"
         float reputation_score
+        int birth_year "1920-2010"
         text country
         text commune
         text region
@@ -87,7 +90,6 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
         timestamptz deleted_at
-        timestamptz last_reviewed_at "migration 013 — usado por decay job"
     }
 
     ENTITY_REVIEWS {
@@ -95,7 +97,9 @@ erDiagram
         uuid entity_id FK
         uuid user_id FK
         float vote_avg "0.0 - 5.0"
+        float effective_weight "DEFAULT 1.0, peso real al momento del voto"
         timestamptz created_at
+        timestamptz updated_at "base del time-lock"
     }
 
     EVALUATION_DIMENSIONS {
@@ -157,7 +161,7 @@ _Ciudadanos del Protocolo Beacon — Cada fila es un ser humano verificado._
 | 8 | `verification_level` | `INT` | NULL | `1` | 1=Email, 2=RUT, 3=Admin |
 | 9 | `is_verified` | `BOOL` | NULL | `false` | true si completó verificación RUT |
 | 10 | `is_rut_verified` | `BOOL` | NULL | `false` | Alias de `is_verified` (schema real) |
-| 11 | `rank` | `TEXT` | NULL | `'BRONZE'` | `CHECK (rank IN ('BRONZE','SILVER','GOLD','DIAMOND'))` |
+| 11 | `rank` | `TEXT` | NULL | `'BASIC'` | `CHECK (rank IN ('BASIC','VERIFIED'))` — migración 014 |
 | 12 | `integrity_score` | `FLOAT` | NULL | `0.5` | `CHECK (0.0 <= integrity_score <= 1.0)` |
 | 13 | `reputation_score` | `FLOAT` | NULL | `0.0` | Score propio del usuario |
 | 14 | `role` | `TEXT` | NULL | `'user'` | `'user'` o `'admin'` |
@@ -165,7 +169,9 @@ _Ciudadanos del Protocolo Beacon — Cada fila es un ser humano verificado._
 | 16 | `commune` | `TEXT` | NULL | — | Comuna (ej: "Providencia") |
 | 17 | `region` | `TEXT` | NULL | — | Región (ej: "Metropolitana") |
 | 18 | `age_range` | `TEXT` | NULL | — | Rango etario (ej: "25-34") |
-| 19 | `is_active` | `BOOL` | NULL | `true` | Soft delete |
+| 19 | `birth_year` | `INT` | NULL | — | Año de nacimiento (1920–2010) — migración 014 |
+| 20 | `vote_penalty` | `NUMERIC` | NULL | `1.0` | Multiplicador Overlord: `effective_weight = rank_weight × vote_penalty` — migración 014 |
+| 21 | `is_active` | `BOOL` | NULL | `true` | Soft delete |
 | 20 | `is_shadow_banned` | `BOOL` | NULL | `false` | Purgatorio invisible |
 | 21 | `created_at` | `TIMESTAMPTZ` | NULL | `now()` | — |
 | 22 | `updated_at` | `TIMESTAMPTZ` | NULL | `now()` | — |
@@ -180,7 +186,7 @@ _Ciudadanos del Protocolo Beacon — Cada fila es un ser humano verificado._
 | PRIMARY KEY | `users_pkey` | `id` | — |
 | UNIQUE | `users_email_key` | `email` | — |
 | UNIQUE | `users_rut_hash_key` | `rut_hash` | — |
-| CHECK | `users_rank_check` | `rank` | `IN ('BRONZE','SILVER','GOLD','DIAMOND')` |
+| CHECK | `users_rank_check` | `rank` | `IN ('BASIC','VERIFIED')` — migración 014+015 |
 | CHECK | `users_integrity_score_check` | `integrity_score` | `>= 0.0 AND <= 1.0` |
 
 #### Índices
@@ -274,16 +280,15 @@ _Panel de control del Overlord — Configuración dinámica del búnker._
 |-----|-------|-------------|
 | `SECURITY_LEVEL` | `GREEN` | Nivel global: GREEN, YELLOW, RED |
 | `CAPTCHA_THRESHOLD` | `0.01` | % de requests que reciben CAPTCHA en modo GREEN |
-| `VOTE_WEIGHT_BRONZE` | `1.0` | Multiplicador de voto — ✅ implementado en `votes.py` (PR-1, 2026-03-10) |
-| `VOTE_WEIGHT_SILVER` | `1.5` | Multiplicador de voto — ✅ implementado en `votes.py` (PR-1, 2026-03-10) |
-| `VOTE_WEIGHT_GOLD` | `2.5` | Multiplicador de voto — ✅ implementado en `votes.py` (PR-1, 2026-03-10) |
-| `VOTE_WEIGHT_DIAMOND` | `5.0` | Multiplicador de voto — ✅ implementado en `votes.py` (PR-1, 2026-03-10) |
-| `DECAY_HALF_LIFE_DAYS` | `180` | Vida media del decaimiento — ✅ implementado en `reputation_decay.py` (PR-12, 2026-03-10) |
+| `VOTE_WEIGHT_BASIC` | `0.5` | Peso de voto rango BASIC — **activo** desde migración 014 |
+| `VOTE_WEIGHT_VERIFIED` | `1.0` | Peso de voto rango VERIFIED — **activo** desde migración 014 |
+| `VOTE_EDIT_LOCK_DAYS` | `30` | Días hasta poder modificar un voto — **activo** desde migración 014 |
+| `DECAY_HALF_LIFE_DAYS` | `180` | Vida media del decaimiento temporal — **pendiente v4.0** |
 | `PROBATION_DAYS` | `30` | Días de cuarentena para cuentas nuevas — **no implementado** |
 | `MAX_VOTES_PER_HOUR` | `20` | Máximo votos/hora/usuario — **no implementado** |
 | `SHADOW_BAN_THRESHOLD` | `0.2` | integrity_score mínimo — **no implementado** |
 
-> **Brecha crítica:** Esta tabla define comportamientos de seguridad y pesos de votación que NO están siendo consumidos por ningún endpoint. Es configuración fantasma.
+> **Migración 014:** Eliminados `VOTE_WEIGHT_BRONZE/SILVER/GOLD/DIAMOND`. Agregados `VOTE_WEIGHT_BASIC`, `VOTE_WEIGHT_VERIFIED`, `VOTE_EDIT_LOCK_DAYS`. Los 3 nuevos parámetros son consumidos activamente por `votes.py`.
 
 ---
 
@@ -317,7 +322,6 @@ _Super-Tabla multiclase: PERSON, COMPANY, EVENT, POLL. Cada fila es un activo ev
 | 20 | `created_at` | `TIMESTAMPTZ` | NULL | `now()` | — |
 | 21 | `updated_at` | `TIMESTAMPTZ` | NULL | `now()` | — |
 | 22 | `deleted_at` | `TIMESTAMPTZ` | NULL | — | Fecha de soft delete |
-| 23 | `last_reviewed_at` | `TIMESTAMPTZ` | NULL | — | Timestamp del último voto recibido — usado por el decay job (migration 013) |
 
 > **Deuda técnica — Schema duality:** Migration 002 define la tabla con `name TEXT NOT NULL UNIQUE` y `metadata JSONB`, pero el backend real usa `first_name`, `last_name`, `category`, `position`, etc. como columnas individuales. Estas columnas NO aparecen en migration 002. Migration 005 solo agrega `party`. Las columnas `first_name`, `last_name`, `second_last_name`, `category`, `position`, `district`, `bio`, `photo_path`, `official_links`, `deleted_at`, `updated_by` fueron agregadas sin migración documentada en el repositorio.
 
@@ -378,9 +382,11 @@ _Registro de veredictos emitidos por ciudadano. UNIQUE(entity_id, user_id) garan
 | 2 | `entity_id` | `UUID` | NOT NULL | — | FK → `entities.id` ON DELETE CASCADE |
 | 3 | `user_id` | `UUID` | NOT NULL | — | FK → `users.id` ON DELETE CASCADE |
 | 4 | `vote_avg` | `FLOAT` | NOT NULL | — | Promedio de las dimensiones evaluadas `[0-5]` |
-| 5 | `created_at` | `TIMESTAMPTZ` | NOT NULL | `NOW()` | — |
+| 5 | `effective_weight` | `FLOAT` | NOT NULL | `1.0` | Peso efectivo al momento del voto (`rank_weight × vote_penalty`) — migración 014 |
+| 6 | `created_at` | `TIMESTAMPTZ` | NOT NULL | `NOW()` | — |
+| 7 | `updated_at` | `TIMESTAMPTZ` | NULL | `NOW()` | Base para time-lock de modificación — migración 014 |
 
-> **Nota de diseño:** Solo guarda el `vote_avg` (promedio), NO los scores individuales por dimensión. Los detalles de cada dimensión solo quedan en `audit_logs.details.scores`. Para análisis granular se requiere consultar audit_logs.
+> **Nota de diseño:** Solo guarda el `vote_avg` (promedio) y `effective_weight`, NO los scores individuales por dimensión. Los detalles de cada dimensión quedan en `audit_logs.details.scores`. Para análisis granular se requiere consultar audit_logs.
 
 #### Constraints
 
@@ -495,7 +501,7 @@ Bucket `imagenes`: almacena fotos de entidades bajo el path `entities/{uuid}.{ex
 
 | # | Brecha | Impacto | Referencia |
 |---|--------|---------|------------|
-| 1 | Columnas `first_name`, `last_name`, `category`, `position`, `district`, `bio`, `photo_path`, `official_links`, `deleted_at`, `updated_by` en `entities` — documentadas en migration 012 (`ADD COLUMN IF NOT EXISTS`). Aplicada en producción (2026-03-10). | RESUELTA ✅ | migrations/012 |
+| 1 | Columnas `first_name`, `last_name`, `category`, `position`, `district`, `bio`, `photo_path`, `official_links`, `deleted_at`, `updated_by` en `entities` no aparecen en ninguna migración del repo | ALTA — el schema real de producción diverge de lo documentado | migrations/002, 005 |
 | 2 | Columnas `first_name`, `last_name`, `role`, `is_rut_verified`, `age_range` en `users` no están en migration 001 | ALTA — misma causa | migrations/001, 004 |
 | 3 | Migration 001 usa `audit_logs.id BIGSERIAL`; migration 011 redefine como `UUID` | MEDIA — riesgo de inconsistencia si las migraciones se aplicaron parcialmente | migrations/001, 011 |
 | 4 | `entity_type_enum` definido en migration 002 pero el backend usa `category TEXT` con CHECK | BAJA — el ENUM puede estar en la BBDD sin ser usado | migrations/002 |
@@ -510,7 +516,7 @@ Bucket `imagenes`: almacena fotos de entidades bajo el path `entities/{uuid}.{ex
 | Schemas documentados | 3 (`public`, `auth`, `storage`) |
 | Tablas en `public` | 6 |
 | Tablas en `auth` (Supabase) | ~15 (gestionadas internamente) |
-| Columnas en `public` | ~71 |
+| Columnas en `public` | ~70 |
 | Constraints | ~25 |
 | Índices en `public` | ~25 |
 | Políticas RLS | ~10 |

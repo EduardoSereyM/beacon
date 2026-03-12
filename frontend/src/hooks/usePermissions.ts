@@ -4,11 +4,8 @@
  * Lee el rol del usuario desde localStorage y resuelve permisos
  * según la Matriz de Control de Acceso (ACM).
  *
- * Sistema de rangos v1: BASIC (0.5x) / VERIFIED (1.0x)
- *
- * La Matriz espejo (frontend) replica la lógica del backend para
- * que la UI se adapte ANTES de hacer llamadas al servidor.
- * El backend SIEMPRE valida de nuevo (defensa en profundidad).
+ * Sistema de rangos v2: BASIC (0.5x) / VERIFIED (1.0x)
+ * Los rangos legacy BRONZE/SILVER/GOLD/DIAMOND se normalizan automáticamente.
  *
  * "El frontend sugiere. El backend decide."
  */
@@ -18,7 +15,18 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // ─── Tipos ───
-type Role = "ANONYMOUS" | "BASIC" | "VERIFIED";
+
+/** Rangos del sistema 2026 (v2). Legacy incluidos para migración gradual. */
+type Role = "ANONYMOUS" | "BASIC" | "VERIFIED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+
+/** Normaliza rangos legacy al sistema v2 */
+function normalizeRank(raw: string): Role {
+    if (raw === "VERIFIED") return "VERIFIED";
+    if (raw === "BASIC") return "BASIC";
+    if (raw === "BRONZE") return "BASIC";
+    if (raw === "SILVER" || raw === "GOLD" || raw === "DIAMOND") return "VERIFIED";
+    return "ANONYMOUS";
+}
 
 interface UserState {
     id: string | null;
@@ -40,8 +48,6 @@ interface Permissions {
     edit_own_verdict: boolean;
     verified_badge: boolean;
     view_advanced_metrics: boolean;
-    propose_dynamic_sliders: boolean;
-    priority_audit: boolean;
 }
 
 interface VotingConfig {
@@ -53,6 +59,7 @@ interface PermissionsResult {
     user: UserState;
     permissions: Permissions;
     voting: VotingConfig;
+    rank: Role;
     isAuthenticated: boolean;
     isVerified: boolean;
     isBasic: boolean;
@@ -62,8 +69,9 @@ interface PermissionsResult {
     logout: () => void;
 }
 
-// ─── ACM Espejo (Réplica de la Matriz del backend) ───
-const ACM_PERMISSIONS: Record<Role, Partial<Permissions>> = {
+// ─── ACM Espejo ───
+
+const ACM_PERMISSIONS: Record<"ANONYMOUS" | "BASIC" | "VERIFIED", Partial<Permissions>> = {
     ANONYMOUS: {
         browse_entities: true,
         view_rankings: true,
@@ -74,8 +82,6 @@ const ACM_PERMISSIONS: Record<Role, Partial<Permissions>> = {
         edit_own_verdict: false,
         verified_badge: false,
         view_advanced_metrics: false,
-        propose_dynamic_sliders: false,
-        priority_audit: false,
     },
     BASIC: {
         evaluate: true,
@@ -86,25 +92,15 @@ const ACM_PERMISSIONS: Record<Role, Partial<Permissions>> = {
         verified_badge: true,
         view_advanced_metrics: true,
         view_integrity_stats: true,
-        propose_dynamic_sliders: true,
-        priority_audit: true,
     },
 };
 
-// Pesos reflejan config_params del backend (VOTE_WEIGHT_BASIC=0.5, VOTE_WEIGHT_VERIFIED=1.0)
-const ACM_VOTING: Record<Role, VotingConfig> = {
+const ACM_VOTING: Record<"ANONYMOUS" | "BASIC" | "VERIFIED", VotingConfig> = {
     ANONYMOUS: { base_weight: 0.0, territorial_bonus_eligible: false },
     BASIC:     { base_weight: 0.5, territorial_bonus_eligible: true },
     VERIFIED:  { base_weight: 1.0, territorial_bonus_eligible: true },
 };
 
-const INHERITANCE_CHAIN: Record<Role, Role | null> = {
-    ANONYMOUS: null,
-    BASIC:     "ANONYMOUS",
-    VERIFIED:  "BASIC",
-};
-
-/** Resuelve permisos con herencia */
 function resolvePermissions(role: Role): Permissions {
     const base: Permissions = {
         browse_entities: false,
@@ -116,78 +112,54 @@ function resolvePermissions(role: Role): Permissions {
         edit_own_verdict: false,
         verified_badge: false,
         view_advanced_metrics: false,
-        propose_dynamic_sliders: false,
-        priority_audit: false,
     };
 
-    // Construir cadena de herencia ANONYMOUS → BASIC → VERIFIED
-    const chain: Role[] = [];
-    let current: Role | null = role;
-    while (current) {
-        chain.unshift(current);
-        current = INHERITANCE_CHAIN[current];
-    }
+    const normalized = normalizeRank(role) as "ANONYMOUS" | "BASIC" | "VERIFIED";
 
-    // Aplicar permisos en orden
-    for (const r of chain) {
-        const overrides = ACM_PERMISSIONS[r];
-        Object.assign(base, overrides);
+    // Herencia: ANONYMOUS → BASIC → VERIFIED
+    Object.assign(base, ACM_PERMISSIONS["ANONYMOUS"]);
+    if (normalized === "BASIC" || normalized === "VERIFIED") {
+        Object.assign(base, ACM_PERMISSIONS["BASIC"]);
+    }
+    if (normalized === "VERIFIED") {
+        Object.assign(base, ACM_PERMISSIONS["VERIFIED"]);
     }
 
     return base;
 }
 
-// ─── Helper: normalizar rank legacy → v1 ──────────────────────────────
-// Protección de compatibilidad: si el backend devuelve un rank del sistema
-// de 4 rangos (BRONZE/SILVER/GOLD/DIAMOND), lo mapea al sistema v1.
-function normalizeRank(raw: string | null | undefined): Role {
-    if (!raw) return "ANONYMOUS";
-    const upper = raw.toUpperCase();
-    if (upper === "VERIFIED") return "VERIFIED";
-    if (upper === "BASIC")    return "BASIC";
-    // Legacy mapping (en transición)
-    if (upper === "SILVER" || upper === "GOLD" || upper === "DIAMOND") return "VERIFIED";
-    if (upper === "BRONZE") return "BASIC";
-    return "ANONYMOUS";
-}
-
 // ─── Hook principal ───
 
+const ANON_STATE: UserState = {
+    id: null, email: null, full_name: null,
+    rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
+};
+
+function readFromStorage(): UserState {
+    if (typeof window === "undefined") return ANON_STATE;
+    try {
+        const stored = localStorage.getItem("beacon_user");
+        if (!stored) return ANON_STATE;
+        const parsed = JSON.parse(stored);
+        return {
+            id: parsed.id || null,
+            email: parsed.email || null,
+            full_name: parsed.full_name || null,
+            rank: normalizeRank(parsed.rank || "BASIC"),
+            role: parsed.role || "user",
+            is_verified: parsed.is_verified || false,
+            integrity_score: parsed.integrity_score || 0.5,
+        };
+    } catch {
+        return ANON_STATE;
+    }
+}
+
 export default function usePermissions(): PermissionsResult {
-    const [user, setUser] = useState<UserState>({
-        id: null,
-        email: null,
-        full_name: null,
-        rank: "ANONYMOUS",
-        role: "user",
-        is_verified: false,
-        integrity_score: 0,
-    });
+    // Lazy initializer: lee localStorage una vez en mount, sin useEffect + setState
+    const [user, setUser] = useState<UserState>(readFromStorage);
 
-    const [authModalRequested, setAuthModalRequested] = useState(false);
-
-    // Leer usuario de localStorage al montar
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem("beacon_user");
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                setUser({
-                    id: parsed.id || null,
-                    email: parsed.email || null,
-                    full_name: parsed.full_name || null,
-                    rank: normalizeRank(parsed.rank),
-                    role: parsed.role || "user",
-                    is_verified: parsed.is_verified || false,
-                    integrity_score: parsed.integrity_score || 0.5,
-                });
-            }
-        } catch {
-            // Si localStorage falla, queda como ANONYMOUS
-        }
-    }, []);
-
-    // Escuchar cambios en localStorage (multi-tab sync)
+    // Sync multi-tab
     useEffect(() => {
         const handler = (e: StorageEvent) => {
             if (e.key === "beacon_user") {
@@ -197,16 +169,13 @@ export default function usePermissions(): PermissionsResult {
                         id: parsed.id,
                         email: parsed.email,
                         full_name: parsed.full_name,
-                        rank: normalizeRank(parsed.rank),
+                        rank: normalizeRank(parsed.rank || "BASIC"),
                         role: parsed.role || "user",
                         is_verified: parsed.is_verified || false,
                         integrity_score: parsed.integrity_score || 0.5,
                     });
                 } else {
-                    setUser({
-                        id: null, email: null, full_name: null,
-                        rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
-                    });
+                    setUser(ANON_STATE);
                 }
             }
         };
@@ -214,32 +183,30 @@ export default function usePermissions(): PermissionsResult {
         return () => window.removeEventListener("storage", handler);
     }, []);
 
+    const normalized = normalizeRank(user.rank) as "ANONYMOUS" | "BASIC" | "VERIFIED";
     const permissions = useMemo(() => resolvePermissions(user.rank), [user.rank]);
-    const voting = useMemo(() => ACM_VOTING[user.rank], [user.rank]);
+    const voting = useMemo(() => ACM_VOTING[normalized], [normalized]);
 
     const isAuthenticated = user.id !== null;
-    const isVerified = user.rank === "VERIFIED";
-    const isBasic = user.rank === "BASIC";
+    const isVerified = normalized === "VERIFIED";
+    const isBasic = normalized === "BASIC";
     const isAdmin = user.role === "admin";
 
     const openAuthModal = useCallback(() => {
-        setAuthModalRequested(true);
         window.dispatchEvent(new CustomEvent("beacon:open-auth-modal"));
     }, []);
 
     const logout = useCallback(() => {
         localStorage.removeItem("beacon_token");
         localStorage.removeItem("beacon_user");
-        setUser({
-            id: null, email: null, full_name: null,
-            rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
-        });
+        setUser(ANON_STATE);
     }, []);
 
     return {
         user,
         permissions,
         voting,
+        rank: user.rank,
         isAuthenticated,
         isVerified,
         isBasic,

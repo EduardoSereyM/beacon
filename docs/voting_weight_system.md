@@ -1,321 +1,220 @@
-# ⚖️ BEACON — Sistema de Pesos, Votación y Rangos
+# BEACON Protocol — Sistema de Peso de Voto
 
-> Versión: 1.0 | Fecha: 2026-03-11
-> *"No todos los votos pesan lo mismo. El que más se ha expuesto a la verificación, más pesa."*
-
----
-
-## 1. Jerarquía de Rangos
-
-Los ciudadanos de BEACON existen en una jerarquía soberana de cuatro niveles. El rango determina el peso del voto, los privilegios de UI y el valor de mercado del perfil.
-
-```
-╔═══════════════════════════════════════════════════════════╗
-║   💎 DIAMOND   │  Poder: 5.0x  │  Valor: ~$100 USD        ║
-║   Auditor de la Verdad                                    ║
-║   Verificación: presencial + criterio admin               ║
-╠═══════════════════════════════════════════════════════════╣
-║   🥇 GOLD      │  Poder: 2.5x  │  Valor: ~$25 USD          ║
-║   Referente de Integridad                                 ║
-║   Verificación: perfil completo + comportamiento íntegro  ║
-╠═══════════════════════════════════════════════════════════╣
-║   🥈 SILVER    │  Poder: 1.5x  │  Valor: ~$5-13 USD        ║
-║   Ciudadano Verificado                                    ║
-║   Verificación: RUT hash (SHA-256 + salt)                 ║
-╠═══════════════════════════════════════════════════════════╣
-║   🥉 BRONZE    │  Poder: 1.0x  │  Valor: ~$0.50-2 USD      ║
-║   Masa Crítica                                            ║
-║   Verificación: solo email confirmado                     ║
-╚═══════════════════════════════════════════════════════════╝
-```
-
-### 1.1 Rito de Ascensión
-
-| Paso | Acción | Resultado |
-|------|--------|-----------|
-| 1 | Registro con email | Rango **BRONZE** · `integrity_score: 0.5` |
-| 2 | Verificar RUT (módulo 11) | Ascenso a **SILVER** · `integrity_score: 0.75` |
-| 3 | Completar perfil demográfico | Cada campo suma `+0.02` al integrity_score |
-| 4 | Comportamiento íntegro sostenido | El sistema evalúa la ascensión a **GOLD** |
-| 5 | Criterio Overlord | Ascenso manual a **DIAMOND** |
-
-> ⚠️ **DISPLACED** no es un rango formal — es una clasificación forense del DNA Scanner.
-> Los usuarios DISPLACED pueden votar pero sus votos se marcan `is_counted=False` y no afectan el ranking público.
+> **Versión del documento:** 2.0 (Sistema 2 rangos)
+> **Fecha:** 2026-03-12
+> **Aplica desde:** Migración 014
 
 ---
 
-## 2. Peso del Voto por Rango
+## 1. Filosofía de diseño
 
-Los pesos de voto se almacenan en la tabla `config_params` y son ajustables en tiempo real sin redeploy.
+El sistema de peso de voto de BEACON está inspirado en metodología de encuestas estadísticas (Cadem/Ipsos):
+la **verificación de identidad ponderada** da más peso a votos de ciudadanos que acreditan sus datos demográficos,
+reduciendo el ruido de cuentas anónimas o de perfil incompleto.
 
-### 2.1 Tabla de pesos
-
-| Rango | Clave en `config_params` | Multiplicador | Label en UI |
-|-------|--------------------------|--------------|-------------|
-| BRONZE | `VOTE_WEIGHT_BRONZE` | **1.0x** | Voto Estándar |
-| SILVER | `VOTE_WEIGHT_SILVER` | **1.5x** | Veredicto Certificado |
-| GOLD | `VOTE_WEIGHT_GOLD` | **2.5x** | Veredicto Magistral |
-| DIAMOND | `VOTE_WEIGHT_DIAMOND` | **5.0x** | Sentencia Suprema |
-
-### 2.2 Cómo se aplica el peso
-
-El sistema lanza sliders por cada dimensión evaluativa (0–5). El backend:
-
-1. Calcula el **promedio simple** de todos los sliders entregados por el usuario → `vote_avg`
-2. Convierte el promedio en una **suma ponderada** multiplicando por el peso del rango:
-   ```
-   weighted_contribution = vote_avg × vote_weight
-   ```
-3. Esta suma ponderada se incorpora al score bayesiano (ver sección 3)
-
-**Ejemplo práctico:**
-
-Un usuario GOLD evalúa a un político con: transparencia=3, gestión=4, coherencia=4
-
-```
-vote_avg = (3 + 4 + 4) / 3 = 3.67
-vote_weight = 2.5   ← GOLD
-weighted_contribution = 3.67 × 2.5 = 9.17
-```
-
-Un usuario BRONZE con los mismos sliders aportaría solo `3.67 × 1.0 = 3.67` — la misma opinión pero sin el respaldo de la verificación de identidad.
+> Principio rector: **un voto verificado vale lo que un voto de muestra representativa**.
 
 ---
 
-## 3. Fórmula Bayesiana de Reputación
+## 2. Jerarquía de rangos (v2 — sistema vigente)
 
-El score de reputación de una entidad nunca es un promedio simple. Usa un **modelo bayesiano de regresión hacia la media** que protege a las entidades sin votos de dominar el ranking.
+| Rango | Peso base | Requisitos | Label UI |
+|-------|-----------|------------|----------|
+| `BASIC` | **0.5x** | Solo cuenta activa | Voto Estándar |
+| `VERIFIED` | **1.0x** | 5 campos demográficos completos | Veredicto Verificado |
 
-### 3.1 Fórmula
+> Los rangos legacy `BRONZE / SILVER / GOLD / DIAMOND` se normalizan automáticamente:
+> `BRONZE → BASIC`, `SILVER / GOLD / DIAMOND → VERIFIED`.
+
+### 2.1 Requisitos para VERIFIED (5 campos)
+
+El backend evalúa automáticamente si el usuario califica como VERIFIED cada vez que se actualiza su perfil:
 
 ```
-score_nuevo = (m · C + Σ_ponderada) / (m + n_efectiva)
-
-Donde:
-  m              = prior de confianza (30 votos "fantasma" neutrales)
-  C              = media global prior (3.0 — punto neutro en escala 0-5)
-  Σ_ponderada    = suma acumulada de (vote_avg × vote_weight) de todos los votos
-  n_efectiva     = número de votos reales registrados
+rut_hash      — RUT hasheado con SHA-256 + salt (endpoint /verify-identity)
+birth_year    — Año de nacimiento (1920–2010)
+country       — País (texto, ej. "Chile")
+region        — Región administrativa
+commune       — Comuna
 ```
 
-### 3.2 Parámetros del sistema
+Todos los campos deben estar presentes (`NOT NULL`, no vacíos).
+Si falta **cualquiera**, el rango es `BASIC`.
 
-| Parámetro | Valor | Descripción |
+---
+
+## 3. Peso efectivo de voto
+
+```
+effective_weight = rank_weight × vote_penalty
+```
+
+| Variable | Fuente | Descripción |
+|----------|--------|-------------|
+| `rank_weight` | `config_params.VOTE_WEIGHT_{RANK}` | Peso base del rango (0.5 o 1.0) |
+| `vote_penalty` | `users.vote_penalty` (DEFAULT 1.0) | Multiplicador de penalización controlado por el Overlord |
+| `effective_weight` | Calculado en `votes.py` | Peso real usado en el cómputo del score |
+
+### Ejemplos de effective_weight
+
+| Usuario | Rango | vote_penalty | effective_weight |
+|---------|-------|-------------|-----------------|
+| Ciudadano nuevo | BASIC | 1.0 | **0.5** |
+| Ciudadano verificado | VERIFIED | 1.0 | **1.0** |
+| VERIFIED sancionado | VERIFIED | 0.3 | **0.3** |
+| BASIC sancionado | BASIC | 0.0 | **0.0** (bloqueado) |
+
+---
+
+## 4. Fórmula de cómputo de score (v1 — vigente)
+
+Se usa **media ponderada acumulada** (sin prior Bayesiano — ver §9 para v4.0).
+
+### 4.1 Voto nuevo (primera vez)
+
+```
+new_score = (old_score × old_n + vote_avg × effective_weight)
+            ──────────────────────────────────────────────────
+                      (old_n + effective_weight)
+```
+
+### 4.2 Modificación de voto (dentro del time-lock)
+
+No permitido: el voto queda bloqueado durante `VOTE_EDIT_LOCK_DAYS`.
+
+### 4.3 Reemplazo de voto (tras expirar time-lock)
+
+```
+new_score = (old_score × old_n - old_vote_avg × old_eff_weight + vote_avg × new_eff_weight)
+            ─────────────────────────────────────────────────────────────────────────────────
+                                         old_n
+```
+
+> `old_vote_avg` y `old_eff_weight` se leen desde `entity_reviews.vote_avg` y `entity_reviews.effective_weight`.
+
+---
+
+## 5. Time-lock de votos
+
+| Parámetro | Tabla | Descripción |
 |-----------|-------|-------------|
-| `BAYESIAN_M` | 30 | Votos previos neutrales (prior strength) |
-| `BAYESIAN_C` | 3.0 | Score neutro (media global esperada) |
-| Escala | 0.0 – 5.0 | Score mínimo / máximo posible |
-| Score inicial | ~3.0 | Toda entidad comienza en el punto neutro |
+| `VOTE_EDIT_LOCK_DAYS` | `config_params` | Días hasta poder modificar un voto (default: 30) |
 
-### 3.3 Comportamiento por volumen
-
-| Votos reales | Peso del prior | Estabilidad |
-|---|---|---|
-| 1 | 96.8% | Mínima — el score apenas se mueve |
-| 10 | 75.0% | Baja — el prior domina |
-| 30 | 50.0% | Media — prior y votos pesan igual |
-| 100 | 23.1% | Alta — los votos ya dominan |
-| 300+ | 9.1% | Muy alta — el score es representativo |
-
-> **Por qué esto importa:** Una entidad con 2 votos perfectos (5.0) no aparece primera en el ranking. Debe ganarse su posición con volumen.
+- Si el usuario intenta re-votar antes del plazo → **HTTP 423 Locked**
+- Response body incluye `unlock_date` (ISO 8601)
+- Después del plazo → UPSERT en `entity_reviews` con reemplazo de score
 
 ---
 
-## 4. Dimensiones Evaluativas por Categoría
+## 6. Dimensiones de voto por categoría
 
-Cada categoría tiene su propio conjunto de dimensiones de voto (sliders). Están almacenadas en la tabla `evaluation_dimensions`.
-
-| Categoría | Dimensiones |
+### POLITICO
+| Dimensión | Descripción |
 |-----------|-------------|
-| **politico** | Transparencia · Gestión · Coherencia |
-| **periodista** | Probidad · Confianza · Influencia |
-| **empresario** | Probidad · Confianza · Influencia |
-| **empresa** | Servicio al Cliente · Ética Corporativa · Calidad de Producto · Transparencia |
-| **evento** | Organización · Experiencia · Seguridad |
+| `transparency` | Transparencia en su gestión |
+| `management` | Calidad de la gestión pública |
+| `coherence` | Coherencia entre discurso y acción |
 
-Escala de cada slider: **0 (pésimo) → 5 (excelente)**
+### PERSONA_PUBLICA
+| Dimensión | Descripción |
+|-----------|-------------|
+| `probity` | Probidad e integridad personal |
+| `trust` | Confianza ciudadana |
+| `influence` | Influencia legítima |
 
----
+### COMPANY
+| Dimensión | Descripción |
+|-----------|-------------|
+| `transparency` | Transparencia corporativa |
+| `ethics` | Conducta ética |
+| `impact` | Impacto social/ambiental |
+| `reliability` | Confiabilidad / cumplimiento |
 
-## 5. Mecanismos Anti-Fraude
-
-### 5.1 Anti-Brigada (1 voto por usuario por entidad)
-
-La tabla `entity_reviews` tiene una restricción `UNIQUE(entity_id, user_id)`. Si un usuario intenta votar dos veces por la misma entidad, el endpoint devuelve `HTTP 409 Conflict`. No hay actualizaciones silenciosas — el primer voto es permanente.
-
-> Roadmap P3: `vote_engine.py` implementará **upsert** (sobreescritura del voto anterior) para votaciones de tipo evento/versus donde el cambio de opinión tiene sentido.
-
-### 5.2 Shadow Mode (votos fantasma)
-
-Los usuarios clasificados como DISPLACED por el DNA Scanner pueden emitir votos, pero estos se registran con `is_counted = False`. El usuario ve una confirmación exitosa, pero el voto no modifica el `reputation_score` público de la entidad.
-
-**Criterios de activación del Shadow Mode:**
-- `is_shadow_banned = True` en el perfil
-- `integrity_score < 0.2`
-- Clasificación DNA = `DISPLACED`
-- Cuenta desactivada
-
-### 5.3 DNA Scanner — Clasificación Previa al Voto
-
-Antes de procesar cualquier petición, el DNA Scanner evalúa la autenticidad del cliente:
-
-| Clasificación | Score DNA | Acceso |
-|---|---|---|
-| `HUMAN` | > 70 | Acceso completo al sistema de voto |
-| `SUSPICIOUS` | 30 – 70 | Voto procesado con vigilancia aumentada |
-| `DISPLACED` | ≤ 30 | Shadow Mode silencioso |
-
-**Tests forenses:**
-- Velocidad de submit < 2 segundos → bot
-- User-Agent de automatización (Selenium, Puppeteer, python-requests)
-- `navigator.webdriver = true`
-- User-Agent genérico o vacío
+`vote_avg` = promedio simple de las dimensiones del voto.
 
 ---
 
-## 6. Decaimiento Temporal de Reputación
+## 7. Tablas involucradas
 
-Los scores no son permanentes. Con el tiempo, toda entidad se mueve hacia el punto neutro (3.0) si no recibe votos nuevos.
-
-### 6.1 Fórmula de decaimiento
-
-```
-score_nuevo = C + (score_actual − C) × exp(−ln(2) × días_transcurridos / semivida)
-
-Donde:
-  C           = 3.0 (punto neutro, en config_params)
-  semivida    = DECAY_HALF_LIFE_DAYS (default: 180 días, en config_params)
-```
-
-### 6.2 Comportamiento
-
-| Días sin votos | Score si partía en 5.0 | Score si partía en 1.0 |
-|---|---|---|
-| 0 | 5.00 | 1.00 |
-| 90 | 4.29 | 1.71 |
-| 180 | 4.00 (semivida) | 2.00 (semivida) |
-| 360 | 3.50 | 2.50 |
-| ∞ | 3.00 | 3.00 |
-
-> El decaimiento es **simétrico**: tanto los scores altos como los bajos convergen hacia 3.0.
-
-### 6.3 Config ajustable
-
-| Clave en `config_params` | Default | Efecto |
-|---|---|---|
-| `DECAY_HALF_LIFE_DAYS` | `180` | Semivida del decaimiento |
-| `DECAY_NEUTRAL_PRIOR` | `3.0` | Punto de convergencia |
-
-El job de decaimiento se ejecuta periódicamente (configurar cron `0 3 * * *` en producción).
-
----
-
-## 7. Valoración de Activo por Usuario (Asset Engine)
-
-Cada usuario verificado tiene un **valor de mercado** calculado en tiempo real. Este valor representa el potencial de monetización de su identidad verificada.
-
-### 7.1 Fórmula
-
-```
-Valor_USD = (Base_Tier × integrity_score × 1.2) + Data_Bonus + RUT_Bonus
-
-Donde:
-  Base_Tier   = valor base según rango (ver tabla)
-  Integrity   = 0.0 – 1.0 (score de comportamiento)
-  Data_Bonus  = +$5.00 si commune + age_range completos
-                +$2.00 si solo uno de los dos
-                +$1.00 si region informada
-  RUT_Bonus   = +$3.00 si rut_hash presente (identidad verificada)
+### `users` (campos relevantes)
+```sql
+rank          TEXT     DEFAULT 'BASIC'      -- 'BASIC' | 'VERIFIED'
+vote_penalty  NUMERIC  DEFAULT 1.0          -- Multiplicador overlord
+rut_hash      TEXT                          -- SHA-256 + salt del RUT
+birth_year    INT                           -- 1920–2010
+country       TEXT
+region        TEXT
+commune       TEXT
 ```
 
-### 7.2 Valor base por rango
-
-| Rango | Base_Tier | Valor máximo posible |
-|-------|-----------|----------------------|
-| BRONZE | $0.50 | $0.60 + bonuses |
-| SILVER | $5.00 | $6.00 + bonuses |
-| GOLD | $25.00 | $30.00 + bonuses |
-| DIAMOND | $100.00 | $120.00 + bonuses |
-
-### 7.3 Ejemplo: SILVER con perfil completo
-
+### `entity_reviews`
+```sql
+entity_id        UUID   NOT NULL
+user_id          UUID   NOT NULL
+vote_avg         FLOAT  NOT NULL            -- Promedio de dimensiones
+effective_weight FLOAT  DEFAULT 1.0         -- Peso efectivo al momento del voto
+created_at       TIMESTAMPTZ
+updated_at       TIMESTAMPTZ                -- Base del time-lock
+UNIQUE(entity_id, user_id)                  -- Anti-brigada: 1 voto por entidad/usuario
 ```
-Base:       $5.00 × 0.90 × 1.2  = $5.40
-Data Bonus: commune + age_range  = $5.00
-RUT Bonus:  rut_hash presente    = $3.00
-─────────────────────────────────────────
-Total:                            $13.40 USD
+
+### `entities`
+```sql
+reputation_score FLOAT  DEFAULT 0.5        -- Score acumulado (actualizado por votes.py)
+total_reviews    INT    DEFAULT 0           -- Contador de votos
+```
+
+### `config_params`
+```sql
+VOTE_WEIGHT_BASIC    = '0.5'
+VOTE_WEIGHT_VERIFIED = '1.0'
+VOTE_EDIT_LOCK_DAYS  = '30'
 ```
 
 ---
 
-## 8. Diagrama de Flujo del Voto
+## 8. Anti-fraude
 
-```
-Usuario emite voto (sliders)
-        │
-        ▼
-[DNA Scanner] ─── DISPLACED ──→ Shadow Mode (is_counted=False)
-        │
-      HUMAN/SUSPICIOUS
-        │
-        ▼
-[Anti-Brigada Check]
-  UNIQUE(entity_id, user_id)
-        │ ── YA VOTÓ ──→ HTTP 409 Conflict
-        │
-     PRIMER VOTO
-        │
-        ▼
-[Fetch vote_weight desde config_params]
-  key = "VOTE_WEIGHT_{user_rank}"
-        │
-        ▼
-[Calcular vote_avg]
-  promedio de todos los sliders
-        │
-        ▼
-[Aplicar Bayesian Update]
-  score_nuevo = (m·C + Σ_ponderada) / (m + n)
-        │
-        ▼
-[Persistir en entities]
-  reputation_score, total_reviews
-        │
-        ▼
-[Publicar pulse Redis]
-  canal: beacon:pulse:{entity_id}
-        │
-        ▼
-[Registrar entity_review]
-  (anti-brigada: ocupa el slot)
-        │
-        ▼
-[Emitir audit_log]
-  acción: VOTE_SUBMITTED
-```
+| Mecanismo | Implementación |
+|-----------|---------------|
+| 1 voto por entidad/usuario | `UNIQUE(entity_id, user_id)` en `entity_reviews` |
+| Time-lock de modificación | `VOTE_EDIT_LOCK_DAYS` días desde `updated_at` |
+| Peso 0 bloqueado | `vote_penalty = 0.0` → `effective_weight = 0` |
+| Shadow ban | `is_shadow_banned = true` → voto no computa (pendiente P-security) |
+| Mínimo para ranking | 3+ votos para aparecer en scores públicos |
 
 ---
 
-## 9. Tabla Resumen de Configuración Activa
+## 9. Roadmap futuro (v4.0)
 
-Todos los parámetros son ajustables por el Overlord sin redeploy a través de la tabla `config_params`.
+### Prior Bayesiano
+Añadir un prior de confianza para entidades con pocos votos:
 
-| Clave | Valor default | Descripción |
-|-------|--------------|-------------|
-| `VOTE_WEIGHT_BRONZE` | `1.0` | Multiplicador de voto BRONZE |
-| `VOTE_WEIGHT_SILVER` | `1.5` | Multiplicador de voto SILVER |
-| `VOTE_WEIGHT_GOLD` | `2.5` | Multiplicador de voto GOLD |
-| `VOTE_WEIGHT_DIAMOND` | `5.0` | Multiplicador de voto DIAMOND |
-| `DECAY_HALF_LIFE_DAYS` | `180` | Semivida del decaimiento (días) |
-| `DECAY_NEUTRAL_PRIOR` | `3.0` | Punto neutro de convergencia |
-| `PROBATION_DAYS` | `30` | Días de incubación para cuentas nuevas |
-| `MAX_VOTES_PER_HOUR` | `20` | Rate limit de votos por hora por usuario |
-| `SHADOW_BAN_THRESHOLD` | `0.2` | integrity_score mínimo antes de shadow ban |
+```
+score = (m × C + Σ_votes) / (m + n)
+```
+
+| Parámetro | Valor sugerido | Descripción |
+|-----------|----------------|-------------|
+| `m` | 30 | Prior weight (votos "fantasma") |
+| `C` | 3.0 / 5.0 | Prior mean (score neutro en escala 1-5) |
+| `n` | `total_reviews` | Votos reales |
+
+### Decay temporal
+Reducir el peso de votos antiguos para reflejar conducta reciente:
+
+```
+decayed_weight = effective_weight × e^(-λ × days_elapsed)
+```
+
+`λ = ln(2) / half_life_days` donde `half_life_days` ≈ 180 (6 meses).
 
 ---
 
-<p align="center">
-  <strong>BEACON Protocol — Motor de Integridad</strong><br>
-  <em>"El peso del voto es proporcional al compromiso con la verdad."</em>
-</p>
+## 10. Parámetros configurables (config_params)
+
+| Clave | Valor actual | Descripción |
+|-------|-------------|-------------|
+| `VOTE_WEIGHT_BASIC` | `0.5` | Peso voto BASIC |
+| `VOTE_WEIGHT_VERIFIED` | `1.0` | Peso voto VERIFIED |
+| `VOTE_EDIT_LOCK_DAYS` | `30` | Días hasta poder modificar voto |

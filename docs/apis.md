@@ -1,6 +1,6 @@
 # BEACON Protocol — Documentación de APIs
 
-> **Generado:** 2026-03-11 · **Última actualización:** 2026-03-11 (sprint P0+P1+P2)
+> **Generado:** 2026-03-12 (actualizado con sistema 2 rangos + P5 verify-identity)
 > **Proyecto creado:** 2026-02-24
 > **Base URL:** `https://<host>/api/v1`
 > **Formato:** JSON (application/json)
@@ -31,8 +31,7 @@
 9. [Admin — Stats](#9-admin--stats)
 10. [Admin — AUM](#10-admin--aum)
 11. [Admin — Audit Logs](#11-admin--audit-logs)
-12. [Admin — Decay](#12-admin--decay)
-13. [Mecánica de Votos y Pesos](#13-mecánica-de-votos-y-pesos)
+12. [Mecánica de Votos y Pesos](#12-mecánica-de-votos-y-pesos)
 
 ---
 
@@ -109,7 +108,7 @@ Base path: `/api/v1/user/auth`
 - `400`: DNA Scanner rechaza, email duplicado, validación Pydantic
 - `429`: Rate limit de emails Supabase (2 emails/hora plan Free)
 
-**Issue pendiente:** El DNA Scanner no persiste su análisis forense en `audit_logs` al registrar un `HUMAN`. Solo guarda rechazos. Los intentos `SUSPICIOUS` no generan log.
+**Issue:** El DNA Scanner no persiste su análisis forense en `audit_logs` al registrar un `HUMAN`. Solo guarda rechazos. Los intentos `SUSPICIOUS` no generan log.
 
 ---
 
@@ -187,7 +186,7 @@ Supabase envía este `token_hash` en el enlace de confirmación de email.
 
 ---
 
-### POST `/verify-identity` — Ascensión BRONZE → SILVER
+### POST `/verify-identity` — Registrar RUT → auto-promoción a VERIFIED
 
 | Campo | Valor |
 |-------|-------|
@@ -203,28 +202,46 @@ Supabase envía este `token_hash` en el enlace de confirmación de email.
 ```
 
 **Flujo interno:**
-1. Validación Módulo 11 del dígito verificador (acepta formatos: `12.345.678-9`, `12345678-9`, `123456789`)
+1. Validación Módulo 11 en el backend (acepta formatos: `12.345.678-9`, `12345678-9`, `123456789`)
 2. `hash_rut(rut)` → SHA-256 con salt desde `settings.RUT_SALT` → `rut_hash`
-3. Unicidad: consulta `users WHERE rut_hash = ?` → si duplicado, registra `RUT_DUPLICATE_ATTEMPT` en audit
-4. UPDATE en `users`: `rut_hash=hash`, `is_verified=true`, `verification_level=2`, `rank=SILVER`, `integrity_score=0.75`
-5. Registra `USER_VERIFIED_RUT` + `USER_RANK_CHANGED` en `audit_logs`
+3. Unicidad: consulta `users WHERE rut_hash = ?` → si duplicado, registra `RUT_DUPLICATE_ATTEMPT` en audit → 400
+4. UPDATE en `users`: `rut_hash=hash`, `is_rut_verified=true`
+5. Llama a `_evaluate_rank(user_id)` → retorna VERIFIED si los 5 campos están completos, BASIC si no
+6. UPDATE `rank` con el resultado de `_evaluate_rank()`
+7. Registra `USER_VERIFIED_RUT` + `USER_RANK_CHANGED` en `audit_logs`
 
-**Response 200:**
+**Requisitos para `new_rank = VERIFIED`:** 5 campos todos presentes:
+- `rut_hash` (este endpoint lo provee)
+- `birth_year`, `country`, `region`, `commune` (deben venir del perfil previo o registro)
+
+**Response 200 — VERIFIED:**
 ```json
 {
   "status": "success",
-  "new_rank": "SILVER",
+  "new_rank": "VERIFIED",
   "integrity_score": 0.75,
-  "message": "¡Bienvenido, Ciudadano de Plata! Tu voto ahora pesa 1.5x..."
+  "message": "¡Identidad Verificada! Tu voto ahora pesa 1.0x."
+}
+```
+
+**Response 200 — BASIC (campos demográficos incompletos):**
+```json
+{
+  "status": "success",
+  "new_rank": "BASIC",
+  "integrity_score": 0.6,
+  "message": "RUT registrado. Completa tu perfil demográfico para subir a VERIFIED."
 }
 ```
 
 **Notas:**
 - El RUT en texto plano **NUNCA** se almacena; se descarta tras el hash
-- El mensaje menciona "tu voto pesa 1.5x" pero esta multiplicación **no está implementada** en `votes.py` (ver [Sección 12](#12-mecánica-de-votos-y-pesos))
+- La promoción a VERIFIED es **automática** si todos los campos están completos
+- Frontend: validación módulo 11 también en cliente (`VerifyIdentityModal.tsx`)
 
 **Errores:**
-- `400`: RUT con dígito verificador inválido o RUT duplicado en el sistema
+- `400`: RUT con dígito verificador inválido o RUT ya registrado en otra cuenta
+- `401`: token inválido o expirado
 
 ---
 
@@ -242,7 +259,7 @@ Supabase envía este `token_hash` en el enlace de confirmación de email.
   "id": "uuid",
   "email": "ciudadano@ejemplo.cl",
   "full_name": "Juan Pérez",
-  "rank": "BRONZE",
+  "rank": "BASIC",
   "integrity_score": 0.5,
   "reputation_score": 0.0,
   "verification_level": 1,
@@ -261,26 +278,40 @@ Supabase envía este `token_hash` en el enlace de confirmación de email.
 |-------|-------|
 | **Auth** | Bearer JWT |
 | **Tablas DB** | `users`, `audit_logs` |
-| **Estado** | ✅ Fix PR-3 (2026-03-10) |
+| **Estado** | ✅ Actualizado en migración 014 |
 
 **Body (UserProfileUpdate):**
 ```json
 {
   "commune": "Providencia",
   "region": "Metropolitana",
-  "age_range": "25-34"
+  "country": "Chile",
+  "age_range": "25-34",
+  "birth_year": 1990
 }
 ```
 
-**Fix aplicado (PR-3):** Eliminados `commune=` y `region=` del callsite en `auth.py`. La firma real del servicio en `identity_service.py` es `update_demographic_profile(user_id, age_range=None)`. Ya no lanza `TypeError`.
+**Todos los campos son opcionales.** Se envían solo los que se desea actualizar.
+
+**Flujo interno:**
+1. UPDATE en `users` con los campos presentes en el body
+2. Llama a `_evaluate_rank(user_id)` → auto-promoción si los 5 campos están completos
+3. Registra `PROFILE_DEMOGRAPHIC_UPDATED` en `audit_logs`
+
+**Response 200:**
+```json
+{
+  "status": "success",
+  "new_rank": "VERIFIED",
+  "message": "Perfil actualizado. Has alcanzado VERIFIED."
+}
+```
 
 **Boost de integridad:**
-- `+0.02` por cada campo entregado (`age_range`)
+- `+0.02` por cada campo entregado
 - Máximo capped a `1.0`
-- Registra `PROFILE_DEMOGRAPHIC_UPDATED` en `audit_logs`
 
 **Errores:**
-- `400`: validación Pydantic o error de DB
 - `401`: token inválido
 
 ---
@@ -315,7 +346,7 @@ Lee columnas `region` y `party` de entidades activas (`is_active=true`, `deleted
 |-------|-------|
 | **Auth** | No |
 | **Tablas DB** | `entities` |
-| **Estado** | ✅ Fix PR-5 (2026-03-10) |
+| **Estado** | ❌ `is_verified` y `rank` hardcodeados |
 
 **Query params:**
 | Param | Tipo | Default | Descripción |
@@ -359,7 +390,10 @@ Lee columnas `region` y `party` de entidades activas (`is_active=true`, `deleted
 }
 ```
 
-**Fix aplicado (PR-5):** `is_verified` y `rank` hardcodeados eliminados. Ahora se leen directamente desde la DB. `integrity_index` sigue siendo derivado de `reputation_score` — pendiente P4.
+**Bugs:**
+- `is_verified: true` hardcodeado en línea 124 — todas las entidades aparecen como verificadas independientemente del dato real
+- `rank: "BRONZE"` hardcodeado en línea 125 — no refleja la columna `rank` real de la entidad
+- `integrity_index` es derivado de `reputation_score` (porcentaje de 0-5) en vez de leer `integrity_index` de la BBDD
 
 **Columnas que usa de `entities`:**
 `id`, `first_name`, `last_name`, `second_last_name`, `category`, `position`, `region`, `district`, `bio`, `party`, `photo_path`, `official_links`, `is_active`, `reputation_score`, `total_reviews`
@@ -372,7 +406,7 @@ Lee columnas `region` y `party` de entidades activas (`is_active=true`, `deleted
 |-------|-------|
 | **Auth** | No |
 | **Tablas DB** | `entities` |
-| **Estado** | ✅ Fix PR-5 (2026-03-10) |
+| **Estado** | ❌ mismos bugs que `/entities` |
 
 **Path params:** `entity_id` (UUID)
 
@@ -397,7 +431,7 @@ Base path: `/api/v1`
 |-------|-------|
 | **Auth** | Bearer JWT (mínimo BRONZE) |
 | **Tablas DB** | `entities`, `entity_reviews`, `audit_logs` |
-| **Estado** | ✅ Fix PR-1 + PR-2 (2026-03-10) |
+| **Estado** | ❌ WebSocket pulse nunca se dispara tras el voto |
 
 **Path params:** `entity_id` (UUID)
 
@@ -430,14 +464,11 @@ Rango válido por score: `[0.0, 5.0]`. Mínimo 1 dimensión.
   "success": true,
   "new_score": 3.42,
   "total_reviews": 128,
-  "your_vote": 3.33,
-  "vote_weight": 1.5
+  "your_vote": 3.33
 }
 ```
 
-**Fixes aplicados:**
-- **PR-1:** `vote_weight` leído desde `config_params` por rango (`VOTE_WEIGHT_BRONZE/SILVER/GOLD/DIAMOND`). Fallback `1.0` si Redis/DB no responde. El campo `vote_weight` se expone en el response y en `audit_logs`.
-- **PR-2:** `background_tasks.add_task(publish_verdict_pulse, ...)` ejecutado tras UPDATE exitoso. Los clientes WebSocket en `beacon:pulse:{entity_id}` ya reciben actualizaciones en tiempo real.
+**Bug crítico:** `publish_verdict_pulse()` de `realtime.py` nunca se llama. Los clientes WebSocket conectados a `beacon:pulse:{entity_id}` **nunca** reciben la actualización del voto. El tiempo real está arquitecturalmente correcto pero desconectado del flujo de votos.
 
 **Errores:**
 - `401`: no autenticado
@@ -523,7 +554,7 @@ El cliente se conecta y espera mensajes. Cualquier dato enviado por el cliente e
 
 **Canal Redis:** `beacon:pulse:{entity_id}`
 
-**Fix PR-2:** `publish_verdict_pulse()` ahora es llamado via `background_tasks` desde `votes.py` tras cada UPDATE exitoso → los mensajes se publican en `beacon:pulse:{entity_id}` → clientes WebSocket reciben actualizaciones en tiempo real.
+**Problema:** `publish_verdict_pulse()` nunca es llamado desde `votes.py` → los mensajes nunca se publican → el WebSocket permanece silencioso aunque la conexión esté activa.
 
 **Código de cierre:** `4001` si `entity_id` tiene menos de 3 caracteres.
 
@@ -586,7 +617,7 @@ Base path: `/api/v1/admin`
 |-------|-------|
 | **Auth** | Admin |
 | **Tablas DB** | `entities`, `audit_logs` |
-| **Estado** | ✅ Fix PR-4 (2026-03-10) |
+| **Estado** | ❌ `audit_bus.log_event()` sin `await` |
 
 **Body (dict):**
 ```json
@@ -616,7 +647,7 @@ Categorías válidas: `politico`, `periodista`, `empresario`, `empresa`, `evento
 }
 ```
 
-**Fix aplicado (PR-4):** `audit_logger.alog_event()` es ahora `async` y se llama con `await`. El audit log ya no es fire-and-forget — está garantizado antes de retornar la respuesta.
+**Bug:** `audit_bus.log_event(...)` en línea 118 se llama **sin `await`** en un contexto `async def`. La llamada al AuditLogger es fire-and-forget no garantizado — el audit log puede perderse si el event loop recicla antes de ejecutarlo.
 
 ---
 
@@ -626,7 +657,7 @@ Categorías válidas: `politico`, `periodista`, `empresario`, `empresa`, `evento
 |-------|-------|
 | **Auth** | Admin |
 | **Tablas DB** | `entities`, `audit_logs` |
-| **Estado** | ✅ Fix PR-4 (2026-03-10) |
+| **Estado** | ❌ `audit_bus.log_event()` sin `await` |
 
 **Body:** cualquier subconjunto de campos permitidos + `change_reason` (obligatorio):
 ```json
@@ -649,7 +680,7 @@ Guarda `old_data` + `new_data` en el audit log para trazabilidad forense.
 |-------|-------|
 | **Auth** | Admin |
 | **Tablas DB** | `entities`, `audit_logs` |
-| **Estado** | ✅ Fix PR-4 (2026-03-10) |
+| **Estado** | ❌ `audit_bus.log_event()` sin `await` + resultado de UPDATE no verificado |
 
 Marca `is_active=false` y `deleted_at=now()`. La entidad permanece en la BBDD.
 
@@ -661,7 +692,7 @@ Marca `is_active=false` y `deleted_at=now()`. La entidad permanece en la BBDD.
 }
 ```
 
-**Nota:** El resultado del soft-delete UPDATE no se verifica explícitamente — si RLS bloquea silenciosamente, aún retorna 200. Pendiente PR futuro.
+**Bug adicional:** El resultado del UPDATE (línea 246-255) no se verifica. Si el UPDATE falla silenciosamente (e.g., RLS bloqueó), retorna 200 igualmente.
 
 ---
 
@@ -671,7 +702,7 @@ Marca `is_active=false` y `deleted_at=now()`. La entidad permanece en la BBDD.
 |-------|-------|
 | **Auth** | Admin |
 | **Tablas DB** | Supabase Storage (bucket `imagenes`) |
-| **Estado** | ✅ Fix PR-4 (2026-03-10) |
+| **Estado** | ❌ `audit_bus.log_event()` sin `await` |
 
 **Body:** `multipart/form-data` con campo `file`
 Tipos aceptados: `image/jpeg`, `image/png`, `image/webp`
@@ -788,7 +819,7 @@ Base path: `/api/v1/admin`
 |-------|-------|
 | **Auth** | Admin |
 | **Tablas DB** | `entities`, `users`, `entity_reviews`, `audit_logs` |
-| **Estado** | ✅ Fix PR-7 (2026-03-10) |
+| **Estado** | ⚠️ Trae ALL rows de 3 tablas a Python para agregar en memoria |
 
 **Response 200:**
 ```json
@@ -834,7 +865,7 @@ Base path: `/api/v1/admin`
 }
 ```
 
-**Fix aplicado (PR-7):** `entity_reviews` usa `count="exact"` + `limit(0)` — PostgREST retorna solo el COUNT sin traer filas. `users` consulta rank/is_shadow_banned con `count="exact"`. Cero filas traídas a Python para agregaciones.
+**Issue de performance:** Las 3 queries principales traen `SELECT *` de `entities`, `users` y `entity_reviews` sin `LIMIT`. A escala (100k+ usuarios) esto es un problema de memoria y latencia. Fix: usar `COUNT(*)`, `AVG()` y `SUM()` directamente en Supabase.
 
 ---
 
@@ -848,7 +879,7 @@ Base path: `/api/v1/admin`
 |-------|-------|
 | **Auth** | Admin |
 | **Tablas DB** | `users` |
-| **Estado** | ✅ Fix PR-6 (2026-03-10) |
+| **Estado** | ⚠️ Fallback a datos demo hardcodeados expuesto en producción |
 
 **Response 200:**
 ```json
@@ -869,7 +900,7 @@ Base path: `/api/v1/admin`
 }
 ```
 
-**Fix aplicado (PR-6):** Demo data eliminado. Si Supabase falla, retorna `503 Service Unavailable` con `{"detail": "AUM service temporarily unavailable"}`. Cuando funciona, `source: "SUPABASE_LIVE"` confirma que los datos son reales.
+Cuando falla la consulta a Supabase, `source` cambia a `"DEMO_DATA"` y retorna 4 usuarios ficticios. Este fallback silencioso puede engañar a admins en producción.
 
 **Fórmula AUM** (ver [Sección 12](#12-mecánica-de-votos-y-pesos) para detalle completo):
 ```
@@ -954,155 +985,85 @@ Usa `count=exact` de Supabase → el campo `total` es el conteo real de la tabla
 
 ---
 
-## 12. Admin — Decay
+## 12. Mecánica de Votos y Pesos
 
-Base path: `/api/v1/admin`
-**Auth requerida en todos:** Bearer JWT con `role = 'admin'`
+> **Sistema vigente desde migración 014:** v1 — Media ponderada acumulada con rangos BASIC/VERIFIED.
+> El prior Bayesiano y el decay temporal están diferidos a v4.0.
 
-### GET `/admin/decay/preview` — Dry-run del decay
+### 12.1 Fórmula de Reputation Score (v1 — vigente)
 
-| Campo | Valor |
-|-------|-------|
-| **Auth** | Admin |
-| **Tablas DB** | `entities`, `config_params` |
-| **Estado** | ✅ Nuevo (PR-12, 2026-03-10) |
+**Media ponderada acumulada** con `effective_weight` por usuario.
 
-**Query params:**
-| Param | Tipo | Default | Descripción |
-|-------|------|---------|-------------|
-| `min_days` | int | 30 | Mínimo días de inactividad para aplicar decay |
+**Voto nuevo:**
+```
+vote_avg = mean(scores.values())
+effective_weight = VOTE_WEIGHT_{rank} × vote_penalty
 
-**Response 200:** mismo contrato que `/admin/decay/run` pero con `dry_run: true` y `total_modified: 0`. Muestra qué cambiaría sin modificar la DB.
-
----
-
-### POST `/admin/decay/run` — Ejecutar decay
-
-| Campo | Valor |
-|-------|-------|
-| **Auth** | Admin |
-| **Tablas DB** | `entities`, `config_params`, `audit_logs` |
-| **Estado** | ✅ Nuevo (PR-12, 2026-03-10) |
-
-**Query params:**
-| Param | Tipo | Default | Descripción |
-|-------|------|---------|-------------|
-| `min_days` | int | 30 | Mínimo días de inactividad |
-
-**Response 200:**
-```json
-{
-  "dry_run": false,
-  "half_life_days": 180.0,
-  "min_days_threshold": 30,
-  "total_processed": 150,
-  "total_eligible": 12,
-  "total_modified": 12,
-  "total_errors": 0,
-  "changes": [
-    {
-      "entity_id": "uuid",
-      "old_score": 4.5,
-      "new_score": 3.75,
-      "elapsed_days": 180.0,
-      "delta": -0.75
-    }
-  ],
-  "ran_at": "2026-03-11T03:00:00Z"
-}
+new_score = (old_score × old_n + vote_avg × effective_weight)
+            ─────────────────────────────────────────────────
+                      (old_n + effective_weight)
 ```
 
-**Cron recomendado:** `0 3 * * *` (3 AM diario) via `scripts/run_decay.py`
-
-**Fórmula de decay:**
+**Reemplazo de voto (tras expirar time-lock):**
 ```
-new_score = C + (old_score − C) × exp(−ln(2) × elapsed_days / half_life)
-```
-Donde `C = 3.0` (prior Bayesiano) y `half_life = DECAY_HALF_LIFE_DAYS` desde `config_params`.
-
-**Solo afecta entidades con:**
-- `last_reviewed_at IS NOT NULL` (tienen al menos un voto)
-- `is_active = true`
-- `elapsed_days >= min_days`
-- `|new_score - old_score| > 0.001` (cambio significativo)
-
-**Audit log:** Registra `REPUTATION_DECAY_APPLIED` por cada entidad modificada con `actor_id: "SYSTEM"`.
-
----
-
-## 13. Mecánica de Votos y Pesos
-
-### 13.1 Fórmula Bayesiana del Reputation Score
-
-Toda entidad tiene un `reputation_score` en escala `[0, 5]` calculado con estimación Bayesiana incremental.
-
-**Parámetros del prior:**
-| Parámetro | Valor | Significado |
-|-----------|-------|-------------|
-| `m` | 30 | Peso del prior (equivale a "30 votos imaginarios") |
-| `C` | 3.0 | Media neutral del prior (punto medio de la escala) |
-
-**Default al crear entidad:** `reputation_score = 3.0` (el prior puro, sin ningún voto real).
-
-**Al recibir un voto nuevo:**
-
-```
-Paso 1: Promedio del veredicto multidimensional
-  vote_avg = mean(scores.values())
-  Ejemplo: {"transparencia": 4.5, "gestion": 3.0, "coherencia": 2.5}
-  vote_avg = (4.5 + 3.0 + 2.5) / 3 = 3.333
-
-Paso 2: Revertir Bayesiano al raw_sum acumulado
-  Si old_n > 0:
-    raw_sum = old_score × (m + old_n) - m × C
-  Si old_n == 0:
-    raw_sum = 0.0
-
-Paso 3: Incorporar nuevo voto
-  new_n = old_n + 1
-  new_raw_sum = raw_sum + vote_avg
-
-Paso 4: Nuevo score Bayesiano
-  new_score = (m × C + new_raw_sum) / (m + new_n)
-  new_score = clamp(new_score, 0.0, 5.0), round(4 decimales)
+new_score = (old_score × old_n - old_vote_avg × old_eff_weight + vote_avg × new_eff_weight)
+            ─────────────────────────────────────────────────────────────────────────────────
+                                         old_n
 ```
 
-**Ejemplo completo (primera votación):**
+**Ejemplo (primera votación, usuario VERIFIED):**
 ```
-old_score = 3.0 (prior), old_n = 0
-vote_avg = 4.0
-raw_sum = 0.0 (old_n == 0)
+old_score = 3.0, old_n = 0
+vote_avg = 4.0, effective_weight = 1.0
+
+new_score = (3.0 × 0 + 4.0 × 1.0) / (0 + 1.0) = 4.0
 new_n = 1
-new_raw_sum = 0.0 + 4.0 = 4.0
-new_score = (30 × 3.0 + 4.0) / (30 + 1) = 94.0 / 31 = 3.0323
 ```
 
-**Propiedad clave:** Con `m=30`, se necesitan muchos votos para mover el score significativamente. Un solo voto de 5.0 solo sube el score de 3.0 a 3.065. Esto evita que una entidad nueva sea manipulada por pocos votos.
-
-### 13.2 Pesos por Rango de Votante
-
-La tabla `config_params` define multiplicadores de voto por rango:
-
-| Rango | Multiplicador (`config_params`) | Estado |
-|-------|--------------------------------|--------|
-| BRONZE | `1.0` | ✅ Implementado (PR-1, 2026-03-10) |
-| SILVER | `1.5` | ✅ Implementado (PR-1, 2026-03-10) |
-| GOLD | `2.5` | ✅ Implementado (PR-1, 2026-03-10) |
-| DIAMOND | `5.0` | ✅ Implementado (PR-1, 2026-03-10) |
-
-**Fix PR-1:** `votes.py` consulta `config_params` para obtener `VOTE_WEIGHT_{rank}`. Fallback a `1.0` si Redis/DB no responden. El peso aplicado se incluye en el response (`vote_weight`) y en `audit_logs.details`.
-
-**Fórmula:**
+**Ejemplo (segunda votación, usuario BASIC):**
 ```
-vote_weighted = vote_avg × VOTE_WEIGHT_{rank}
-new_raw_sum = raw_sum + vote_weighted
+old_score = 4.0, old_n = 1
+vote_avg = 2.0, effective_weight = 0.5
+
+new_score = (4.0 × 1 + 2.0 × 0.5) / (1 + 0.5) = 5.0 / 1.5 = 3.333
 ```
 
-### 13.3 Decay Temporal
+### 12.2 Pesos por Rango de Votante (IMPLEMENTADO desde migración 014)
 
-`config_params` define `DECAY_HALF_LIFE_DAYS = 180` (vida media de 6 meses). Job implementado (PR-12) — ver [Sección 12](#12-admin--decay) para endpoints de administración y `scripts/run_decay.py` para el cron.
+`votes.py` consulta `config_params` para leer el peso por rango:
 
-### 13.4 Valor USD del Ciudadano (UserAssetCalculator)
+| Rango | `config_params` | Estado |
+|-------|----------------|--------|
+| BASIC | `VOTE_WEIGHT_BASIC = 0.5` | ✅ Activo |
+| VERIFIED | `VOTE_WEIGHT_VERIFIED = 1.0` | ✅ Activo |
+
+**vote_penalty:** Columna `users.vote_penalty` (DEFAULT 1.0). Multiplicador controlado por el Overlord.
+```
+effective_weight = rank_weight × vote_penalty
+```
+- VERIFIED sin penalización: `1.0 × 1.0 = 1.0`
+- VERIFIED sancionado: `1.0 × 0.3 = 0.3`
+- BASIC bloqueado: `0.5 × 0.0 = 0.0`
+
+### 12.3 Time-lock de Votos
+
+| Parámetro | Valor actual | Descripción |
+|-----------|-------------|-------------|
+| `VOTE_EDIT_LOCK_DAYS` | `30` | Días hasta poder modificar un voto |
+
+- Primer voto: INSERT en `entity_reviews`
+- Re-voto antes del plazo: HTTP **423 Locked** + `unlock_date`
+- Re-voto después del plazo: UPSERT en `entity_reviews` (reemplaza voto anterior)
+
+### 12.4 Decay Temporal (PENDIENTE — v4.0)
+
+`config_params.DECAY_HALF_LIFE_DAYS = 180` está definido pero sin job/cron que lo aplique.
+
+### 12.5 Fórmula Bayesiana (PENDIENTE — v4.0)
+
+Prior Bayesiano `m=30, C=3.0` definido en `voting_weight_system.md §9` pero no implementado en `votes.py`.
+
+### 12.6 Valor USD del Ciudadano (UserAssetCalculator)
 
 Fórmula para el endpoint `/admin/aum`:
 
@@ -1110,21 +1071,16 @@ Fórmula para el endpoint `/admin/aum`:
 valor_usd = (base_tier × multiplier) + data_bonus + rut_bonus
 ```
 
-**Base por tier:**
+**Base por tier (sistema 2 rangos):**
 | Rango | Base USD |
 |-------|----------|
-| BRONZE | $0.50 |
-| SILVER | $5.00 |
-| GOLD | $25.00 |
-| DIAMOND | $100.00 |
+| BASIC | $0.50 |
+| VERIFIED | $5.00 |
 
 **Multiplicador de integridad:**
 ```
 multiplier = integrity_score × 1.2
 ```
-- `integrity_score = 0.5` (BRONZE recién registrado) → `multiplier = 0.6`
-- `integrity_score = 0.75` (SILVER tras RUT) → `multiplier = 0.9`
-- `integrity_score = 1.0` (máximo) → `multiplier = 1.2`
 
 **Data bonus (Mina de Oro B2B):**
 | Condición | Bonus |
@@ -1132,40 +1088,16 @@ multiplier = integrity_score × 1.2
 | `commune` Y `age_range` presentes | +$5.00 |
 | Solo `commune` O `age_range` | +$2.00 |
 | `region` presente | +$1.00 adicional |
-
-**RUT bonus:**
-| Condición | Bonus |
-|-----------|-------|
 | `rut_hash` presente | +$3.00 |
 
-**Ejemplos completos:**
-```
-BRONZE sin datos:
-  valor = ($0.50 × 0.6) + $0 + $0 = $0.30
+### 12.7 Mecánica de Rangos (Sistema v2 — BASIC/VERIFIED)
 
-SILVER solo email:
-  valor = ($5.00 × 0.9) + $0 + $3.00 = $7.50
+| Rango | Requisito | Peso de voto |
+|-------|-----------|-------------|
+| BASIC | Registro + email confirmado | 0.5x |
+| VERIFIED | RUT + birth_year + country + region + commune | 1.0x |
 
-SILVER con commune + age_range + region:
-  valor = ($5.00 × 0.9) + $5.00 + $1.00 + $3.00 = $13.50
-
-GOLD con perfil completo:
-  valor = ($25.00 × 1.14) + $5.00 + $1.00 + $3.00 = $37.50
-
-DIAMOND con perfil completo + integrity=1.0:
-  valor = ($100.00 × 1.2) + $5.00 + $1.00 + $3.00 = $129.00
-```
-
-### 13.5 Mecánica de Rangos (Ascensión)
-
-| Rango | Requisito | integrity_score | verification_level |
-|-------|-----------|-----------------|-------------------|
-| BRONZE | Registro + email confirmado | 0.5 | 1 |
-| SILVER | RUT chileno válido + único | 0.75 | 2 |
-| GOLD | Pendiente implementar (Fase 2) | — | — |
-| DIAMOND | Pendiente implementar (Fase 3) | — | — |
-
-**Boost demográfico:** Cada campo del perfil entregado (+`age_range`) suma `+0.02` al `integrity_score`, capped en `1.0`.
+**Promoción automática:** `_evaluate_rank()` se llama tras cada update de perfil o verificación de RUT. Si los 5 campos están completos → VERIFIED instantáneo, sin intervención manual.
 
 ---
 
@@ -1197,7 +1129,7 @@ public.entities
 public.config_params (standalone — configuración dinámica)
 ```
 
-**Nota sobre `config_params`:** `VOTE_WEIGHT_*` es consumido por `votes.py` (PR-1). `DECAY_HALF_LIFE_DAYS` es consumido por `reputation_decay.py` (PR-12). `DECAY_HALF_LIFE_DAYS` también es consultado por el job de decay en cada ejecución.
+**Nota sobre `config_params`:** Los valores `VOTE_WEIGHT_*` y `DECAY_HALF_LIFE_DAYS` están definidos pero ningún endpoint los consume actualmente.
 
 ---
 
