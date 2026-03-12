@@ -2,8 +2,8 @@
 BEACON PROTOCOL — Test de Integración: Flujo de Ascensión
 ===========================================================
 Simula el ciclo completo de vida de un ciudadano:
-  1. Se registra (nace BRONZE, vale $1.00)
-  2. Valida su RUT (asciende a SILVER, vale ~$21.00)
+  1. Se registra (nace BASIC, vale ~$0.30)
+  2. Valida su RUT (asciende a VERIFIED, vale ~$8.40)
   3. Completa su perfil demográfico (integrity boost)
   4. Se calcula su valor en USD para la plataforma
 
@@ -158,12 +158,12 @@ class TestDNAScanner:
 
 
 class TestUserAssetCalculator:
-    """Valida el cálculo de valor en USD por usuario."""
+    """Valida el cálculo de valor en USD por usuario. Sistema v1: BASIC/VERIFIED."""
 
-    def test_bronze_minimal_value(self):
-        """BRONZE sin datos → valor mínimo."""
+    def test_basic_minimal_value(self):
+        """BASIC sin datos → valor mínimo (base $0.50)."""
         user = {
-            "rank": "BRONZE",
+            "rank": "BASIC",
             "integrity_score": 0.5,
             "commune": None,
             "age_range": None,
@@ -172,12 +172,12 @@ class TestUserAssetCalculator:
         }
         value = asset_calculator.calculate_usd_value(user)
         assert value > 0
-        assert value < 5.0  # BRONZE base es $1.00
+        assert value < 5.0  # BASIC base es $0.50
 
-    def test_silver_verified_value(self):
-        """SILVER con RUT verificado → valor significativamente mayor."""
+    def test_verified_with_full_data(self):
+        """VERIFIED con RUT + datos completos → valor significativamente mayor que BASIC."""
         user = {
-            "rank": "SILVER",
+            "rank": "VERIFIED",
             "integrity_score": 0.75,
             "commune": "Providencia",
             "age_range": "25-34",
@@ -185,14 +185,13 @@ class TestUserAssetCalculator:
             "rut_hash": "abc123hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        # SILVER base=$5.00 × (0.75×1.2) + data(commune+age_range=5.0, region=1.0) + rut(3.0) = 13.5
-        # Assertions actualizadas a TIER_VALUES 2026: SILVER=$5 (PR-07 fix)
+        # VERIFIED base=$5.00 × (0.75×1.2) + data(commune+age=5.0, region=1.0) + rut(3.0) = 13.5
         assert value >= 13.0
 
-    def test_gold_referent_value(self):
-        """GOLD con perfil completo → valor alto."""
+    def test_verified_high_integrity(self):
+        """VERIFIED con integridad alta y datos completos."""
         user = {
-            "rank": "GOLD",
+            "rank": "VERIFIED",
             "integrity_score": 0.95,
             "commune": "Las Condes",
             "age_range": "35-44",
@@ -200,27 +199,27 @@ class TestUserAssetCalculator:
             "rut_hash": "xyz789hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        # GOLD base=$25.00 × (0.95×1.2) + data(6.0) + rut(3.0) = 37.5
-        assert value >= 35.0
+        # VERIFIED base=$5.00 × (0.95×1.2) + data(6.0) + rut(3.0) = 14.70
+        assert value >= 13.0
 
-    def test_diamond_auditor_value(self):
-        """DIAMOND con integridad perfecta → máximo valor."""
+    def test_verified_perfect_integrity(self):
+        """VERIFIED con integridad perfecta → valor máximo del tier."""
         user = {
-            "rank": "DIAMOND",
+            "rank": "VERIFIED",
             "integrity_score": 1.0,
             "commune": "Vitacura",
             "age_range": "45-54",
             "region": "Metropolitana",
-            "rut_hash": "diamond_hash",
+            "rut_hash": "perfect_hash",
         }
         value = asset_calculator.calculate_usd_value(user)
-        # DIAMOND base=$100.00 × (1.0×1.2) + data(6.0) + rut(3.0) = 129.0
-        assert value >= 125.0
+        # VERIFIED base=$5.00 × (1.0×1.2) + data(6.0) + rut(3.0) = 15.0
+        assert value >= 14.0
 
     def test_data_bonus_with_partial_data(self):
         """Datos parciales → bono parcial ($2.00 vs $5.00)."""
         user_partial = {
-            "rank": "BRONZE",
+            "rank": "BASIC",
             "integrity_score": 0.5,
             "commune": "Ñuñoa",
             "age_range": None,
@@ -228,7 +227,7 @@ class TestUserAssetCalculator:
             "rut_hash": None,
         }
         user_full = {
-            "rank": "BRONZE",
+            "rank": "BASIC",
             "integrity_score": 0.5,
             "commune": "Ñuñoa",
             "age_range": "25-34",
@@ -241,74 +240,75 @@ class TestUserAssetCalculator:
 
     def test_ascension_value_increase(self):
         """
-        TEST DE INTEGRACIÓN: El ciclo BRONZE → SILVER
+        TEST DE INTEGRACIÓN: El ciclo BASIC → VERIFIED
         Simula el flujo completo de registro y ascensión.
         """
-        # Paso 1: Usuario recién registrado (BRONZE)
-        user_bronze = {
-            "rank": "BRONZE",
+        # Paso 1: Usuario recién registrado (BASIC)
+        user_basic = {
+            "rank": "BASIC",
             "integrity_score": 0.5,
             "commune": None,
             "age_range": None,
             "region": None,
             "rut_hash": None,
         }
-        value_bronze = asset_calculator.calculate_usd_value(user_bronze)
+        value_basic = asset_calculator.calculate_usd_value(user_basic)
 
-        # Paso 2: Verifica su RUT → asciende a SILVER
-        user_silver = {
-            "rank": "SILVER",
+        # Paso 2: Verifica su RUT → asciende a VERIFIED
+        user_verified = {
+            "rank": "VERIFIED",
             "integrity_score": 0.75,
             "commune": None,
             "age_range": None,
             "region": None,
             "rut_hash": hash_rut("11.111.111-1"),
         }
-        value_silver = asset_calculator.calculate_usd_value(user_silver)
+        value_verified = asset_calculator.calculate_usd_value(user_verified)
 
         # Paso 3: Completa perfil demográfico
-        user_silver_full = {
-            "rank": "SILVER",
+        user_verified_full = {
+            "rank": "VERIFIED",
             "integrity_score": 0.79,  # 0.75 + 2*0.02 (commune + age_range)
             "commune": "Santiago",
             "age_range": "25-34",
             "region": "Metropolitana",
             "rut_hash": hash_rut("11.111.111-1"),
         }
-        value_silver_full = asset_calculator.calculate_usd_value(user_silver_full)
+        value_verified_full = asset_calculator.calculate_usd_value(user_verified_full)
 
         # Verificaciones: cada paso aumenta el valor del ciudadano
-        assert value_silver > value_bronze, (
-            f"SILVER ({value_silver}) debe valer más que BRONZE ({value_bronze})"
+        assert value_verified > value_basic, (
+            f"VERIFIED ({value_verified}) debe valer más que BASIC ({value_basic})"
         )
-        assert value_silver_full > value_silver, (
-            f"SILVER+datos ({value_silver_full}) debe valer más que SILVER ({value_silver})"
+        assert value_verified_full > value_verified, (
+            f"VERIFIED+datos ({value_verified_full}) debe valer más que VERIFIED ({value_verified})"
         )
 
         # Logging del test para evidencia
         print(f"\n{'='*50}")
         print("  BEACON — Test de Ascensión (Ciclo de Vida)")
         print(f"{'='*50}")
-        print(f"  BRONZE (registro):        ${value_bronze:.2f}")
-        print(f"  SILVER (RUT verificado):   ${value_silver:.2f}")
-        print(f"  SILVER + datos completos:  ${value_silver_full:.2f}")
+        print(f"  BASIC (registro):             ${value_basic:.2f}")
+        print(f"  VERIFIED (RUT verificado):     ${value_verified:.2f}")
+        print(f"  VERIFIED + datos completos:    ${value_verified_full:.2f}")
         print(f"{'='*50}")
 
     def test_platform_total_value(self):
         """Calcula el valor total de una plataforma de ejemplo."""
         users = [
-            {"rank": "BRONZE", "integrity_score": 0.5, "commune": None,
-             "age_range": None, "region": None, "rut_hash": None},
-            {"rank": "SILVER", "integrity_score": 0.75, "commune": "Santiago",
+            {"rank": "BASIC",    "integrity_score": 0.5,  "commune": None,
+             "age_range": None,  "region": None,           "rut_hash": None},
+            {"rank": "VERIFIED", "integrity_score": 0.75, "commune": "Santiago",
              "age_range": "25-34", "region": "Metropolitana", "rut_hash": "hash1"},
-            {"rank": "GOLD", "integrity_score": 0.95, "commune": "Las Condes",
+            {"rank": "VERIFIED", "integrity_score": 0.95, "commune": "Las Condes",
              "age_range": "35-44", "region": "Metropolitana", "rut_hash": "hash2"},
         ]
         result = asset_calculator.calculate_total_platform_value(users)
         assert result["total_usd"] > 0
         assert result["user_count"] == 3
         assert result["avg_value"] > 0
-        assert "BRONZE" in result["by_tier"]
+        assert "BASIC" in result["by_tier"]
+        assert "VERIFIED" in result["by_tier"]
 
 
 # ═══════════════════════════════════════════════
@@ -320,7 +320,7 @@ class TestEnums:
     """Valida que las enumeraciones estén correctas."""
 
     def test_user_ranks_exist(self):
-        """Sistema v2: 2 rangos BASIC / VERIFIED."""
+        """Sistema v1: 2 rangos BASIC / VERIFIED."""
         assert UserRank.BASIC == "BASIC"
         assert UserRank.VERIFIED == "VERIFIED"
 
