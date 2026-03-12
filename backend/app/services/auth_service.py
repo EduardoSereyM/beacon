@@ -129,11 +129,16 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         }
 
         # ─── 3b. Datos demográficos opcionales (Mina de Oro) ───
-        # Solo age_range existe como columna de texto en public.users.
-        # country/region/commune se almacenarán via comuna_id (FK) en P4 (lookup table).
-        age_range = getattr(user_data, "age_range", None)
-        if age_range:
-            new_user["age_range"] = age_range
+        # age_range, region, commune, country → texto (migración 016).
+        # birth_year → integer (migración 016).
+        # comuna_id (FK int4) se resolverá en P4 via lookup table.
+        for field in ("age_range", "region", "commune", "country"):
+            val = getattr(user_data, field, None)
+            if val:
+                new_user[field] = val
+        birth_year = getattr(user_data, "birth_year", None)
+        if birth_year:
+            new_user["birth_year"] = int(birth_year)
 
         # ─── Audit: intento (no bloquea si audit_logs no tiene las columnas) ───
         try:
