@@ -1,17 +1,45 @@
 /**
- * BEACON PROTOCOL — VerifyIdentityModal (P5)
- * =============================================
- * Modal de verificación de identidad via RUT chileno.
- * Valida módulo 11 en el cliente y envía POST /verify-identity al backend.
- * En éxito actualiza el store Zustand y el localStorage legacy.
+ * BEACON PROTOCOL — VerifyIdentityModal (P5 v2)
+ * ===============================================
+ * Modal de verificación completa de identidad.
+ * Recolecta RUT + birth_year + region + commune en un solo paso.
+ * Flujo: PUT /profile → POST /verify-identity → rank VERIFIED
  */
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuthStore } from "@/store";
 
-// ─── Utilidades RUT Módulo 11 ────────────────────────────────────────────────
+// ─── Geografía Chile ─────────────────────────────────────────────────────────
+
+const CHILE_REGIONS: Record<string, string[]> = {
+    "Arica y Parinacota": ["Arica", "Camarones", "Putre", "General Lagos"],
+    "Tarapacá": ["Iquique", "Alto Hospicio", "Pozo Almonte", "Pica", "Huara"],
+    "Antofagasta": ["Antofagasta", "Calama", "Mejillones", "Tocopilla", "San Pedro de Atacama"],
+    "Atacama": ["Copiapó", "Vallenar", "Caldera", "Chañaral", "Tierra Amarilla"],
+    "Coquimbo": ["La Serena", "Coquimbo", "Ovalle", "Illapel", "Vicuña"],
+    "Valparaíso": ["Valparaíso", "Viña del Mar", "Quilpué", "Villa Alemana", "San Antonio", "Quillota", "La Calera"],
+    "Metropolitana": [
+        "Santiago", "Providencia", "Las Condes", "Ñuñoa", "La Florida",
+        "Maipú", "Puente Alto", "Vitacura", "Lo Barnechea", "Peñalolén",
+        "La Reina", "Macul", "San Miguel", "San Bernardo", "Recoleta",
+        "Independencia", "Estación Central", "Cerrillos", "Quilicura",
+    ],
+    "O'Higgins": ["Rancagua", "San Fernando", "Rengo", "Machalí", "Graneros"],
+    "Maule": ["Talca", "Curicó", "Linares", "Constitución", "Cauquenes"],
+    "Ñuble": ["Chillán", "San Carlos", "Bulnes", "Quirihue"],
+    "Biobío": ["Concepción", "Los Ángeles", "Chiguayante", "Talcahuano", "Coronel", "Hualpén"],
+    "La Araucanía": ["Temuco", "Padre Las Casas", "Villarrica", "Angol", "Pucón"],
+    "Los Ríos": ["Valdivia", "La Unión", "Panguipulli", "Río Bueno"],
+    "Los Lagos": ["Puerto Montt", "Osorno", "Castro", "Puerto Varas", "Ancud"],
+    "Aysén": ["Coyhaique", "Puerto Aysén", "Chile Chico"],
+    "Magallanes": ["Punta Arenas", "Puerto Natales", "Porvenir"],
+};
+
+const CURRENT_YEAR = new Date().getFullYear();
+
+// ─── Utilidades RUT Módulo 11 ─────────────────────────────────────────────────
 
 function cleanRut(rut: string): string {
     return rut.replace(/[^0-9kK]/g, "").toUpperCase();
@@ -22,8 +50,12 @@ function formatRut(raw: string): string {
     if (clean.length < 2) return clean;
     const body = clean.slice(0, -1);
     const dv = clean.slice(-1);
-    const formatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return `${formatted}-${dv}`;
+    const reversed = body.split("").reverse();
+    const groups: string[] = [];
+    for (let i = 0; i < reversed.length; i += 3) {
+        groups.push(reversed.slice(i, i + 3).reverse().join(""));
+    }
+    return `${groups.reverse().join(".")}-${dv}`;
 }
 
 function validateRut(rut: string): boolean {
@@ -31,7 +63,6 @@ function validateRut(rut: string): boolean {
     if (clean.length < 2) return false;
     const body = clean.slice(0, -1);
     const dvInput = clean.slice(-1).toUpperCase();
-
     let sum = 0;
     let multiplier = 2;
     for (let i = body.length - 1; i >= 0; i--) {
@@ -43,7 +74,19 @@ function validateRut(rut: string): boolean {
     return dvInput === dvExpected;
 }
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+// ─── Estilos compartidos ──────────────────────────────────────────────────────
+
+const INPUT_STYLE = {
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.04)",
+};
+
+const INPUT_ERROR_STYLE = {
+    border: "1px solid rgba(255,80,80,0.6)",
+    background: "rgba(255,255,255,0.04)",
+};
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 interface Props {
     isOpen: boolean;
@@ -54,72 +97,107 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
     const { token, user, setAuth } = useAuthStore();
 
     const [rut, setRut] = useState("");
-    const [rutError, setRutError] = useState("");
+    const [birthYear, setBirthYear] = useState("");
+    const [region, setRegion] = useState(user?.region ?? "");
+    const [commune, setCommune] = useState(user?.commune ?? "");
+
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState<{ new_rank: string; message: string } | null>(null);
     const [serverError, setServerError] = useState("");
 
+    const communes = useMemo(() => CHILE_REGIONS[region] ?? [], [region]);
+
     if (!isOpen) return null;
 
-    const handleRutChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const raw = e.target.value;
-        setRut(formatRut(raw));
-        setRutError("");
-        setServerError("");
+    const handleRegionChange = (val: string) => {
+        setRegion(val);
+        setCommune("");
+        setErrors((e) => ({ ...e, region: "", commune: "" }));
+    };
+
+    const validate = (): boolean => {
+        const newErrors: Record<string, string> = {};
+
+        if (!validateRut(rut)) newErrors.rut = "RUT inválido. Verifica el dígito verificador.";
+
+        const year = parseInt(birthYear);
+        if (!birthYear || isNaN(year) || year < 1920 || year > CURRENT_YEAR - 14) {
+            newErrors.birthYear = `Ingresa un año válido (1920–${CURRENT_YEAR - 14}).`;
+        }
+
+        if (!region) newErrors.region = "Selecciona tu región.";
+        if (!commune) newErrors.commune = "Selecciona tu comuna.";
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setRutError("");
         setServerError("");
-
-        const clean = cleanRut(rut);
-        if (!validateRut(clean)) {
-            setRutError("RUT inválido. Verifica el dígito verificador.");
-            return;
-        }
-
+        if (!validate()) return;
         if (!token) {
             setServerError("Sesión expirada. Vuelve a iniciar sesión.");
             return;
         }
 
         setLoading(true);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+        const headers = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        };
+
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-            const res = await fetch(`${apiUrl}/api/v1/user/auth/verify-identity`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ rut }),
+            // Paso 1 — actualizar perfil demográfico
+            const profileRes = await fetch(`${apiUrl}/api/v1/user/auth/profile`, {
+                method: "PUT",
+                headers,
+                body: JSON.stringify({
+                    birth_year: parseInt(birthYear),
+                    country: "Chile",
+                    region,
+                    commune,
+                }),
             });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                setServerError(data.detail ?? "Error al verificar. Intenta más tarde.");
+            if (!profileRes.ok) {
+                const d = await profileRes.json();
+                setServerError(d.detail ?? "Error al guardar perfil.");
                 return;
             }
 
-            // Actualiza store Zustand + localStorage legacy
-            if (user) {
-                const updatedUser = { ...user, rank: data.new_rank as typeof user.rank };
-                setAuth(token, updatedUser);
-                try {
-                    localStorage.setItem("beacon_user", JSON.stringify(updatedUser));
-                } catch {
-                    // SSR guard
-                }
+            // Paso 2 — verificar RUT
+            const rutRes = await fetch(`${apiUrl}/api/v1/user/auth/verify-identity`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ rut }),
+            });
+            const rutData = await rutRes.json();
+            if (!rutRes.ok) {
+                setServerError(rutData.detail ?? "Error al verificar RUT.");
+                return;
             }
 
-            setSuccess({ new_rank: data.new_rank, message: data.message });
+            // Actualizar store
+            if (user) {
+                const updatedUser = {
+                    ...user,
+                    rank: rutData.new_rank as typeof user.rank,
+                    region,
+                    commune,
+                };
+                setAuth(token, updatedUser);
+                try { localStorage.setItem("beacon_user", JSON.stringify(updatedUser)); } catch { /* SSR */ }
+            }
+
+            setSuccess({ new_rank: rutData.new_rank, message: rutData.message });
             setTimeout(() => {
                 setSuccess(null);
                 setRut("");
+                setBirthYear("");
                 onClose();
-            }, 3000);
+            }, 3500);
 
         } catch {
             setServerError("Error de conexión. Intenta más tarde.");
@@ -129,23 +207,23 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
     };
 
     const handleClose = () => {
-        setRut("");
-        setRutError("");
-        setServerError("");
-        setSuccess(null);
+        setRut(""); setBirthYear(""); setErrors({}); setServerError(""); setSuccess(null);
         onClose();
     };
+
+    const inputClass = "w-full px-4 py-3 rounded-lg text-sm text-white outline-none transition-all";
+    const labelClass = "block text-xs font-medium text-foreground-muted mb-1 uppercase tracking-wider";
 
     return (
         <div
             className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+            style={{ background: "rgba(0,0,0,0.80)", backdropFilter: "blur(6px)" }}
             onClick={handleClose}
         >
             <div
-                className="relative w-full max-w-md rounded-2xl p-8 shadow-2xl"
+                className="relative w-full max-w-md rounded-2xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]"
                 style={{
-                    background: "rgba(10,10,10,0.95)",
+                    background: "rgba(10,10,10,0.97)",
                     border: "1px solid rgba(212,175,55,0.25)",
                     boxShadow: "0 0 40px rgba(212,175,55,0.08)",
                 }}
@@ -160,22 +238,17 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
                     ×
                 </button>
 
-                {/* Éxito */}
+                {/* ── Estado: éxito ── */}
                 {success ? (
-                    <div className="text-center py-4">
+                    <div className="text-center py-6">
                         <div className="text-5xl mb-4">✅</div>
                         <h2 className="text-xl font-bold text-white mb-2">
                             {success.new_rank === "VERIFIED" ? "¡Identidad Verificada!" : "RUT registrado"}
                         </h2>
-                        <p className="text-sm text-foreground-muted mb-1">{success.message}</p>
+                        <p className="text-sm text-foreground-muted mb-2">{success.message}</p>
                         {success.new_rank === "VERIFIED" && (
                             <p className="text-sm font-semibold" style={{ color: "#4dff83" }}>
                                 Tu voto ahora vale <strong>1.0x</strong> 🎉
-                            </p>
-                        )}
-                        {success.new_rank !== "VERIFIED" && (
-                            <p className="text-xs text-amber-400 mt-2">
-                                Completa año de nacimiento, país, región y comuna en tu perfil para subir a VERIFIED.
                             </p>
                         )}
                     </div>
@@ -186,41 +259,85 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
                             <div className="text-4xl mb-3">🔏</div>
                             <h2 className="text-xl font-bold text-white">Verificar Identidad</h2>
                             <p className="text-xs text-foreground-muted mt-1">
-                                Tu RUT se almacena solo como hash irreversible. Nunca lo vemos en texto plano.
+                                Completa tus datos para obtener rango <span style={{ color: "#4dff83" }}>VERIFIED</span> y voto con peso <strong>1.0x</strong>.
                             </p>
                         </div>
 
-                        {/* Formulario */}
                         <form onSubmit={handleSubmit} className="space-y-4">
+
+                            {/* RUT */}
                             <div>
-                                <label className="block text-xs font-medium text-foreground-muted mb-1 uppercase tracking-wider">
-                                    RUT chileno
-                                </label>
+                                <label className={labelClass}>RUT chileno *</label>
                                 <input
                                     type="text"
                                     value={rut}
-                                    onChange={handleRutChange}
+                                    onChange={(e) => { setRut(formatRut(e.target.value)); setErrors((err) => ({ ...err, rut: "" })); }}
                                     placeholder="12.345.678-9"
                                     maxLength={12}
-                                    className="w-full px-4 py-3 rounded-lg text-sm font-mono text-white bg-transparent outline-none transition-all"
-                                    style={{
-                                        border: rutError
-                                            ? "1px solid rgba(255,80,80,0.6)"
-                                            : "1px solid rgba(255,255,255,0.12)",
-                                        background: "rgba(255,255,255,0.04)",
-                                    }}
+                                    className={`${inputClass} font-mono`}
+                                    style={errors.rut ? INPUT_ERROR_STYLE : INPUT_STYLE}
                                     autoComplete="off"
                                     autoFocus
                                 />
-                                {rutError && (
-                                    <p className="text-xs mt-1" style={{ color: "#ff5050" }}>
-                                        {rutError}
-                                    </p>
-                                )}
+                                {errors.rut && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.rut}</p>}
+                                <p className="text-[10px] text-foreground-muted mt-1">
+                                    Almacenado como hash SHA-256 irreversible. Nunca lo vemos en texto plano.
+                                </p>
+                            </div>
+
+                            {/* Año de nacimiento */}
+                            <div>
+                                <label className={labelClass}>Año de nacimiento *</label>
+                                <input
+                                    type="number"
+                                    value={birthYear}
+                                    onChange={(e) => { setBirthYear(e.target.value); setErrors((err) => ({ ...err, birthYear: "" })); }}
+                                    placeholder="1990"
+                                    min={1920}
+                                    max={CURRENT_YEAR - 14}
+                                    className={inputClass}
+                                    style={errors.birthYear ? INPUT_ERROR_STYLE : INPUT_STYLE}
+                                />
+                                {errors.birthYear && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.birthYear}</p>}
+                            </div>
+
+                            {/* Región */}
+                            <div>
+                                <label className={labelClass}>Región *</label>
+                                <select
+                                    value={region}
+                                    onChange={(e) => handleRegionChange(e.target.value)}
+                                    className={inputClass}
+                                    style={errors.region ? INPUT_ERROR_STYLE : INPUT_STYLE}
+                                >
+                                    <option value="">Selecciona región</option>
+                                    {Object.keys(CHILE_REGIONS).map((r) => (
+                                        <option key={r} value={r}>{r}</option>
+                                    ))}
+                                </select>
+                                {errors.region && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.region}</p>}
+                            </div>
+
+                            {/* Comuna */}
+                            <div>
+                                <label className={labelClass}>Comuna *</label>
+                                <select
+                                    value={commune}
+                                    onChange={(e) => { setCommune(e.target.value); setErrors((err) => ({ ...err, commune: "" })); }}
+                                    disabled={!region}
+                                    className={inputClass}
+                                    style={errors.commune ? INPUT_ERROR_STYLE : { ...INPUT_STYLE, opacity: !region ? 0.4 : 1 }}
+                                >
+                                    <option value="">{region ? "Selecciona comuna" : "Primero elige región"}</option>
+                                    {communes.map((c) => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+                                {errors.commune && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.commune}</p>}
                             </div>
 
                             {serverError && (
-                                <p className="text-xs text-center" style={{ color: "#ff5050" }}>
+                                <p className="text-xs text-center py-2 px-3 rounded-lg" style={{ color: "#ff5050", background: "rgba(255,80,80,0.08)" }}>
                                     {serverError}
                                 </p>
                             )}
@@ -231,14 +348,14 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
 
                             <button
                                 type="submit"
-                                disabled={loading || !rut}
+                                disabled={loading || !rut || !birthYear || !region || !commune}
                                 className="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-widest transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                 style={{
                                     background: "linear-gradient(135deg, #D4AF37, #B8860B)",
                                     color: "#0a0a0a",
                                 }}
                             >
-                                {loading ? "Verificando..." : "Verificar identidad"}
+                                {loading ? "Verificando..." : "Verificar Identidad"}
                             </button>
                         </form>
                     </>

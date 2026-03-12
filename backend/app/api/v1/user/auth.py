@@ -372,6 +372,9 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "verification_level": 2 if current_user.get("is_rut_verified") else 1,
         "is_verified": current_user.get("is_rut_verified", False),
         "role": current_user.get("role", "user"),
+        "age_range": current_user.get("age_range"),
+        "region": current_user.get("region"),
+        "commune": current_user.get("commune"),
     }
 
 
