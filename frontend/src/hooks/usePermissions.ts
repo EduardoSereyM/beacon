@@ -4,9 +4,8 @@
  * Lee el rol del usuario desde localStorage y resuelve permisos
  * según la Matriz de Control de Acceso (ACM).
  *
- * La Matriz espejo (frontend) replica la lógica del backend para
- * que la UI se adapte ANTES de hacer llamadas al servidor.
- * El backend SIEMPRE valida de nuevo (defensa en profundidad).
+ * Sistema de rangos v2: BASIC (0.5x) / VERIFIED (1.0x)
+ * Los rangos legacy BRONZE/SILVER/GOLD/DIAMOND se normalizan automáticamente.
  *
  * "El frontend sugiere. El backend decide."
  */
@@ -16,7 +15,18 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // ─── Tipos ───
-type Role = "ANONYMOUS" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+
+/** Rangos del sistema 2026 (v2). Legacy incluidos para migración gradual. */
+type Role = "ANONYMOUS" | "BASIC" | "VERIFIED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+
+/** Normaliza rangos legacy al sistema v2 */
+function normalizeRank(raw: string): Role {
+    if (raw === "VERIFIED") return "VERIFIED";
+    if (raw === "BASIC") return "BASIC";
+    if (raw === "BRONZE") return "BASIC";
+    if (raw === "SILVER" || raw === "GOLD" || raw === "DIAMOND") return "VERIFIED";
+    return "ANONYMOUS";
+}
 
 interface UserState {
     id: string | null;
@@ -38,8 +48,6 @@ interface Permissions {
     edit_own_verdict: boolean;
     verified_badge: boolean;
     view_advanced_metrics: boolean;
-    propose_dynamic_sliders: boolean;
-    priority_audit: boolean;
 }
 
 interface VotingConfig {
@@ -51,16 +59,19 @@ interface PermissionsResult {
     user: UserState;
     permissions: Permissions;
     voting: VotingConfig;
+    rank: Role;
     isAuthenticated: boolean;
     isVerified: boolean;
+    isBasic: boolean;
     isAdmin: boolean;
     shouldTriggerAuthModal: boolean;
     openAuthModal: () => void;
     logout: () => void;
 }
 
-// ─── ACM Espejo (Réplica de la Matriz del backend) ───
-const ACM_PERMISSIONS: Record<Role, Partial<Permissions>> = {
+// ─── ACM Espejo ───
+
+const ACM_PERMISSIONS: Record<"ANONYMOUS" | "BASIC" | "VERIFIED", Partial<Permissions>> = {
     ANONYMOUS: {
         browse_entities: true,
         view_rankings: true,
@@ -71,43 +82,25 @@ const ACM_PERMISSIONS: Record<Role, Partial<Permissions>> = {
         edit_own_verdict: false,
         verified_badge: false,
         view_advanced_metrics: false,
-        propose_dynamic_sliders: false,
-        priority_audit: false,
     },
-    BRONZE: {
+    BASIC: {
         evaluate: true,
         view_own_impact: true,
         edit_own_verdict: true,
     },
-    SILVER: {
+    VERIFIED: {
         verified_badge: true,
         view_advanced_metrics: true,
         view_integrity_stats: true,
     },
-    GOLD: {
-        propose_dynamic_sliders: true,
-        priority_audit: true,
-    },
-    DIAMOND: {},
 };
 
-const ACM_VOTING: Record<Role, VotingConfig> = {
+const ACM_VOTING: Record<"ANONYMOUS" | "BASIC" | "VERIFIED", VotingConfig> = {
     ANONYMOUS: { base_weight: 0.0, territorial_bonus_eligible: false },
-    BRONZE: { base_weight: 1.0, territorial_bonus_eligible: true },
-    SILVER: { base_weight: 1.5, territorial_bonus_eligible: true },
-    GOLD: { base_weight: 2.5, territorial_bonus_eligible: true },
-    DIAMOND: { base_weight: 5.0, territorial_bonus_eligible: true },
+    BASIC:     { base_weight: 0.5, territorial_bonus_eligible: true },
+    VERIFIED:  { base_weight: 1.0, territorial_bonus_eligible: true },
 };
 
-const INHERITANCE_CHAIN: Record<Role, Role | null> = {
-    ANONYMOUS: null,
-    BRONZE: "ANONYMOUS",
-    SILVER: "BRONZE",
-    GOLD: "SILVER",
-    DIAMOND: "GOLD",
-};
-
-/** Resuelve permisos con herencia */
 function resolvePermissions(role: Role): Permissions {
     const base: Permissions = {
         browse_entities: false,
@@ -119,22 +112,17 @@ function resolvePermissions(role: Role): Permissions {
         edit_own_verdict: false,
         verified_badge: false,
         view_advanced_metrics: false,
-        propose_dynamic_sliders: false,
-        priority_audit: false,
     };
 
-    // Construir cadena de herencia
-    const chain: Role[] = [];
-    let current: Role | null = role;
-    while (current) {
-        chain.unshift(current);
-        current = INHERITANCE_CHAIN[current];
-    }
+    const normalized = normalizeRank(role) as "ANONYMOUS" | "BASIC" | "VERIFIED";
 
-    // Aplicar permisos en orden (ANONYMOUS → BRONZE → ... → role)
-    for (const r of chain) {
-        const overrides = ACM_PERMISSIONS[r];
-        Object.assign(base, overrides);
+    // Herencia: ANONYMOUS → BASIC → VERIFIED
+    Object.assign(base, ACM_PERMISSIONS["ANONYMOUS"]);
+    if (normalized === "BASIC" || normalized === "VERIFIED") {
+        Object.assign(base, ACM_PERMISSIONS["BASIC"]);
+    }
+    if (normalized === "VERIFIED") {
+        Object.assign(base, ACM_PERMISSIONS["VERIFIED"]);
     }
 
     return base;
@@ -153,31 +141,28 @@ export default function usePermissions(): PermissionsResult {
         integrity_score: 0,
     });
 
-    const [authModalRequested, setAuthModalRequested] = useState(false);
-
     // Leer usuario de localStorage al montar
     useEffect(() => {
         try {
             const stored = localStorage.getItem("beacon_user");
             if (stored) {
                 const parsed = JSON.parse(stored);
-                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setUser({
                     id: parsed.id || null,
                     email: parsed.email || null,
                     full_name: parsed.full_name || null,
-                    rank: (parsed.rank as Role) || "BRONZE",
+                    rank: normalizeRank(parsed.rank || "BASIC"),
                     role: parsed.role || "user",
                     is_verified: parsed.is_verified || false,
                     integrity_score: parsed.integrity_score || 0.5,
                 });
             }
         } catch {
-            // Si localStorage falla, queda como ANONYMOUS
+            // localStorage falla → ANONYMOUS
         }
     }, []);
 
-    // Escuchar cambios en localStorage (multi-tab sync)
+    // Sync multi-tab
     useEffect(() => {
         const handler = (e: StorageEvent) => {
             if (e.key === "beacon_user") {
@@ -187,17 +172,13 @@ export default function usePermissions(): PermissionsResult {
                         id: parsed.id,
                         email: parsed.email,
                         full_name: parsed.full_name,
-                        rank: parsed.rank || "BRONZE",
+                        rank: normalizeRank(parsed.rank || "BASIC"),
                         role: parsed.role || "user",
                         is_verified: parsed.is_verified || false,
                         integrity_score: parsed.integrity_score || 0.5,
                     });
                 } else {
-                    // Logout en otra pestaña
-                    setUser({
-                        id: null, email: null, full_name: null,
-                        rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
-                    });
+                    setUser({ id: null, email: null, full_name: null, rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0 });
                 }
             }
         };
@@ -205,34 +186,33 @@ export default function usePermissions(): PermissionsResult {
         return () => window.removeEventListener("storage", handler);
     }, []);
 
+    const normalized = normalizeRank(user.rank) as "ANONYMOUS" | "BASIC" | "VERIFIED";
     const permissions = useMemo(() => resolvePermissions(user.rank), [user.rank]);
-    const voting = useMemo(() => ACM_VOTING[user.rank], [user.rank]);
+    const voting = useMemo(() => ACM_VOTING[normalized], [normalized]);
 
     const isAuthenticated = user.id !== null;
-    const isVerified = user.is_verified;
+    const isVerified = normalized === "VERIFIED";
+    const isBasic = normalized === "BASIC";
     const isAdmin = user.role === "admin";
 
     const openAuthModal = useCallback(() => {
-        setAuthModalRequested(true);
-        // Disparar evento custom para que NavbarClient abra el modal
         window.dispatchEvent(new CustomEvent("beacon:open-auth-modal"));
     }, []);
 
     const logout = useCallback(() => {
         localStorage.removeItem("beacon_token");
         localStorage.removeItem("beacon_user");
-        setUser({
-            id: null, email: null, full_name: null,
-            rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
-        });
+        setUser({ id: null, email: null, full_name: null, rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0 });
     }, []);
 
     return {
         user,
         permissions,
         voting,
+        rank: user.rank,
         isAuthenticated,
         isVerified,
+        isBasic,
         isAdmin,
         shouldTriggerAuthModal: !isAuthenticated,
         openAuthModal,

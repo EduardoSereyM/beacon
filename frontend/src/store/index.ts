@@ -19,7 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 // ─── Tipos sincronizados con el contrato de /api/v1/user/auth/me ───
 
-export type UserRank = "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+export type UserRank = "BASIC" | "VERIFIED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
 
 export interface BeaconUser {
   id: string;
@@ -96,9 +96,9 @@ export const useAuthStore = create<AuthState>()(
 export const selectIsAuthenticated = (state: AuthState) =>
   state.token !== null && state.user !== null;
 
-/** Devuelve el rango del ciudadano, o BRONZE como fallback seguro. */
+/** Devuelve el rango del ciudadano, o BASIC como fallback seguro. */
 export const selectRank = (state: AuthState): UserRank =>
-  state.user?.rank ?? "BRONZE";
+  state.user?.rank ?? "BASIC";
 
 /** Devuelve true si el ciudadano tiene rol admin. */
 export const selectIsAdmin = (state: AuthState) =>
