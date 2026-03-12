@@ -57,7 +57,10 @@ function ResetPasswordContent() {
     const RED = "#FF073A";
 
     // ─── Estado del token ───
+    // tokenHash → flujo OTP (query param token_hash)
+    // accessToken → flujo implícito (hash fragment access_token)
     const [tokenHash, setTokenHash] = useState<string | null>(null);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
     const [tokenError, setTokenError] = useState("");
 
     // ─── Estado del formulario ───
@@ -79,7 +82,7 @@ function ResetPasswordContent() {
     }), [newPassword]);
 
     const isPwdValid = Object.values(pwdValidations).every(Boolean);
-    const isFormValid = isPwdValid && newPassword === confirmPassword && !!tokenHash;
+    const isFormValid = isPwdValid && newPassword === confirmPassword && !!(tokenHash || accessToken);
 
     // ─── Leer token_hash de la URL ───
     useEffect(() => {
@@ -93,15 +96,18 @@ function ResetPasswordContent() {
         }
 
         if (hash && type === "recovery") {
+            // Flujo OTP: token_hash en query params
             setTokenHash(hash);
         } else if (typeof window !== "undefined") {
-            // Fallback: algunos clientes de Supabase envían el token en el hash URL
-            const urlHash = window.location.hash;
-            if (urlHash.includes("type=recovery") && urlHash.includes("access_token")) {
-                // Modo implícito: el token ya está activo en el cliente de Supabase
-                // En este modo basta con que el usuario ingrese su nueva contraseña
-                // y Supabase la actualice directamente
-                setTokenHash("__implicit__");
+            // Flujo implícito: Supabase redirige con #access_token=xxx&type=recovery
+            const urlHash = window.location.hash.substring(1);
+            const params = new URLSearchParams(urlHash);
+            const at = params.get("access_token");
+            const hashType = params.get("type");
+            if (at && hashType === "recovery") {
+                setAccessToken(at);
+                // Limpiar el hash de la URL para no exponer el token
+                window.history.replaceState(null, "", window.location.pathname);
             } else {
                 setTokenError("Enlace de recuperación inválido o expirado. Solicita uno nuevo.");
             }
@@ -132,13 +138,14 @@ function ResetPasswordContent() {
         setError("");
 
         try {
+            const body = accessToken
+                ? { access_token: accessToken, new_password: newPassword }
+                : { token_hash: tokenHash, new_password: newPassword };
+
             const res = await fetch(`${API_URL}/api/v1/user/auth/reset-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    token_hash: tokenHash,
-                    new_password: newPassword,
-                }),
+                body: JSON.stringify(body),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "Error al restablecer contraseña");

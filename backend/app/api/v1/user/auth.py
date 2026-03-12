@@ -303,10 +303,11 @@ async def reset_password(request: Request):
     """
     body = await request.json()
     token_hash = body.get("token_hash", "").strip()
+    access_token = body.get("access_token", "").strip()
     new_password = body.get("new_password", "")
 
-    if not token_hash:
-        raise HTTPException(status_code=400, detail="token_hash es obligatorio")
+    if not token_hash and not access_token:
+        raise HTTPException(status_code=400, detail="token_hash o access_token es obligatorio")
     if len(new_password) < 8:
         raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres")
 
@@ -323,16 +324,22 @@ async def reset_password(request: Request):
         from app.core.database import get_async_supabase_client
         supabase = get_async_supabase_client()
 
-        # 1. Verificar el OTP → obtenemos sesión temporal
-        auth_response = await supabase.auth.verify_otp({
-            "token_hash": token_hash,
-            "type": "recovery",
-        })
-
-        if not auth_response.user:
-            raise HTTPException(status_code=400, detail="Token inválido o expirado")
-
-        user_id = auth_response.user.id
+        # 1. Obtener user_id — dos flujos posibles
+        if access_token:
+            # Flujo implícito: Supabase ya estableció sesión, tenemos access_token directo
+            user_response = await supabase.auth.get_user(access_token)
+            if not user_response.user:
+                raise HTTPException(status_code=400, detail="Token inválido o expirado")
+            user_id = user_response.user.id
+        else:
+            # Flujo OTP: verificar token_hash de recovery
+            auth_response = await supabase.auth.verify_otp({
+                "token_hash": token_hash,
+                "type": "recovery",
+            })
+            if not auth_response.user:
+                raise HTTPException(status_code=400, detail="Token inválido o expirado")
+            user_id = auth_response.user.id
 
         # 2. Actualizar contraseña via admin (no expone la nueva clave)
         await supabase.auth.admin.update_user_by_id(
