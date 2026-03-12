@@ -115,8 +115,8 @@ function CallbackContent() {
                     setStatus("success");
                     setMessage("¡Email confirmado! Tu cuenta en el Búnker está activa.");
                 } else if (hash.includes("type=recovery")) {
-                    // Flujo de recuperación de contraseña — redirigir
-                    router.replace("/");
+                    // Flujo de recuperación de contraseña — redirigir al formulario
+                    router.replace("/auth/reset-password" + window.location.hash);
                     return;
                 } else {
                     // Llegó sin parámetros válidos

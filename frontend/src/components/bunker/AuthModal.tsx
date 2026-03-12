@@ -4,20 +4,22 @@
  * Modal de Login/Registro con estética Dark Premium.
  *
  * UX Features:
- *   - Máscara RUT en tiempo real (XX.XXX.XXX-X)
- *   - Validación Módulo 11 con borde Oro/Rojo
- *   - Toggle visibilidad contraseña (icono ojo)
  *   - Selectores en cascada: País → Región → Comuna
+ *   - Toggle visibilidad contraseña (icono ojo)
+ *   - Validación de complejidad de contraseña en tiempo real
  *   - Botón deshabilitado hasta campos requeridos OK
  *   - Backdrop-blur + fade-in-scale animation
  *   - Bordes Cian (#00E5FF) foco / Oro (#D4AF37) identidad
+ *
+ * Nota: RUT y año de nacimiento se completan en el perfil del usuario,
+ * no en el registro, para reducir fricción inicial.
  *
  * "El que quiera hablar, primero debe demostrar que es real."
  */
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuthStore } from "@/store";
 
 // ═══════════════════════════════════════════
@@ -130,6 +132,107 @@ function EyeIcon({ open }: { open: boolean }) {
 }
 
 // ═══════════════════════════════════════════
+//  COMPONENTE FORGOT PASSWORD (sub-formulario)
+// ═══════════════════════════════════════════
+
+function ForgotPasswordForm({ onBack, apiUrl }: { onBack: () => void; apiUrl: string }) {
+    const CYAN = "#00E5FF";
+    const GOLD = "#D4AF37";
+    const RED = "#FF073A";
+    const GREEN = "#00FF87";
+
+    const [email, setEmail] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email) return;
+        setLoading(true);
+        setMsg(null);
+        try {
+            const res = await fetch(`${apiUrl}/api/v1/user/auth/forgot-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Error al enviar email");
+            setMsg({ type: "success", text: data.message });
+        } catch (err: unknown) {
+            setMsg({ type: "error", text: err instanceof Error ? err.message : "Error desconocido" });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="px-8 pb-8 space-y-4">
+            <p className="text-[10px] text-gray-500 font-mono leading-relaxed">
+                Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
+            </p>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                        Email *
+                    </label>
+                    <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="tu@correo.cl"
+                        className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200 bg-transparent"
+                        style={{ border: "1px solid rgba(255,255,255,0.1)", caretColor: CYAN }}
+                        onFocus={(e) => e.target.style.borderColor = `${CYAN}60`}
+                        onBlur={(e) => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                    />
+                </div>
+
+                {msg && (
+                    <div
+                        className="text-[10px] font-mono px-3 py-2 rounded-lg"
+                        style={{
+                            color: msg.type === "success" ? GREEN : RED,
+                            backgroundColor: msg.type === "success" ? `${GREEN}10` : `${RED}10`,
+                            border: `1px solid ${msg.type === "success" ? `${GREEN}25` : `${RED}25`}`,
+                        }}
+                    >
+                        {msg.text}
+                    </div>
+                )}
+
+                <button
+                    type="submit"
+                    disabled={loading || !email}
+                    className="w-full py-3 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                        background: email
+                            ? `linear-gradient(135deg, ${GOLD}, #8A2BE2)`
+                            : "rgba(50,50,50,0.5)",
+                        boxShadow: email ? `0 0 20px ${GOLD}20` : "none",
+                    }}
+                >
+                    {loading ? "Enviando..." : "Enviar Enlace de Recuperación"}
+                </button>
+
+                <p className="text-center text-[9px] font-mono">
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className="hover:text-white transition-colors"
+                        style={{ color: CYAN }}
+                    >
+                        ← Volver a Iniciar Sesión
+                    </button>
+                </p>
+            </form>
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════
 //  COMPONENTE AUTHMODAL
 // ═══════════════════════════════════════════
 
@@ -140,7 +243,7 @@ interface AuthModalProps {
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     const { setAuth } = useAuthStore();
-    const [mode, setMode] = useState<"login" | "register">("login");
+    const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
     const [isAnimating, setIsAnimating] = useState(false);
     const [showAdminInterstitial, setShowAdminInterstitial] = useState(false);
 
@@ -169,17 +272,11 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         });
     }, [password]);
 
-    // ─── RUT State ───
-    const [rutRaw, setRutRaw] = useState("");        // Lo que el usuario ve (formateado)
-    const [rutClean, setRutClean] = useState("");     // Limpio para validar/enviar
-    const [rutValid, setRutValid] = useState<boolean | null>(null);
-
     // ─── Geografía Cascada (País → Región → Comuna) ───
     const [country, setCountry] = useState("Chile"); // Preseleccionado
     const [region, setRegion] = useState("");
     const [commune, setCommune] = useState("");
     const [ageRange, setAgeRange] = useState("");
-    const [birthYear, setBirthYear] = useState("");
 
     // ─── UI State ───
     const [loading, setLoading] = useState(false);
@@ -227,48 +324,24 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         return () => window.removeEventListener("keydown", handleEsc);
     }, [onClose]);
 
-    // ─── Máscara RUT en tiempo real ───
-    const handleRutChange = useCallback((value: string) => {
-        const clean = cleanRut(value);
-        // Limitar a 9 chars (RUT máximo chileno: 99.999.999-K)
-        if (clean.length > 9) return;
-
-        setRutClean(clean);
-
-        if (clean.length >= 2) {
-            setRutRaw(formatRutMask(clean));
-            setRutValid(validateRutMod11(clean));
-        } else {
-            setRutRaw(clean);
-            setRutValid(null);
-        }
-    }, []);
-
     // ─── Validación de formulario completo ───
     const isFormValid = useMemo(() => {
         const isPwdValid = pwdValidations.length && pwdValidations.upper && pwdValidations.number && pwdValidations.special;
         if (mode === "login") {
             return email.length > 0 && password.length >= 8; // En login no bloqueamos por complejidad para evitar revelar reglas a atacantes en cuentas viejas
         }
-        // Registro: email, nombre, password válida, confirmPassword, región, comuna, rango etario, año nacimiento
-        const birthYearNum = parseInt(birthYear, 10);
-        const birthYearValid = birthYear.length === 4 && birthYearNum >= 1920 && birthYearNum <= 2010;
-
-        const baseValid =
+        // Registro: email, nombre, password válida, confirmPassword, país, región, comuna, rango etario
+        return (
             email.length > 0 &&
             fullName.length >= 2 &&
             isPwdValid &&
             confirmPassword === password &&
+            country.length > 0 &&
             region.length > 0 &&
             commune.length > 0 &&
-            ageRange.length > 0 &&
-            birthYearValid;
-
-        // RUT es opcional, pero si se escribe debe ser válido
-        if (rutClean.length > 0 && !rutValid) return false;
-
-        return baseValid;
-    }, [mode, email, password, confirmPassword, fullName, region, commune, ageRange, birthYear, rutClean, rutValid, pwdValidations]);
+            ageRange.length > 0
+        );
+    }, [mode, email, password, confirmPassword, fullName, country, region, commune, ageRange, pwdValidations]);
 
     // Timestamp de inicio para DNA Scanner (fill_duration)
     const [formStartTime] = useState(() => performance.now());
@@ -346,7 +419,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         email,
                         full_name: fullName,
                         password,
-                        birth_year: birthYear ? parseInt(birthYear, 10) : undefined,
                         country: country || undefined,
                         region: region || undefined,
                         commune: commune || undefined,
@@ -394,21 +466,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         backgroundColor: "transparent",
     });
 
-    // Estilo de RUT según validación
-    const rutBorderColor =
-        rutValid === null
-            ? "rgba(255,255,255,0.1)"
-            : rutValid
-                ? `${GOLD}80`
-                : `${RED}80`;
-
-    const rutGlow =
-        rutValid === null
-            ? "none"
-            : rutValid
-                ? `0 0 12px ${GOLD}30`
-                : `0 0 12px ${RED}25`;
-
     return (
         <div
             className="fixed inset-0 z-[100] flex items-center justify-center"
@@ -454,17 +511,19 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         <span className="text-lg font-black text-[#0A0A0A]">B</span>
                     </div>
                     <h2 className="text-lg font-bold text-white tracking-wide">
-                        {mode === "login" ? "Acceso al Búnker" : "Registro Ciudadano"}
+                        {mode === "login" ? "Acceso al Búnker" : mode === "register" ? "Registro Ciudadano" : "Recuperar Acceso"}
                     </h2>
                     <p className="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-widest">
                         {mode === "login"
                             ? "Identifícate para entrar"
-                            : "Tu voz tendrá peso. Tu integridad, valor."}
+                            : mode === "register"
+                                ? "Tu voz tendrá peso. Tu integridad, valor."
+                                : "Recibirás un enlace en tu correo"}
                     </p>
                 </div>
 
-                {/* ─── Toggle Login/Register ─── */}
-                {!showAdminInterstitial && (
+                {/* ─── Toggle Login/Register (oculto en modo forgot) ─── */}
+                {!showAdminInterstitial && mode !== "forgot" && (
                     <div className="px-8 pb-4">
                         <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
                             {(["login", "register"] as const).map((m) => (
@@ -485,8 +544,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     </div>
                 )}
 
-                {/* ═══ FORM ═══ */}
-                {!showAdminInterstitial && (
+                {/* ═══ FORGOT PASSWORD FORM ═══ */}
+                {!showAdminInterstitial && mode === "forgot" && (
+                    <ForgotPasswordForm
+                        onBack={() => { setMode("login"); setError(""); setSuccess(""); }}
+                        apiUrl={process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}
+                    />
+                )}
+
+                {/* ═══ LOGIN / REGISTER FORM ═══ */}
+                {!showAdminInterstitial && mode !== "forgot" && (
                     <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-4">
 
                         {/* ─── Nombre (solo registro) ─── */}
@@ -636,45 +703,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         {/* ═══ CAMPOS EXTENDIDOS (solo registro) ═══ */}
                         {mode === "register" && (
                             <>
-                                {/* ─── RUT con máscara en tiempo real ─── */}
-                                <div>
-                                    <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
-                                        RUT (Opcional — verificar después)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={rutRaw}
-                                        onChange={(e) => handleRutChange(e.target.value)}
-                                        placeholder="12.345.678-5"
-                                        maxLength={12}
-                                        className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                                        style={{
-                                            border: `1px solid ${rutBorderColor}`,
-                                            boxShadow: rutGlow,
-                                            caretColor: GOLD,
-                                            backgroundColor: "transparent",
-                                        }}
-                                    />
-                                    {/* Feedback visual RUT */}
-                                    {rutClean.length >= 2 && (
-                                        <div className="flex items-center gap-2 mt-1.5">
-                                            <div
-                                                className="w-1.5 h-1.5 rounded-full"
-                                                style={{ backgroundColor: rutValid ? GOLD : RED }}
-                                            />
-                                            <span
-                                                className="text-[9px] font-mono"
-                                                style={{ color: rutValid ? GOLD : RED }}
-                                            >
-                                                {rutValid
-                                                    ? `Módulo 11 válido — ${rutRaw}`
-                                                    : "RUT no válido — dígito verificador incorrecto"}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* ─── Selectores en Cascada: País → Región → Comuna ─── */}
+                                        {/* ─── Selectores en Cascada: País → Región → Comuna ─── */}
 
                                 {/* País */}
                                 <div>
@@ -744,45 +773,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                             ))}
                                         </select>
                                     </div>
-                                </div>
-
-                                {/* ─── Año de Nacimiento ─── */}
-                                <div>
-                                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                                        Año de Nacimiento *
-                                        <span
-                                            className="ml-1 text-[9px] normal-case"
-                                            style={{ color: "#D4AF37" }}
-                                            title="Requerido para verificación de identidad (VERIFIED)"
-                                        >
-                                            🔑 Requerido para VERIFICADO
-                                        </span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        placeholder="ej: 1990"
-                                        value={birthYear}
-                                        onChange={(e) => setBirthYear(e.target.value)}
-                                        min={1920}
-                                        max={2010}
-                                        required
-                                        className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200"
-                                        style={{
-                                            backgroundColor: "#0F0F0F",
-                                            border: `1px solid ${
-                                                birthYear.length === 4 && parseInt(birthYear) >= 1920 && parseInt(birthYear) <= 2010
-                                                    ? `${CYAN}30`
-                                                    : birthYear.length > 0
-                                                    ? "rgba(255,100,100,0.4)"
-                                                    : "rgba(255,255,255,0.1)"
-                                            }`,
-                                        }}
-                                    />
-                                    {birthYear.length > 0 && (parseInt(birthYear) < 1920 || parseInt(birthYear) > 2010) && (
-                                        <p className="text-[9px] mt-1" style={{ color: "#FF6B6B" }}>
-                                            Ingresa un año entre 1920 y 2010
-                                        </p>
-                                    )}
                                 </div>
 
                                 {/* ─── Rango Etario ─── */}
@@ -862,9 +852,22 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
                         {/* Footer hint */}
                         <p className="text-center text-[9px] text-gray-600 font-mono">
-                            {mode === "login"
-                                ? "¿No tienes cuenta? Cambia a «Registrarse» arriba."
-                                : "Al registrarte aceptas el Protocolo de Integridad."}
+                            {mode === "login" ? (
+                                <>
+                                    ¿No tienes cuenta? Cambia a «Registrarse» arriba.
+                                    <br />
+                                    <button
+                                        type="button"
+                                        onClick={() => setMode("forgot")}
+                                        className="mt-1 hover:text-white transition-colors"
+                                        style={{ color: "#00E5FF" }}
+                                    >
+                                        ¿Olvidaste tu contraseña?
+                                    </button>
+                                </>
+                            ) : mode === "register" ? (
+                                "Al registrarte aceptas el Protocolo de Integridad."
+                            ) : null}
                         </p>
                     </form>
                 )}

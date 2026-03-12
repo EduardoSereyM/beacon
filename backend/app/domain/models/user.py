@@ -42,8 +42,8 @@ class User:
     verification_level: int = VerificationLevel.EMAIL  # 1=Email, 2=RUT, 3=Admin
     is_verified: bool = False                       # True cuando valida RUT
 
-    # ─── Meritocracia (El Juego del Calamar) ───
-    rank: str = UserRank.BRONZE                     # BRONZE → SILVER → GOLD → DIAMOND
+    # ─── Meritocracia ───
+    rank: str = UserRank.BASIC                      # BASIC (0.5x) → VERIFIED (1.0x)
     integrity_score: float = 0.5                    # 0.0 a 1.0 ("nota de vida")
     reputation_score: float = 0.0                   # Puntos por veredictos correctos
 
@@ -75,7 +75,7 @@ class User:
             rut_hash=data.get("rut_hash"),
             verification_level=data.get("verification_level", VerificationLevel.EMAIL),
             is_verified=data.get("is_verified", False),
-            rank=data.get("rank", UserRank.BRONZE),
+            rank=data.get("rank", UserRank.BASIC),
             integrity_score=data.get("integrity_score", 0.5),
             reputation_score=data.get("reputation_score", 0.0),
             commune=data.get("commune"),

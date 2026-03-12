@@ -4,6 +4,8 @@
  * Comportamiento visual diferenciado por rango.
  * Soporta estados: idle | loading | voted | error
  *
+ * Sistema v1: BASIC (0.5x) | VERIFIED (1.0x) | DISPLACED (bloqueado)
+ *
  * "El peso de tu voto depende del peso de tu integridad."
  */
 
@@ -11,7 +13,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 
-type UserRank = "DISPLACED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+type UserRank = "DISPLACED" | "BASIC" | "VERIFIED";
 type VoteStatus = "idle" | "loading" | "voted" | "error";
 
 interface VerdictButtonProps {
@@ -88,7 +90,7 @@ export default function VerdictButton({
 
     const handleClick = async () => {
         if (rank === "DISPLACED" || voteStatus === "loading" || voteStatus === "voted") return;
-        if (rank === "GOLD" || rank === "DIAMOND") fireParticles();
+        if (rank === "VERIFIED") fireParticles();
         await onVerdict?.();
     };
 
@@ -126,8 +128,8 @@ export default function VerdictButton({
         </div>
     ) : null;
 
-    // ─── BRONZE: Estándar ───
-    if (rank === "BRONZE") {
+    // ─── BASIC: Voto Estándar (0.5x) ───
+    if (rank === "BASIC") {
         return (
             <div>
                 <button
@@ -136,48 +138,23 @@ export default function VerdictButton({
                     disabled={isDisabled}
                     className="w-full py-3 px-6 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all hover:bg-beacon-surface disabled:opacity-60 disabled:cursor-not-allowed"
                     style={{
-                        border: `1px solid ${voteStatus === "voted" ? "rgba(57,255,20,0.4)" : "rgba(205,127,50,0.3)"}`,
-                        color: voteStatus === "voted" ? "#39FF14" : "#cd7f32",
-                        backgroundColor: voteStatus === "voted" ? "rgba(57,255,20,0.05)" : "rgba(205,127,50,0.05)",
+                        border: `1px solid ${voteStatus === "voted" ? "rgba(57,255,20,0.4)" : "rgba(150,150,150,0.3)"}`,
+                        color: voteStatus === "voted" ? "#39FF14" : "#aaaaaa",
+                        backgroundColor: voteStatus === "voted" ? "rgba(57,255,20,0.05)" : "rgba(150,150,150,0.05)",
                     }}
                 >
-                    {voteStatus === "loading" ? "Enviando veredicto..." : voteStatus === "voted" ? "✓ Voto Registrado" : "Emitir Voto Estándar"}
+                    {voteStatus === "loading" ? "Enviando veredicto..." : voteStatus === "voted" ? "✓ Voto Registrado" : "Emitir Voto"}
                 </button>
                 {feedbackBlock}
             </div>
         );
     }
 
-    // ─── SILVER ───
-    if (rank === "SILVER") {
-        return (
-            <div>
-                <button
-                    ref={buttonRef}
-                    onClick={handleClick}
-                    disabled={isDisabled}
-                    className="w-full py-3.5 px-6 rounded-lg text-sm font-bold uppercase tracking-wider transition-all hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{
-                        border: `1px solid ${voteStatus === "voted" ? "rgba(57,255,20,0.4)" : "rgba(192,192,192,0.3)"}`,
-                        color: voteStatus === "voted" ? "#39FF14" : "#C0C0C0",
-                        backgroundColor: voteStatus === "voted" ? "rgba(57,255,20,0.05)" : "rgba(192,192,192,0.05)",
-                    }}
-                >
-                    {voteStatus === "loading" ? "Enviando..." : voteStatus === "voted" ? "✓ Veredicto Certificado" : "✓ Emitir Veredicto Certificado"}
-                </button>
-                {feedbackBlock}
-            </div>
-        );
-    }
-
-    // ─── GOLD / DIAMOND: Masivo con partículas ───
-    const isGold = rank === "GOLD";
-    const accentColor = isGold ? "#D4AF37" : "#b9f2ff";
-    const neonClass = isGold ? "neon-gold" : "neon-diamond";
+    // ─── VERIFIED: Veredicto Certificado con partículas (1.0x) ───
+    const accentColor = "#C0C0C0";
 
     return (
         <div className="relative">
-            {/* Partículas */}
             {particles.length > 0 && (
                 <div className="absolute inset-0 pointer-events-none overflow-visible z-10">
                     {particles.map((p) => (
@@ -197,23 +174,21 @@ export default function VerdictButton({
                 ref={buttonRef}
                 onClick={handleClick}
                 disabled={isDisabled}
-                className={`w-full py-5 px-8 rounded-xl text-base font-black uppercase tracking-[0.15em] transition-all duration-300 ${neonClass} disabled:opacity-60 disabled:cursor-not-allowed ${isAnimating ? "scale-95" : "hover:scale-[1.02]"}`}
+                className={`w-full py-4 px-8 rounded-xl text-sm font-bold uppercase tracking-[0.12em] transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed ${isAnimating ? "scale-95" : "hover:scale-[1.01]"}`}
                 style={{
-                    border: `2px solid ${voteStatus === "voted" ? "#39FF14" : accentColor}`,
+                    border: `1px solid ${voteStatus === "voted" ? "rgba(57,255,20,0.4)" : "rgba(192,192,192,0.4)"}`,
                     color: isAnimating ? "#0A0A0A" : voteStatus === "voted" ? "#39FF14" : accentColor,
-                    backgroundColor: isAnimating ? accentColor : voteStatus === "voted" ? "rgba(57,255,20,0.05)" : `${accentColor}10`,
-                    boxShadow: `0 0 20px ${accentColor}30, 0 0 40px ${accentColor}10`,
+                    backgroundColor: isAnimating ? accentColor : voteStatus === "voted" ? "rgba(57,255,20,0.05)" : "rgba(192,192,192,0.06)",
+                    boxShadow: `0 0 12px rgba(192,192,192,0.15)`,
                 }}
             >
-                <span className="flex items-center justify-center gap-3">
-                    <span className="text-xl">{voteStatus === "voted" ? "✓" : isGold ? "⚖️" : "💎"}</span>
+                <span className="flex items-center justify-center gap-2">
+                    <span>{voteStatus === "voted" ? "✓" : "✔"}</span>
                     <div>
-                        <p>
-                            {voteStatus === "loading" ? "Enviando Veredicto..." : voteStatus === "voted" ? "Veredicto Magistral Registrado" : "Emitir Veredicto Magistral"}
-                        </p>
+                        <p>{voteStatus === "loading" ? "Enviando..." : voteStatus === "voted" ? "Veredicto Certificado Registrado" : "Emitir Veredicto Certificado"}</p>
                         {voteStatus === "idle" && (
                             <p className="text-[9px] font-normal mt-0.5 tracking-wider" style={{ color: `${accentColor}99` }}>
-                                Peso 2.5x · Anclado al inicio · Resaltado en {isGold ? "oro" : "diamante"}
+                                Identidad verificada · Peso 1.0x
                             </p>
                         )}
                     </div>

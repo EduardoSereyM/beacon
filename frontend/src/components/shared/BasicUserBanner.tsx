@@ -33,7 +33,7 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
         setDismissed(wasDismissed);
         setVisible(
             !!user &&
-            (user.rank === "BASIC" || user.rank === "BRONZE") &&
+            user.rank === "BASIC" &&
             !wasDismissed
         );
     }, [user]);

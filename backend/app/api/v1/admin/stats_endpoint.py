@@ -83,7 +83,7 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
     # ── Métricas de usuarios ─────────────────────────────────────────────────
     ranks = {}
     for u in users:
-        rank = u.get("rank", "BRONZE")
+        rank = u.get("rank", "BASIC")
         ranks[rank] = ranks.get(rank, 0) + 1
 
     shadow_banned = sum(1 for u in users if u.get("is_shadow_banned"))

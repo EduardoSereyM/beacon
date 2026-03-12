@@ -3,16 +3,12 @@ BEACON PROTOCOL — Access Control Matrix (Matriz de Poder)
 ===========================================================
 Única fuente de verdad para permisos por rol.
 
-Arquitectura:
-  - ANONYMOUS hereda de → nada (base mínima)
-  - BRONZE hereda de → ANONYMOUS
-  - SILVER hereda de → BRONZE
-  - GOLD hereda de → SILVER
-  - DIAMOND hereda de → GOLD
+Arquitectura v1 (sistema binario):
+  - ANONYMOUS hereda de → nada (base mínima, sin cuenta)
+  - BASIC hereda de → ANONYMOUS (email verificado, 0.5x)
+  - VERIFIED hereda de → BASIC  (identidad completa, 1.0x)
 
-La herencia se resuelve recursivamente: cada nivel superior
-obtiene automáticamente todos los permisos de los niveles inferiores,
-más los suyos propios.
+Requisitos VERIFIED: rut_hash + birth_year + país + región + comuna.
 
 "El poder no se repite. Se hereda, se acumula, se audita."
 """
@@ -56,7 +52,7 @@ ACCESS_CONTROL_MATRIX: Dict[str, Dict[str, Any]] = {
         },
     },
 
-    "BRONZE": {
+    "BASIC": {
         "label": "Ciudadano Base",
         "inheritance": "ANONYMOUS",
         "access": {
@@ -69,53 +65,28 @@ ACCESS_CONTROL_MATRIX: Dict[str, Dict[str, Any]] = {
             "dna_scanner_enforcement": "STANDARD",
         },
         "voting": {
-            "base_weight": 1.0,
+            "base_weight": 0.5,
             "territorial_bonus_eligible": True,
         },
     },
 
-    "SILVER": {
+    "VERIFIED": {
         "label": "Ciudadano Verificado",
-        "inheritance": "BRONZE",
+        "inheritance": "BASIC",
         "access": {
             "verified_badge": True,
             "view_advanced_metrics": True,
             "view_integrity_stats": True,
+            "propose_dynamic_sliders": True,
+            "priority_audit": True,
         },
         "behavior": {
             "dna_scanner_enforcement": "RELAXED",
         },
         "voting": {
-            "base_weight": 1.5,
+            "base_weight": 1.0,
             "territorial_bonus_eligible": True,
             "verification_method": "RUT_HASH",
-        },
-    },
-
-    "GOLD": {
-        "label": "Referente de Integridad",
-        "inheritance": "SILVER",
-        "access": {
-            "propose_dynamic_sliders": True,
-            "priority_audit": True,
-        },
-        "voting": {
-            "base_weight": 2.5,
-            "territorial_bonus_eligible": True,
-            "volume_impact": "HIGH",
-        },
-    },
-
-    "DIAMOND": {
-        "label": "Nodo de Confianza Supremo",
-        "inheritance": "GOLD",
-        "access": {
-            "admin_panel": False,  # Solo el Overlord tiene admin real
-        },
-        "voting": {
-            "base_weight": 5.0,
-            "territorial_bonus_eligible": True,
-            "volume_impact": "MAXIMUM",
         },
     },
 }

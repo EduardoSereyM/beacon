@@ -1,6 +1,8 @@
 """
 BEACON PROTOCOL — Tests ACM (Matriz de Control de Acceso)
 ===========================================================
+Sistema v1: ANONYMOUS → BASIC (0.5x) → VERIFIED (1.0x)
+
 3 suites:
   1. TestInheritanceChain    — Herencia recursiva de permisos
   2. TestPermissionChecks    — check_permission para cada rol
@@ -30,35 +32,22 @@ class TestInheritanceChain:
         node = ACCESS_CONTROL_MATRIX["ANONYMOUS"]
         assert node.get("inheritance") is None
 
-    def test_bronze_inherits_anonymous(self):
-        """BRONZE hereda todos los permisos de ANONYMOUS."""
-        perms = resolve_permissions("BRONZE")
-        assert perms["access"]["browse_entities"] is True  # De ANONYMOUS
+    def test_basic_inherits_anonymous(self):
+        """BASIC hereda todos los permisos de ANONYMOUS."""
+        perms = resolve_permissions("BASIC")
+        assert perms["access"]["browse_entities"] is True   # De ANONYMOUS
         assert perms["access"]["view_rankings"] is True     # De ANONYMOUS
-        assert perms["access"]["evaluate"] is True           # Propio de BRONZE
+        assert perms["access"]["evaluate"] is True          # Propio de BASIC
 
-    def test_silver_inherits_bronze_and_anonymous(self):
-        """SILVER tiene permisos de ANONYMOUS + BRONZE + propios."""
-        perms = resolve_permissions("SILVER")
-        assert perms["access"]["browse_entities"] is True    # ANONYMOUS
-        assert perms["access"]["evaluate"] is True            # BRONZE
-        assert perms["access"]["verified_badge"] is True      # SILVER propio
-        assert perms["access"]["view_advanced_metrics"] is True  # SILVER propio
-
-    def test_gold_inherits_full_chain(self):
-        """GOLD acumula permisos de toda la cadena."""
-        perms = resolve_permissions("GOLD")
+    def test_verified_inherits_basic_and_anonymous(self):
+        """VERIFIED tiene permisos de ANONYMOUS + BASIC + propios."""
+        perms = resolve_permissions("VERIFIED")
         assert perms["access"]["browse_entities"] is True       # ANONYMOUS
-        assert perms["access"]["evaluate"] is True               # BRONZE
-        assert perms["access"]["verified_badge"] is True         # SILVER
-        assert perms["access"]["propose_dynamic_sliders"] is True  # GOLD propio
-        assert perms["access"]["priority_audit"] is True          # GOLD propio
-
-    def test_diamond_inherits_gold(self):
-        """DIAMOND hereda de GOLD y toda la cadena."""
-        perms = resolve_permissions("DIAMOND")
-        assert perms["access"]["propose_dynamic_sliders"] is True  # GOLD
-        assert perms["access"]["evaluate"] is True                  # BRONZE
+        assert perms["access"]["evaluate"] is True              # BASIC
+        assert perms["access"]["verified_badge"] is True        # VERIFIED propio
+        assert perms["access"]["view_advanced_metrics"] is True # VERIFIED propio
+        assert perms["access"]["propose_dynamic_sliders"] is True  # VERIFIED propio
+        assert perms["access"]["priority_audit"] is True        # VERIFIED propio
 
     def test_unknown_role_falls_to_anonymous(self):
         """Un rol desconocido cae a ANONYMOUS por seguridad."""
@@ -73,26 +62,29 @@ class TestPermissionChecks:
     def test_anonymous_cannot_evaluate(self):
         assert check_permission("ANONYMOUS", "evaluate") is False
 
-    def test_bronze_can_evaluate(self):
-        assert check_permission("BRONZE", "evaluate") is True
+    def test_basic_can_evaluate(self):
+        assert check_permission("BASIC", "evaluate") is True
 
     def test_anonymous_can_browse(self):
         assert check_permission("ANONYMOUS", "browse_entities") is True
 
-    def test_bronze_cannot_propose_sliders(self):
-        assert check_permission("BRONZE", "propose_dynamic_sliders") is False
+    def test_basic_cannot_propose_sliders(self):
+        assert check_permission("BASIC", "propose_dynamic_sliders") is False
 
-    def test_gold_can_propose_sliders(self):
-        assert check_permission("GOLD", "propose_dynamic_sliders") is True
+    def test_verified_can_propose_sliders(self):
+        assert check_permission("VERIFIED", "propose_dynamic_sliders") is True
 
-    def test_silver_has_verified_badge(self):
-        assert check_permission("SILVER", "verified_badge") is True
+    def test_verified_has_verified_badge(self):
+        assert check_permission("VERIFIED", "verified_badge") is True
 
-    def test_bronze_no_verified_badge(self):
-        assert check_permission("BRONZE", "verified_badge") is False
+    def test_basic_no_verified_badge(self):
+        assert check_permission("BASIC", "verified_badge") is False
+
+    def test_verified_has_priority_audit(self):
+        assert check_permission("VERIFIED", "priority_audit") is True
 
     def test_nonexistent_permission_returns_false(self):
-        assert check_permission("GOLD", "fly_to_the_moon") is False
+        assert check_permission("VERIFIED", "fly_to_the_moon") is False
 
 
 class TestVotingConfig:
@@ -103,26 +95,19 @@ class TestVotingConfig:
         assert config["base_weight"] == 0.0
         assert config["territorial_bonus_eligible"] is False
 
-    def test_bronze_weight_is_one(self):
-        config = get_voting_config("BRONZE")
+    def test_basic_weight_is_0_5(self):
+        config = get_voting_config("BASIC")
+        assert config["base_weight"] == 0.5
+        assert config["territorial_bonus_eligible"] is True
+
+    def test_verified_weight_is_1_0(self):
+        config = get_voting_config("VERIFIED")
         assert config["base_weight"] == 1.0
         assert config["territorial_bonus_eligible"] is True
 
-    def test_silver_weight_is_1_5(self):
-        config = get_voting_config("SILVER")
-        assert config["base_weight"] == 1.5
-
-    def test_gold_weight_is_2_5(self):
-        config = get_voting_config("GOLD")
-        assert config["base_weight"] == 2.5
-
-    def test_diamond_weight_is_5(self):
-        config = get_voting_config("DIAMOND")
-        assert config["base_weight"] == 5.0
-
-    def test_gold_has_high_volume_impact(self):
-        config = get_voting_config("GOLD")
-        assert config["volume_impact"] == "HIGH"
+    def test_verified_has_rut_verification_method(self):
+        config = get_voting_config("VERIFIED")
+        assert config.get("verification_method") == "RUT_HASH"
 
 
 class TestBehavior:
@@ -132,12 +117,12 @@ class TestBehavior:
         behavior = get_behavior("ANONYMOUS")
         assert behavior["on_interaction_attempt"] == "TRIGGER_AUTH_MODAL"
 
-    def test_bronze_allows_interaction(self):
-        behavior = get_behavior("BRONZE")
+    def test_basic_allows_interaction(self):
+        behavior = get_behavior("BASIC")
         assert behavior["on_interaction_attempt"] == "ALLOW"
 
-    def test_silver_has_relaxed_dna(self):
-        behavior = get_behavior("SILVER")
+    def test_verified_has_relaxed_dna(self):
+        behavior = get_behavior("VERIFIED")
         assert behavior["dna_scanner_enforcement"] == "RELAXED"
 
 
@@ -158,7 +143,6 @@ class TestEnforcePermission:
         mock_audit.log_event.assert_called_once()
 
         call_kwargs = mock_audit.log_event.call_args
-        # Verificar que el action sea SECURITY_AUTH_DENIED
         if call_kwargs.kwargs:
             assert call_kwargs.kwargs.get("action") == "SECURITY_AUTH_DENIED"
         else:
@@ -168,9 +152,9 @@ class TestEnforcePermission:
     def test_allowed_does_not_log(self, mock_audit):
         """Cuando se permite, NO se registra nada."""
         result = enforce_permission(
-            role="GOLD",
+            role="VERIFIED",
             permission="evaluate",
-            user_id="gold-001",
+            user_id="verified-001",
         )
 
         assert result is True
@@ -181,6 +165,10 @@ class TestEnforcePermission:
         """ANONYMOUS no puede evaluar y se registra el intento."""
         assert enforce_permission("ANONYMOUS", "evaluate") is False
 
-    def test_gold_evaluate_allowed(self):
-        """GOLD puede evaluar sin problemas."""
-        assert enforce_permission("GOLD", "evaluate") is True
+    def test_basic_evaluate_allowed(self):
+        """BASIC puede evaluar."""
+        assert enforce_permission("BASIC", "evaluate") is True
+
+    def test_verified_evaluate_allowed(self):
+        """VERIFIED puede evaluar."""
+        assert enforce_permission("VERIFIED", "evaluate") is True
