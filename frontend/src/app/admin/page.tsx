@@ -64,11 +64,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const RANK_META: Record<string, { color: string; label: string }> = {
-    DIAMOND:  { color: "#B9F2FF", label: "💎 Diamond" },
-    GOLD:     { color: "#D4AF37", label: "🥇 Gold" },
-    SILVER:   { color: "#C0C0C0", label: "🥈 Silver" },
-    BRONZE:   { color: "#CD7F32", label: "🥉 Bronze" },
-    DISPLACED:{ color: "#FF073A", label: "🚫 Displaced" },
+    VERIFIED:  { color: "#C0C0C0", label: "✔ Verified" },
+    BASIC:     { color: "#aaaaaa", label: "○ Basic" },
+    DISPLACED: { color: "#FF073A", label: "🚫 Displaced" },
 };
 
 const ACTION_COLOR: Record<string, string> = {
@@ -273,7 +271,7 @@ export default function AdminDashboard() {
                         👥 Ciudadanos por Rango
                     </h2>
                     <div className="space-y-3">
-                        {["DIAMOND", "GOLD", "SILVER", "BRONZE", "DISPLACED"].map((rank) => {
+                        {["VERIFIED", "BASIC", "DISPLACED"].map((rank) => {
                             const count = s.by_rank[rank] || 0;
                             const pct   = Math.round((count / totalRankUsers) * 100);
                             const meta  = RANK_META[rank];

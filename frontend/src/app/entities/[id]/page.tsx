@@ -19,7 +19,7 @@ import usePermissions from "@/hooks/usePermissions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-type UserRank = "DISPLACED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+type UserRank = "DISPLACED" | "BASIC" | "VERIFIED";
 
 /** Mapeo de category (BBDD) → etiqueta visual */
 const CATEGORY_META: Record<string, { label: string; icon: string }> = {
@@ -85,7 +85,6 @@ interface BackendEntity {
     reputation_score: number;
     total_reviews: number;
     is_verified: boolean;
-    rank: "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
     integrity_index: number;
     service_tags?: string[];
 }
@@ -264,11 +263,9 @@ export default function EntityPage({ params }: EntityPageProps) {
 
     type VerdictType = { label: string; color: string; weight: string };
     const VERDICT_LABELS: Record<UserRank, VerdictType> = {
-        DISPLACED: { label: "Pulso Social", color: "#555", weight: "0x" },
-        BRONZE: { label: "Voto Estándar", color: "#cd7f32", weight: "1x" },
-        SILVER: { label: "Veredicto Certificado", color: "#C0C0C0", weight: "1.5x" },
-        GOLD: { label: "Veredicto Magistral", color: "#D4AF37", weight: "2.5x" },
-        DIAMOND: { label: "Sentencia Suprema", color: "#b9f2ff", weight: "5x" },
+        DISPLACED: { label: "Pulso Social",           color: "#555",    weight: "0x" },
+        BASIC:     { label: "Voto Estándar",           color: "#aaaaaa", weight: "0.5x" },
+        VERIFIED:  { label: "Veredicto Certificado",   color: "#C0C0C0", weight: "1.0x" },
     };
 
     const activeSliders = dimensions;
@@ -475,7 +472,7 @@ export default function EntityPage({ params }: EntityPageProps) {
                                 Impacto por Rango
                             </p>
                             <div className="space-y-2">
-                                {(["GOLD", "SILVER", "BRONZE", "DISPLACED"] as UserRank[]).map((r) => {
+                                {(["VERIFIED", "BASIC", "DISPLACED"] as UserRank[]).map((r) => {
                                     const v = VERDICT_LABELS[r];
                                     const isCurrentRank = r === userRank;
                                     return (

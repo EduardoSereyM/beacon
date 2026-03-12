@@ -28,7 +28,7 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
         () => typeof window !== "undefined" && sessionStorage.getItem("beacon_banner_dismissed") === "true"
     );
 
-    const isBasicUser = !!user && (user.rank === "BASIC" || user.rank === "BRONZE");
+    const isBasicUser = !!user && user.rank === "BASIC";
 
     const handleDismiss = () => {
         sessionStorage.setItem("beacon_banner_dismissed", "true");

@@ -18,7 +18,8 @@
 import { useState } from "react";
 
 type EntityType = "POLITICO" | "PERSONA_PUBLICA" | "COMPANY" | "EVENT" | "POLL";
-type RankType = "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+/** Tier visual de la entidad — derivado de reputation_score, no del sistema de rangos de usuario */
+type EntityTier = "ELITE" | "HIGH" | "MID" | "LOW";
 
 /** Interface sincronizada con la tabla 'entities' de Supabase */
 interface EntityData {
@@ -41,43 +42,26 @@ interface EntityData {
     reputation_score: number;
     total_reviews: number;
     is_verified: boolean;
-    rank: RankType;
     integrity_index: number;
 }
 
-/** Configuración visual por rango */
-const RANK_STYLES: Record<
-    RankType,
-    { borderColor: string; glowClass: string; neonClass: string; label: string; emoji: string }
+/** Deriva el tier visual desde el reputation_score */
+function getEntityTier(score: number): EntityTier {
+    if (score >= 4.5) return "ELITE";
+    if (score >= 3.5) return "HIGH";
+    if (score >= 2.5) return "MID";
+    return "LOW";
+}
+
+/** Configuración visual por tier de reputación */
+const TIER_STYLES: Record<
+    EntityTier,
+    { borderColor: string; glowClass: string; neonClass: string; isElite: boolean }
 > = {
-    DIAMOND: {
-        borderColor: "#b9f2ff",
-        glowClass: "glow-cyan",
-        neonClass: "neon-diamond",
-        label: "DIAMOND",
-        emoji: "💎",
-    },
-    GOLD: {
-        borderColor: "#D4AF37",
-        glowClass: "glow-gold",
-        neonClass: "neon-gold",
-        label: "GOLD",
-        emoji: "🥇",
-    },
-    SILVER: {
-        borderColor: "#C0C0C0",
-        glowClass: "",
-        neonClass: "",
-        label: "SILVER",
-        emoji: "🥈",
-    },
-    BRONZE: {
-        borderColor: "#cd7f32",
-        glowClass: "",
-        neonClass: "",
-        label: "BRONZE",
-        emoji: "🥉",
-    },
+    ELITE: { borderColor: "#D4AF37", glowClass: "glow-gold", neonClass: "neon-gold", isElite: true },
+    HIGH:  { borderColor: "#C0C0C0", glowClass: "", neonClass: "", isElite: false },
+    MID:   { borderColor: "#666666", glowClass: "", neonClass: "", isElite: false },
+    LOW:   { borderColor: "#444444", glowClass: "", neonClass: "", isElite: false },
 };
 
 /** Mapeo de category (BBDD) → tipo visual */
@@ -98,7 +82,8 @@ interface EntityCardProps {
 
 export default function EntityCard({ entity }: EntityCardProps) {
     const [isHovered, setIsHovered] = useState(false);
-    const rankStyle = RANK_STYLES[entity.rank] || RANK_STYLES.BRONZE;
+    const tier = getEntityTier(entity.reputation_score);
+    const rankStyle = TIER_STYLES[tier];
 
     // Resolver tipo visual desde la categoría de BBDD
     const cat = (entity.category || "politico").toLowerCase();
@@ -128,7 +113,7 @@ export default function EntityCard({ entity }: EntityCardProps) {
         <a
             href={`/${entityType === "EVENT" ? "events" : "entities"}/${entity.id}`}
             className={`flex flex-col h-full rounded-xl overflow-hidden transition-all duration-300 ${
-                entity.rank === "GOLD" || entity.rank === "DIAMOND" ? "elite-card" : ""
+                rankStyle.isElite ? "elite-card" : ""
             }`}
             style={{
                 border: `1px solid ${isHovered ? rankStyle.borderColor : `${rankStyle.borderColor}25`}`,

@@ -5,7 +5,7 @@ ESTADO: ROADMAP P3 — Implementado y testeado, pendiente integración con votes
 
 Este módulo contiene lógica avanzada que el endpoint /vote aún no usa:
   - Shadow Mode: votos de DNA < 70 se marcan is_counted=False (sin alertar al bot)
-  - Bonus Territorial Quirúrgico: 1.5x solo para SILVER+ en PERSON con jurisdicción local
+  - Bonus Territorial Quirúrgico: 1.5x solo para VERIFIED en PERSON con jurisdicción local
   - Fricción Inteligente: pide justificación si fill_duration < 3s y todos sliders = 1
   - Upsert: sobreescribe voto previo del mismo usuario→entidad
 
@@ -32,7 +32,7 @@ Bono Territorial Quirúrgico:
   El multiplicador SOLO se aplica si:
     1. verify_territoriality() == True
     2. entity_type == "PERSON" con jurisdicción definida
-    3. user.rank >= SILVER (RUT verificado)
+    3. user.rank == VERIFIED (RUT verificado)
   Si NO se cumplen las 3 condiciones → bonus = 1.0x
 
 Shadow Mode (DNA Scanner):
@@ -53,7 +53,7 @@ logger = logging.getLogger("beacon.vote_engine")
 
 
 # ─── Rangos con acceso a bonus territorial ───
-TERRITORIAL_ELIGIBLE_RANKS = {"SILVER", "GOLD", "DIAMOND"}
+TERRITORIAL_ELIGIBLE_RANKS = {"VERIFIED"}
 
 # ─── Tipos de entidad con jurisdicción ───
 JURISDICTIONAL_ENTITY_TYPES = {"PERSON"}
@@ -66,7 +66,7 @@ class VotePayload:
     entity_id: str
     entity_type: str  # POLITICO, PERSONA_PUBLICA, COMPANY, EVENT
     sliders: Dict[str, int]  # {"transparencia": 4, "gestion": 3, "coherencia": 5}
-    user_rank: str = "BRONZE"
+    user_rank: str = "BASIC"
     user_comuna_id: Optional[int] = None
     entity_jurisdiction_id: Optional[int] = None
     dna_score: int = 100
@@ -190,12 +190,10 @@ class VoteEngine:
 
         # ─── 4. Peso efectivo ───
         rank_weights = {
-            "BRONZE": 1.0,
-            "SILVER": 1.5,
-            "GOLD": 2.5,
-            "DIAMOND": 5.0,
+            "BASIC": 0.5,
+            "VERIFIED": 1.0,
         }
-        base_weight = rank_weights.get(payload.user_rank, 1.0)
+        base_weight = rank_weights.get(payload.user_rank, 0.5)
         effective_weight = base_weight * territorial_bonus
 
         # ─── 5. Upsert ───
@@ -264,7 +262,7 @@ class VoteEngine:
         if payload.entity_type not in JURISDICTIONAL_ENTITY_TYPES:
             return False
 
-        # Condición 2: Solo usuarios SILVER+ (RUT verificado)
+        # Condición 2: Solo usuarios VERIFIED (identidad completa)
         if payload.user_rank not in TERRITORIAL_ELIGIBLE_RANKS:
             return False
 

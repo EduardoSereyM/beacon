@@ -146,6 +146,12 @@ export default function NavbarClient() {
                                         {rank}
                                     </span>
                                 </div>
+                                <a
+                                    href="/profile"
+                                    className="text-[10px] text-foreground hover:text-white transition-colors font-mono"
+                                >
+                                    Mi Perfil
+                                </a>
                                 <button
                                     onClick={logout}
                                     className="text-[10px] text-foreground hover:text-white transition-colors font-mono"

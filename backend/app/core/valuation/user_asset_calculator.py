@@ -5,11 +5,9 @@ Motor que le da valor de mercado a tu imperio de ciudadanos.
 Cada usuario tiene un precio basado en su rango, comportamiento
 y densidad de datos demográficos.
 
-Tiers de valor (USD):
-  - BRONZE:  $0.50   → Valor de masa crítica
-  - SILVER:  $5.00   → Humano verificado (RUT validado)
-  - GOLD:    $25.00  → Referente de integridad
-  - DIAMOND: $100.00 → Auditor de la verdad
+Tiers de valor (USD) — Sistema v1:
+  - BASIC:    $0.50  → Email verificado, masa crítica
+  - VERIFIED: $5.00  → Identidad completa (RUT + datos geográficos)
 
 Ajuste por Integridad:
   valor_final = base_tier × integrity_score (0.0 a 1.0) + bonos
@@ -34,10 +32,8 @@ class UserAssetCalculator:
 
     # Valor base en USD por rango (Directives 2026 — La Mina de Oro)
     TIER_VALUES = {
-        "BRONZE": 0.50,     # Masa crítica — muchos, pero sin confirmar
-        "SILVER": 5.00,     # Humano verificado — RUT validado, identidad real
-        "GOLD": 25.00,      # Referente de integridad — voz con peso
-        "DIAMOND": 100.00,  # Auditor de la verdad — verificación presencial
+        "BASIC":    0.50,  # Email verificado — masa crítica, sin confirmar identidad
+        "VERIFIED": 5.00,  # Identidad completa — RUT + datos geográficos
     }
 
     def calculate_usd_value(self, user) -> float:
@@ -49,7 +45,7 @@ class UserAssetCalculator:
 
         Args:
             user: Diccionario o modelo User con los campos:
-                - rank (str): BRONZE, SILVER, GOLD, DIAMOND
+                - rank (str): BASIC | VERIFIED
                 - integrity_score (float): 0.0 a 1.0
                 - commune (str|None): Comuna del ciudadano
                 - age_range (str|None): Rango etario
@@ -59,14 +55,12 @@ class UserAssetCalculator:
         Returns:
             Valor en USD redondeado a 2 decimales
 
-        Ejemplos (TIER_VALUES 2026):
-            BRONZE sin datos:    $0.50 × 0.6 = $0.30
-            SILVER completo:     $5.00 × 0.9 + $6.00 + $3.00 = $13.50
-            GOLD completo:       $25.00 × 1.14 + $6.00 + $3.00 = $37.50
-            DIAMOND completo:    $100.00 × 1.2 + $6.00 + $3.00 = $129.00
+        Ejemplos (TIER_VALUES v1):
+            BASIC sin datos:     $0.50 × 0.6 = $0.30
+            VERIFIED completo:   $5.00 × 0.9 + $6.00 + $3.00 = $13.50
         """
         # Acceso flexible: soporta dict y dataclass
-        rank = self._get(user, "rank", "BRONZE")
+        rank = self._get(user, "rank", "BASIC")
         integrity = self._get(user, "integrity_score", 0.5)
         commune = self._get(user, "commune")
         age_range = self._get(user, "age_range")
@@ -74,7 +68,7 @@ class UserAssetCalculator:
         rut_hash = self._get(user, "rut_hash")
 
         # 1. Valor base del tier
-        base = self.TIER_VALUES.get(rank, 1.0)
+        base = self.TIER_VALUES.get(rank, 0.50)
 
         # 2. Multiplicador por pureza de comportamiento
         #    integrity_score 0.5 = 0.6x, 1.0 = 1.2x
@@ -106,16 +100,16 @@ class UserAssetCalculator:
                 "total_usd": float,
                 "user_count": int,
                 "avg_value": float,
-                "by_tier": {"BRONZE": ..., "SILVER": ..., ...}
+                "by_tier": {"BASIC": ..., "VERIFIED": ...}
             }
         """
         total = 0.0
-        by_tier = {"BRONZE": 0.0, "SILVER": 0.0, "GOLD": 0.0, "DIAMOND": 0.0}
+        by_tier = {"BASIC": 0.0, "VERIFIED": 0.0}
 
         for user in users:
             value = self.calculate_usd_value(user)
             total += value
-            rank = self._get(user, "rank", "BRONZE")
+            rank = self._get(user, "rank", "BASIC")
             by_tier[rank] = by_tier.get(rank, 0.0) + value
 
         count = len(users)

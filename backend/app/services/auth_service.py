@@ -194,7 +194,7 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         return {
             "status": status,
             "user_id": user_id,
-            "rank": user.get("rank", "BRONZE"),
+            "rank": user.get("rank", "BASIC"),
             "integrity_score": float(user.get("integrity_score", 0.5)),
             "reputation_score": float(user.get("reputation_score", 0.5)),
             "dna_classification": dna_result["classification"],

@@ -83,7 +83,6 @@ interface BackendEntity {
   reputation_score: number;
   total_reviews: number;
   is_verified: boolean;
-  rank: "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
   integrity_index: number;
   service_tags?: string[];
 }

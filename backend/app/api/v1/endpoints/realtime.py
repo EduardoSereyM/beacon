@@ -168,7 +168,7 @@ async def publish_verdict_pulse(
     total_votes: int,
     integrity_index: float,
     is_gold_verdict: bool = False,
-    voter_rank: str = "BRONZE",
+    voter_rank: str = "BASIC",
 ) -> bool:
     """
     Publica un pulso de veredicto al canal Redis de la entidad.

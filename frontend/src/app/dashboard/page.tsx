@@ -153,10 +153,8 @@ export default function SovereignDashboard() {
                         </h3>
                         <div className="space-y-3">
                             {[
-                                { rank: "DIAMOND", count: 3, color: "#b9f2ff", badge: "badge-diamond", neon: "neon-diamond" },
-                                { rank: "GOLD", count: 47, color: "#D4AF37", badge: "badge-gold", neon: "neon-gold" },
-                                { rank: "SILVER", count: 312, color: "#C0C0C0", badge: "badge-silver", neon: "" },
-                                { rank: "BRONZE", count: 1284, color: "#cd7f32", badge: "badge-bronze", neon: "" },
+                                { rank: "VERIFIED", count: 315, color: "#C0C0C0", badge: "badge-silver", neon: "" },
+                                { rank: "BASIC",    count: 1284, color: "#aaaaaa", badge: "", neon: "" },
                             ].map((tier) => (
                                 <div key={tier.rank} className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">

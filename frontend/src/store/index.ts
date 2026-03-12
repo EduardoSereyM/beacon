@@ -19,7 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 // ─── Tipos sincronizados con el contrato de /api/v1/user/auth/me ───
 
-export type UserRank = "BASIC" | "VERIFIED" | "BRONZE" | "SILVER" | "GOLD" | "DIAMOND";
+export type UserRank = "BASIC" | "VERIFIED";
 
 export interface BeaconUser {
   id: string;

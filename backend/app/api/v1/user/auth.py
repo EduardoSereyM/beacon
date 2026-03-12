@@ -256,6 +256,101 @@ async def verify_identity(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/forgot-password", summary="Solicitar restablecimiento de contraseña")
+async def forgot_password(request: Request):
+    """
+    Inicia el flujo de recuperación de contraseña.
+    Supabase envía un email con enlace al ciudadano.
+
+    Seguridad: siempre responde igual (200) independientemente de si el
+    email existe o no, para no revelar qué cuentas están registradas.
+    """
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    body = await request.json()
+    email = body.get("email", "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="El email es obligatorio")
+
+    try:
+        from app.core.database import get_async_supabase_client
+        supabase = get_async_supabase_client()
+        redirect_url = f"{settings.FRONTEND_URL}/auth/reset-password"
+        await supabase.auth.reset_password_for_email(
+            email,
+            options={"redirect_to": redirect_url},
+        )
+    except Exception:
+        # Silencioso: no revelar si el email existe o no
+        pass
+
+    return {
+        "message": "Si existe una cuenta con ese email, recibirás un enlace de recuperación en los próximos minutos."
+    }
+
+
+@router.post("/reset-password", summary="Establecer nueva contraseña con token de recuperación")
+async def reset_password(request: Request):
+    """
+    Segundo paso del flujo de recuperación.
+    Recibe el token_hash del enlace + la nueva contraseña.
+
+    Flujo:
+      1. Verifica el OTP de recuperación (token_hash + type=recovery)
+      2. Actualiza la contraseña del ciudadano via admin API
+      3. Retorna éxito
+    """
+    body = await request.json()
+    token_hash = body.get("token_hash", "").strip()
+    new_password = body.get("new_password", "")
+
+    if not token_hash:
+        raise HTTPException(status_code=400, detail="token_hash es obligatorio")
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres")
+
+    # Validación de complejidad (mismas reglas que el registro)
+    import re
+    if not re.search(r'[A-Z]', new_password):
+        raise HTTPException(status_code=400, detail="La contraseña debe contener al menos una mayúscula")
+    if not re.search(r'[0-9]', new_password):
+        raise HTTPException(status_code=400, detail="La contraseña debe contener al menos un número")
+    if not re.search(r'[@#$%&*]', new_password):
+        raise HTTPException(status_code=400, detail="La contraseña debe contener al menos un carácter especial (@#$%&*)")
+
+    try:
+        from app.core.database import get_async_supabase_client
+        supabase = get_async_supabase_client()
+
+        # 1. Verificar el OTP → obtenemos sesión temporal
+        auth_response = await supabase.auth.verify_otp({
+            "token_hash": token_hash,
+            "type": "recovery",
+        })
+
+        if not auth_response.user:
+            raise HTTPException(status_code=400, detail="Token inválido o expirado")
+
+        user_id = auth_response.user.id
+
+        # 2. Actualizar contraseña via admin (no expone la nueva clave)
+        await supabase.auth.admin.update_user_by_id(
+            user_id,
+            {"password": new_password},
+        )
+
+        return {
+            "status": "updated",
+            "message": "Contraseña actualizada correctamente. Ya puedes iniciar sesión.",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al restablecer contraseña: {str(e)}")
+
+
 @router.get("/me", summary="Perfil del ciudadano autenticado")
 async def get_me(current_user: dict = Depends(get_current_user)):
     """
