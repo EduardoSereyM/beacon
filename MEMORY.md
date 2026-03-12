@@ -308,6 +308,12 @@ frontend/
 
 ---
 
+
+
+
+
+
+
 <sub>
 Actualizado: `2026-03-11` · Commits relevantes: `223bafd` · `7e15a4e` · `2544971` · `7c36282` · `6fead90` · `249bd6f` · `78dc9dd` · `512eb25`
 _"Lo que vale, brilla. Lo que no, desaparece."_

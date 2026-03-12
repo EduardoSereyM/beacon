@@ -74,6 +74,7 @@ Directives 2026.md
 playbook.md
 app.md
 MEMORY.md
+*.md
 
 # Documentos de trabajo
 documentos_x/
@@ -81,3 +82,6 @@ documentos_x/
 # Claude Code — archivos locales de sesión
 .claude/worktrees/
 .claude/settings.local.json
+
+
+supabase/

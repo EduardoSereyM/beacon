@@ -251,7 +251,15 @@ export default function EntityPage({ params }: EntityPageProps) {
         .filter(Boolean)
         .join(" ");
 
-    const userRank: UserRank = isAuthenticated ? (user.rank as UserRank) : "DISPLACED";
+    type VerdictType = { label: string; color: string; weight: string };
+    const VERDICT_LABELS: Record<UserRank, VerdictType> = {
+        DISPLACED: { label: "Pulso Social",           color: "#555",    weight: "0x" },
+        BASIC:     { label: "Voto Estándar",           color: "#aaaaaa", weight: "0.5x" },
+        VERIFIED:  { label: "Veredicto Certificado",   color: "#C0C0C0", weight: "1.0x" },
+    };
+
+    const rawRank = isAuthenticated && user?.rank ? String(user.rank).toUpperCase() : "DISPLACED";
+    const userRank: UserRank = VERDICT_LABELS[rawRank as UserRank] ? (rawRank as UserRank) : "DISPLACED";
     const isLocalVote = isAuthenticated && ["politico", "periodista"].includes(cat);
 
     const scoreColor =
@@ -260,13 +268,6 @@ export default function EntityPage({ params }: EntityPageProps) {
             : entity.reputation_score >= 3.0
                 ? "#FFD700"
                 : "#FF073A";
-
-    type VerdictType = { label: string; color: string; weight: string };
-    const VERDICT_LABELS: Record<UserRank, VerdictType> = {
-        DISPLACED: { label: "Pulso Social",           color: "#555",    weight: "0x" },
-        BASIC:     { label: "Voto Estándar",           color: "#aaaaaa", weight: "0.5x" },
-        VERIFIED:  { label: "Veredicto Certificado",   color: "#C0C0C0", weight: "1.0x" },
-    };
 
     const activeSliders = dimensions;
 
@@ -395,12 +396,12 @@ export default function EntityPage({ params }: EntityPageProps) {
                                 ))}
                             </div>
 
-                            {/* Bio */}
-                            {entity.bio && (
+                            {/* Bio  Quedara comentado mientras se decide si se muestra o no */}
+                            {/* {entity.bio && (
                                 <p className="text-xs text-foreground-muted mt-3 leading-relaxed max-w-xl">
                                     {entity.bio}
                                 </p>
-                            )}
+                            )} */}
                         </div>
 
                         {/* Score rápido */}
@@ -422,7 +423,7 @@ export default function EntityPage({ params }: EntityPageProps) {
             {/* ═══════════════════════════════════════════
        *  TRUTH METER + MÉTRICAS CORE
        * ═══════════════════════════════════════════ */}
-            <section className="px-6 -mt-8">
+            <section className="px-6 -mt-8 pt-10">
                 <div className="max-w-4xl mx-auto">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Truth Meter (columna central) */}
@@ -432,7 +433,7 @@ export default function EntityPage({ params }: EntityPageProps) {
 
                         {/* Métricas izquierda */}
                         <div className="space-y-4 md:order-1">
-                            <div className="glass rounded-xl p-5">
+                            <div className="glass rounded-xl p-7">
                                 <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-1">
                                     Reputation Score
                                 </p>
@@ -450,7 +451,7 @@ export default function EntityPage({ params }: EntityPageProps) {
                                 </p>
                             </div>
 
-                            <div className="glass rounded-xl p-5">
+                            <div className="glass rounded-xl p-7">
                                 <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-1">
                                     Total Veredictos
                                 </p>

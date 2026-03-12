@@ -581,7 +581,9 @@ def generate_markdown(schema: dict, generated_at: str) -> str:
     lines.append(f"| Triggers | {len(triggers)} |")
     lines.append(f"| Funciones | {len(funcs)} |")
     lines.append(f"| Extensiones | {len(exts)} |")
-    lines.append(f"| Enums | {len(set(f'{e[\"schema_name\"]}.{e[\"enum_name\"]}' for e in enums))} |")
+    unique_enum_count = len(set(f"{e['schema_name']}.{e['enum_name']}" for e in enums))
+    lines.append(f"| Enums | {unique_enum_count} |")
+
     lines.append("")
 
     return "\n".join(lines)

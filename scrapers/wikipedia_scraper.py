@@ -44,6 +44,10 @@ RATE_LIMIT_SECONDS = 2  # Pausa entre requests a Wikipedia
 WIKIPEDIA_API = "https://es.wikipedia.org/api/rest_v1/page/summary"
 WIKIPEDIA_SEARCH = "https://es.wikipedia.org/w/api.php"
 
+HEADERS = {
+    "User-Agent": "BEACON-Protocol-Bot/1.0 (contacto@beaconchile.cl; https://beaconchile.cl)",
+    "Accept": "application/json"
+}
 
 # ══════════════════════════════════════════════
 # HELPERS DE WIKIPEDIA
@@ -65,7 +69,7 @@ def buscar_en_wikipedia(nombre_completo: str) -> dict | None:
         "srnamespace": 0,
     }
     try:
-        resp = requests.get(WIKIPEDIA_SEARCH, params=params, timeout=10)
+        resp = requests.get(WIKIPEDIA_SEARCH, params=params, headers=HEADERS, timeout=10)
         resp.raise_for_status()
         results = resp.json().get("query", {}).get("search", [])
         if not results:
@@ -84,7 +88,7 @@ def obtener_summary_wikipedia(title: str) -> dict | None:
     """
     url = f"{WIKIPEDIA_API}/{requests.utils.quote(title)}"
     try:
-        resp = requests.get(url, timeout=10, headers={"Accept": "application/json"})
+        resp = requests.get(url, timeout=10, headers=HEADERS)
         if resp.status_code == 404:
             return None
         resp.raise_for_status()
@@ -191,17 +195,7 @@ def enriquecer_entidad(
         updates["official_links"] = existing_links
         print(f"  🔗 Wikipedia URL añadida a official_links")
 
-    # Metadata de scraping (trazabilidad)
-    existing_meta = entity.get("metadata") or {}
-    if isinstance(existing_meta, dict):
-        existing_meta["scraping"] = {
-            "wikipedia_title": title,
-            "wikipedia_url": summary["page_url"],
-            "source_url": summary["page_url"],
-            "last_scraped_at": datetime.now(timezone.utc).isoformat(),
-            "scraper": "wikipedia_scraper.py v1.0",
-        }
-        updates["metadata"] = existing_meta
+
 
     # ─── Paso 4: Actualizar en Supabase ───
     if dry_run:
@@ -291,8 +285,8 @@ def main():
         query = (
             supabase.table("entities")
             .select(
-                "id, first_name, last_name, second_last_name, name, "
-                "category, bio, photo_path, official_links, metadata, region, party"
+                "id, first_name, last_name, second_last_name, "
+                "category, bio, photo_path, official_links, region, party"
             )
             .eq("is_active", True)
             .is_("deleted_at", "null")

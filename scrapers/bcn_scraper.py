@@ -255,16 +255,7 @@ def enriquecer_entidad(
         updates["official_links"] = existing_links
         print(f"  🔗 BCN URL añadida a official_links")
 
-    # Metadata de trazabilidad
-    existing_meta = entity.get("metadata") or {}
-    if isinstance(existing_meta, dict):
-        existing_meta["scraping"] = {
-            "bcn_url": datos.get("bcn_url"),
-            "source_url": datos.get("bcn_url"),
-            "last_scraped_at": datetime.now(timezone.utc).isoformat(),
-            "scraper": "bcn_scraper.py v1.0",
-        }
-        updates["metadata"] = existing_meta
+
 
     if len(updates) <= 1:  # Solo updated_at, nada nuevo
         print(f"  ⏭️  Sin datos nuevos para actualizar")
@@ -322,8 +313,8 @@ def main():
         query = (
             supabase.table("entities")
             .select(
-                "id, first_name, last_name, second_last_name, name, "
-                "category, bio, photo_path, official_links, metadata, "
+                "id, first_name, last_name, second_last_name, "
+                "category, bio, photo_path, official_links, "
                 "region, party, position, district"
             )
             .eq("is_active", True)

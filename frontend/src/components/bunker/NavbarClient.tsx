@@ -1,8 +1,8 @@
 /**
  * BEACON PROTOCOL — Navbar Client (Componente Interactivo)
  * =========================================================
- * Navbar glassmorphism + AuthModal + VerifyIdentityModal + BasicUserBanner.
- * "use client" porque maneja estado (modals, banner).
+ * Navbar glassmorphism + AuthModal + BasicUserBanner + VerifyIdentityModal.
+ * "use client" porque maneja estado (isModalOpen, isVerifyOpen).
  */
 
 "use client";
@@ -17,21 +17,19 @@ import Link from "next/link";
 import logoDorado from "@/asset/brand/LogoBeaconCian.png";
 
 export default function NavbarClient() {
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isModalOpen, setIsModalOpen]   = useState(false);
     const [isVerifyOpen, setIsVerifyOpen] = useState(false);
-    const { user, isAuthenticated, isAdmin, rank, logout } = usePermissions();
-
-    const isBasicUser = rank === "BASIC" || rank === "BRONZE";
-    const rankColor = rank === "VERIFIED" ? "#4dff83" : "#D4AF37";
+    const { user, isAuthenticated, isBasic, isAdmin, logout } = usePermissions();
+    const rank = user.rank;
 
     // Eventos custom desde otros componentes
     useEffect(() => {
-        const openAuth = () => setIsModalOpen(true);
+        const openAuth   = () => setIsModalOpen(true);
         const openVerify = () => setIsVerifyOpen(true);
-        window.addEventListener("beacon:open-auth-modal", openAuth);
+        window.addEventListener("beacon:open-auth-modal",   openAuth);
         window.addEventListener("beacon:open-verify-modal", openVerify);
         return () => {
-            window.removeEventListener("beacon:open-auth-modal", openAuth);
+            window.removeEventListener("beacon:open-auth-modal",   openAuth);
             window.removeEventListener("beacon:open-verify-modal", openVerify);
         };
     }, []);
@@ -116,16 +114,17 @@ export default function NavbarClient() {
                                     </Link>
                                 )}
 
-                                {/* Botón Verificar — solo para usuarios BASIC */}
-                                {isBasicUser && (
+                                {/* Botón verificar — solo para usuarios BASIC */}
+                                {isBasic && (
                                     <button
                                         onClick={() => setIsVerifyOpen(true)}
-                                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all hover:scale-105"
+                                        className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
                                         style={{
-                                            background: "rgba(212,175,55,0.10)",
-                                            border: "1px solid rgba(212,175,55,0.30)",
-                                            color: "#D4AF37",
+                                            background: "rgba(255,140,0,0.12)",
+                                            border: "1px solid rgba(255,140,0,0.35)",
+                                            color: "#FF8C00",
                                         }}
+                                        title="Tu voto vale 0.5x — verificar para 1.0x"
                                     >
                                         🔒 Verificar
                                     </button>
@@ -138,9 +137,11 @@ export default function NavbarClient() {
                                     <span
                                         className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
                                         style={{
-                                            backgroundColor: `${rankColor}18`,
-                                            color: rankColor,
-                                            border: `1px solid ${rankColor}40`,
+                                            backgroundColor: rank === "VERIFIED"
+                                                ? "rgba(77,255,131,0.12)"
+                                                : "rgba(255,140,0,0.12)",
+                                            color: rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
+                                            border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.25)" : "rgba(255,140,0,0.25)"}`,
                                         }}
                                     >
                                         {rank}
@@ -175,12 +176,19 @@ export default function NavbarClient() {
                 </div>
             </nav>
 
-            {/* ═══ Banner BASIC (bajo el navbar) ═══ */}
-            <BasicUserBanner onVerifyClick={() => setIsVerifyOpen(true)} />
+            {/* ═══ Banner BASIC — fixed justo bajo la navbar (z-40) ═══ */}
+            {isAuthenticated && isBasic && (
+                <BasicUserBanner onVerifyClick={() => setIsVerifyOpen(true)} />
+            )}
 
-            {/* ═══ Modales ═══ */}
+            {/* ═══ Auth Modal ═══ */}
             <AuthModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-            <VerifyIdentityModal isOpen={isVerifyOpen} onClose={() => setIsVerifyOpen(false)} />
+
+            {/* ═══ Verify Identity Modal ═══ */}
+            <VerifyIdentityModal
+                isOpen={isVerifyOpen}
+                onClose={() => setIsVerifyOpen(false)}
+            />
         </>
     );
 }
