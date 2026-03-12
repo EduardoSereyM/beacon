@@ -130,37 +130,34 @@ function resolvePermissions(role: Role): Permissions {
 
 // ─── Hook principal ───
 
-export default function usePermissions(): PermissionsResult {
-    const [user, setUser] = useState<UserState>({
-        id: null,
-        email: null,
-        full_name: null,
-        rank: "ANONYMOUS",
-        role: "user",
-        is_verified: false,
-        integrity_score: 0,
-    });
+const ANON_STATE: UserState = {
+    id: null, email: null, full_name: null,
+    rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
+};
 
-    // Leer usuario de localStorage al montar
-    useEffect(() => {
-        try {
-            const stored = localStorage.getItem("beacon_user");
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                setUser({
-                    id: parsed.id || null,
-                    email: parsed.email || null,
-                    full_name: parsed.full_name || null,
-                    rank: normalizeRank(parsed.rank || "BASIC"),
-                    role: parsed.role || "user",
-                    is_verified: parsed.is_verified || false,
-                    integrity_score: parsed.integrity_score || 0.5,
-                });
-            }
-        } catch {
-            // localStorage falla → ANONYMOUS
-        }
-    }, []);
+function readFromStorage(): UserState {
+    if (typeof window === "undefined") return ANON_STATE;
+    try {
+        const stored = localStorage.getItem("beacon_user");
+        if (!stored) return ANON_STATE;
+        const parsed = JSON.parse(stored);
+        return {
+            id: parsed.id || null,
+            email: parsed.email || null,
+            full_name: parsed.full_name || null,
+            rank: normalizeRank(parsed.rank || "BASIC"),
+            role: parsed.role || "user",
+            is_verified: parsed.is_verified || false,
+            integrity_score: parsed.integrity_score || 0.5,
+        };
+    } catch {
+        return ANON_STATE;
+    }
+}
+
+export default function usePermissions(): PermissionsResult {
+    // Lazy initializer: lee localStorage una vez en mount, sin useEffect + setState
+    const [user, setUser] = useState<UserState>(readFromStorage);
 
     // Sync multi-tab
     useEffect(() => {
@@ -178,7 +175,7 @@ export default function usePermissions(): PermissionsResult {
                         integrity_score: parsed.integrity_score || 0.5,
                     });
                 } else {
-                    setUser({ id: null, email: null, full_name: null, rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0 });
+                    setUser(ANON_STATE);
                 }
             }
         };
@@ -202,7 +199,7 @@ export default function usePermissions(): PermissionsResult {
     const logout = useCallback(() => {
         localStorage.removeItem("beacon_token");
         localStorage.removeItem("beacon_user");
-        setUser({ id: null, email: null, full_name: null, rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0 });
+        setUser(ANON_STATE);
     }, []);
 
     return {
