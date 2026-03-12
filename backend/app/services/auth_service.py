@@ -129,13 +129,11 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         }
 
         # ─── 3b. Datos demográficos opcionales (Mina de Oro) ───
-        # Estos campos alimentan la segmentación B2B y contribuyen al ascenso VERIFIED.
-        for field in ("age_range", "country", "region", "commune"):
-            val = getattr(user_data, field, None)
-            if val:
-                new_user[field] = val
-        if getattr(user_data, "birth_year", None):
-            new_user["birth_year"] = user_data.birth_year
+        # Solo age_range existe como columna de texto en public.users.
+        # country/region/commune se almacenarán via comuna_id (FK) en P4 (lookup table).
+        age_range = getattr(user_data, "age_range", None)
+        if age_range:
+            new_user["age_range"] = age_range
 
         # ─── Audit: intento (no bloquea si audit_logs no tiene las columnas) ───
         try:
