@@ -320,10 +320,9 @@ class TestEnums:
     """Valida que las enumeraciones estén correctas."""
 
     def test_user_ranks_exist(self):
-        assert UserRank.BRONZE == "BRONZE"
-        assert UserRank.SILVER == "SILVER"
-        assert UserRank.GOLD == "GOLD"
-        assert UserRank.DIAMOND == "DIAMOND"
+        """Sistema v2: 2 rangos BASIC / VERIFIED."""
+        assert UserRank.BASIC == "BASIC"
+        assert UserRank.VERIFIED == "VERIFIED"
 
     def test_verification_levels(self):
         assert VerificationLevel.EMAIL == 1

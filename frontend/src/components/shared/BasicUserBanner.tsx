@@ -10,10 +10,9 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuthStore } from "@/store";
 
-const CYAN   = "#00E5FF";
 const GOLD   = "#D4AF37";
 const AMBER  = "#FF8C00";
 
@@ -24,27 +23,19 @@ interface BasicUserBannerProps {
 
 export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps) {
     const { user } = useAuthStore();
-    const [visible, setVisible] = useState(false);
-    const [dismissed, setDismissed] = useState(false);
+    // Lazy: leer sessionStorage una sola vez en mount para evitar setState-in-effect
+    const [dismissed, setDismissed] = useState(
+        () => typeof window !== "undefined" && sessionStorage.getItem("beacon_banner_dismissed") === "true"
+    );
 
-    useEffect(() => {
-        // Mostrar solo si es BASIC y no fue descartado en esta sesión
-        const wasDismissed = sessionStorage.getItem("beacon_banner_dismissed") === "true";
-        setDismissed(wasDismissed);
-        setVisible(
-            !!user &&
-            (user.rank === "BASIC" || user.rank === "BRONZE") &&
-            !wasDismissed
-        );
-    }, [user]);
+    const isBasicUser = !!user && (user.rank === "BASIC" || user.rank === "BRONZE");
 
     const handleDismiss = () => {
         sessionStorage.setItem("beacon_banner_dismissed", "true");
         setDismissed(true);
-        setVisible(false);
     };
 
-    if (!visible || dismissed) return null;
+    if (!isBasicUser || dismissed) return null;
 
     return (
         <div
