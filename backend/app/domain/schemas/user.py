@@ -33,11 +33,15 @@ class UserCreate(UserBase):
     El password se hasheará con bcrypt antes de tocar la BBDD.
     Los campos demográficos son opcionales en el registro inicial
     y alimentan la 'Mina de Oro' desde el primer momento.
+
+    Para ascender a VERIFIED se requieren 5 campos:
+      rut_hash (via /verify-identity) + birth_year + country + region + commune
     """
     password: str = Field(..., min_length=8, description="Contraseña mínima de 8 caracteres")
+    birth_year: Optional[int] = Field(None, ge=1920, le=2010, description="Año de nacimiento (ej: 1990)")
     country: Optional[str] = Field(None, description="País (ej: Chile)")
-    commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
     region: Optional[str] = Field(None, description="Región (ej: Metropolitana)")
+    commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
     age_range: Optional[str] = Field(None, description="Rango etario (ej: 25-34)")
 
     @field_validator('password')
@@ -76,10 +80,14 @@ class UserProfileUpdate(BaseModel):
     Schema para actualizar datos demográficos.
     Estos campos alimentan la "Mina de Oro":
     segmentación de alta fidelidad para conglomerados.
+
+    Cuando birth_year + country + region + commune + rut_hash están todos presentes,
+    el backend evalúa automáticamente el ascenso a VERIFIED.
     """
+    birth_year: Optional[int] = Field(None, ge=1920, le=2010, description="Año de nacimiento (ej: 1990)")
     country: Optional[str] = Field(None, description="País (ej: Chile)")
-    commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
     region: Optional[str] = Field(None, description="Región (ej: Metropolitana)")
+    commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
     age_range: Optional[str] = Field(None, description="Rango etario (ej: 25-34)")
 
 

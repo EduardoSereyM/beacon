@@ -120,7 +120,7 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
             "email": user_data.email,
             "first_name": first_name,
             "last_name": last_name,
-            "rank": "BRONZE",
+            "rank": "BASIC",
             "integrity_score": 0.5,
             "reputation_score": 0.5,
             "under_deep_study": True,  # Incubadora Forense: activa para todo novato
@@ -128,9 +128,14 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
             # is_shadow_banned DEFAULT false, is_active DEFAULT true → DB defaults
         }
 
-        # ─── 3b. Datos opcionales de segmentación (Mina de Oro) ───
-        if hasattr(user_data, "age_range") and user_data.age_range:
-            new_user["age_range"] = user_data.age_range
+        # ─── 3b. Datos demográficos opcionales (Mina de Oro) ───
+        # Estos campos alimentan la segmentación B2B y contribuyen al ascenso VERIFIED.
+        for field in ("age_range", "country", "region", "commune"):
+            val = getattr(user_data, field, None)
+            if val:
+                new_user[field] = val
+        if getattr(user_data, "birth_year", None):
+            new_user["birth_year"] = user_data.birth_year
 
         # ─── Audit: intento (no bloquea si audit_logs no tiene las columnas) ───
         try:
@@ -165,7 +170,7 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
                 entity_type="USER",
                 entity_id=user_id,
                 details={
-                    "rank": "BRONZE",
+                    "rank": "BASIC",
                     "dna_score": dna_result["score"],
                     "dna_classification": dna_result["classification"],
                     "dna_alerts": dna_result["alerts"],

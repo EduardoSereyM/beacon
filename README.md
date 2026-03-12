@@ -202,9 +202,15 @@ npm run dev                   # http://localhost:3000
 ```
 
 ### Migraciones SQL
-Ejecutar en orden en el **SQL Editor** de Supabase:
+Ejecutar en orden en el **SQL Editor** de Supabase (todas son idempotentes — `IF NOT EXISTS`):
 1. `supabase/migrations/001_initial_schema.sql`
 2. `supabase/migrations/002_entities_schema.sql`
+3. `backend/migrations/008_entity_reviews.sql` — tabla anti-brigada
+4. `backend/migrations/009_entities_reputation_columns.sql` — reputation_score + total_reviews
+5. `backend/migrations/010_evaluation_dimensions.sql` — dimensiones por categoría (seed incluido)
+6. `backend/migrations/011_fix_audit_logs_schema.sql` — audit_logs UUID + índices
+7. `backend/migrations/012_document_entities_real_schema.sql` — columnas reales de entities ✅ aplicada
+8. `backend/migrations/013_add_last_reviewed_at_to_entities.sql` — decay job ✅ aplicada
 
 ---
 
@@ -212,12 +218,20 @@ Ejecutar en orden en el **SQL Editor** de Supabase:
 
 | Método | Ruta | Descripción | Auth |
 |---|---|---|---|
+| `GET` | `/health` | Status del búnker | ❌ |
 | `POST` | `/api/v1/user/auth/register` | Registro + DNA scan | ❌ |
 | `POST` | `/api/v1/user/auth/login` | Login → JWT | ❌ |
+| `POST` | `/api/v1/user/auth/confirm-email` | Confirmar email (OTP) | ❌ |
 | `POST` | `/api/v1/user/auth/verify-identity` | Ascensión SILVER (RUT) | ✅ |
 | `GET` | `/api/v1/user/auth/me` | Perfil público | ✅ |
 | `PUT` | `/api/v1/user/auth/profile` | Datos demográficos | ✅ |
-| `GET` | `/health` | Status del búnker | ❌ |
+| `GET` | `/api/v1/entities` | Lista paginada + filtros | ❌ |
+| `GET` | `/api/v1/entities/filters` | DISTINCT región/partido | ❌ |
+| `GET` | `/api/v1/entities/{id}` | Detalle de entidad | ❌ |
+| `POST` | `/api/v1/entities/{id}/vote` | Veredicto multidimensional (ponderado por rango) | ✅ |
+| `GET` | `/api/v1/dimensions` | Dimensiones por categoría | ❌ |
+| `WS` | `/api/v1/realtime/pulse/{id}` | WebSocket tiempo real | ❌ |
+| `GET` | `/api/v1/admin/*` | Panel Overlord (entidades, stats, AUM, audit, decay) | ✅ Admin |
 
 ---
 
@@ -236,19 +250,26 @@ Este proyecto se rige por las **Technical Directives 2026 v1.0**:
 ## 🏗️ Roadmap
 
 - [x] **Fase 0**: Scaffolding e Infraestructura Base
-- [x] **Fase 1**: Auth e Identidad (JWT, RUT, DNA Scanner)
-- [ ] **Fase 2**: Motor de Integridad (Bayesian Ranking, Decay, Shadow Ban)
-- [ ] **Fase 3**: Artillería Forense (Metadata, Fingerprint, ISP)
-- [ ] **Fase 4**: Capa de Juicio (DNA Analyzer, Spatial Logic)
+- [x] **Fase 1**: Auth e Identidad (JWT, RUT, DNA Scanner, email confirmación)
+- [x] **Fase 1.5**: ACM + Auth Modal (permisos con herencia, UI Dark Premium)
+- [x] **Fase 2 — MVP**: Motor de Integridad completo en producción
+  - [x] Votación Bayesiana con pesos por rango (PR-1)
+  - [x] WebSocket pulse en tiempo real (PR-2)
+  - [x] Anti-brigada (entity_reviews UNIQUE)
+  - [x] Decay temporal con job + endpoints admin (PR-12)
+  - [x] AsyncClient singleton + lifespan (PR-8, PR-10)
+  - [x] Audit logger async en toda la capa admin (PR-4)
+  - [x] Despliegue producción: `www.beaconchile.cl` (Render + Vercel)
+- [ ] **P3 — Versus**: `/versus` head-to-head con tabla `event_votes`
+- [ ] **P4 — Filtros geográficos**: /politicos, /empresas, /periodistas con filtros propios
+- [ ] **P5 — Verificación RUT BRONZE→SILVER**: formulario en perfil
+- [ ] **P6 — Scrapers**: BCN, Cámara, Senado, Wikipedia (Playwright)
+- [ ] **Fase 3**: Artillería Forense (Metadata, Fingerprint, ISP, 2FA SMS)
+- [ ] **Fase 4**: Capa de Juicio (DNA Analyzer, Spatial Logic, vote_engine.py)
 - [ ] **Fase 5**: Higiene de Contenido (PII, Profanity, Gibberish)
-- [ ] **Fase 6**: Entidades y Evaluación (Sliders, Reviews)
-- [ ] **Fase 7**: Eventos y Votación en Vivo (Efecto Kahoot)
-- [ ] **Fase 8**: Comportamiento y Maduración
 - [ ] **Fase 9**: Monetización y Gamificación (Pasaporte Cívico)
-- [ ] **Fase 10**: Panel Overlord (Admin Dashboard)
+- [ ] **Fase 10**: Panel Overlord Dashboard completo
 - [ ] **Fase 11**: Reportes y Difusión Pública
-- [ ] **Fase 12**: Frontend Completo (Dark Premium)
-- [ ] **Fase 13**: Performance y Despliegue
 
 ---
 

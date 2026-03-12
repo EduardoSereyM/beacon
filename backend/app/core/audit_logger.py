@@ -156,12 +156,30 @@ class AuditLogger:
         details: Dict[str, Any],
     ) -> None:
         """
-        Registra eventos de seguridad del sistema
-        (no asociados a un usuario específico).
-        
-        Usado por: panic_gate.py, network_cluster_detector.py
+        Registra eventos de seguridad del sistema (sync).
+        Solo llamar desde contextos síncronos (panic_gate, stealth_ban).
+        En endpoints async usar alog_security_event().
+
+        Usado por: panic_gate_extreme.py, stealth_ban.py
         """
         self.log_event(
+            actor_id="SYSTEM",
+            action=action,
+            entity_type="SECURITY",
+            entity_id="GLOBAL",
+            details=details,
+        )
+
+    async def alog_security_event(
+        self,
+        action: str,
+        details: Dict[str, Any],
+    ) -> None:
+        """
+        Versión async de log_security_event.
+        Usar en endpoints async para no bloquear el event loop.
+        """
+        await self.alog_event(
             actor_id="SYSTEM",
             action=action,
             entity_type="SECURITY",

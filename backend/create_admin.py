@@ -6,7 +6,6 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.core.database import get_supabase_client
-from app.services.auth_service import hash_password
 from datetime import datetime
 
 async def main():
@@ -58,18 +57,17 @@ async def main():
             new_user = {
                 "id": user_id,
                 "email": email,
-                "full_name": full_name,
-                "hashed_password": hash_password(password),
-                "password_history": [hash_password(password)],
+                "first_name": full_name,
                 "rank": "DIAMOND",
                 "integrity_score": 1.0,
                 "reputation_score": 5.0,
-                "verification_level": "gov_id",
+                "verification_level": 3,
                 "is_verified": True,
+                "is_rut_verified": False,
                 "is_active": True,
                 "is_shadow_banned": False,
                 "created_at": datetime.utcnow().isoformat(),
-                "role": "admin"
+                "role": "admin",
             }
             supabase.table("users").insert(new_user).execute()
             print("✅ Registro creado en public.users con rango DIAMOND y rol ADMIN.")

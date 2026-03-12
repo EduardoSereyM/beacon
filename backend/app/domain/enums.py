@@ -14,18 +14,17 @@ from enum import Enum
 # ─── Rangos de Usuario (Meritocracia Digital) ───
 class UserRank(str, Enum):
     """
-    Escalafón del Ciudadano Beacon.
+    Escalafón del Ciudadano Beacon — Sistema binario (v1).
     A mayor rango, mayor Poder de Voto (V_p).
 
-    BRONZE  = 1.0x  | Solo email verificado
-    SILVER  = 1.5x  | RUT Validado + 3 votos
-    GOLD    = 2.5x  | Perfil Completo + 30 días
-    DIAMOND = 5.0x  | Verificación presencial (Auditor de la Verdad)
+    BASIC    = 0.5x  | Solo email verificado
+    VERIFIED = 1.0x  | Identidad completa: RUT + birth_year + país + región + comuna
+
+    La penalización adicional se controla vía vote_penalty (NUMERIC en users).
+    El sistema de 4 rangos (BRONZE/SILVER/GOLD/DIAMOND) está reservado para v4.0.
     """
-    BRONZE = "BRONZE"
-    SILVER = "SILVER"
-    GOLD = "GOLD"
-    DIAMOND = "DIAMOND"
+    BASIC    = "BASIC"
+    VERIFIED = "VERIFIED"
 
 
 # ─── Nivel de Verificación de Identidad ───
