@@ -13,7 +13,6 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
-from datetime import datetime
 
 from app.core.database import get_async_supabase_client
 from app.api.v1.admin.require_admin import require_admin_role
