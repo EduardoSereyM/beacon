@@ -78,10 +78,10 @@ export default function NavbarClient() {
                         <Link href="/empresas" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Empresas
                         </Link>
-                        <Link href="/personajes" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/periodistas" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Personajes
                         </Link>
-                        <Link href="/eventos" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/events" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Eventos
                         </Link>
                         <Link href="/encuestas" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
