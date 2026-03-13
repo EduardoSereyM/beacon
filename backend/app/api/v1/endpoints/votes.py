@@ -121,20 +121,12 @@ async def submit_vote(
 
     vote_penalty = float(current_user.get("vote_penalty", 1.0))
 
-    # ─── Bono territorial: VERIFIED + misma región que la entidad ────────
-    JURISDICTIONAL_TYPES = {"POLITICO", "PERIODISTA", "PERSONA_PUBLICA"}
-    user_region = (current_user.get("region") or "").strip()
-    entity_region = (entity.get("region") or "").strip()
-    entity_type = (entity.get("entity_type") or "").upper()
-    is_local = (
-        user_rank == "VERIFIED"
-        and entity_type in JURISDICTIONAL_TYPES
-        and bool(user_region)
-        and user_region == entity_region
-    )
-    territorial_bonus = 1.5 if is_local else 1.0
+    # ─── Bono territorial: DESHABILITADO (v2+) ───────────────────────────
+    # Reservado para implementación futura con jurisdicciones oficiales.
+    is_local = False
+    territorial_bonus = 1.0
 
-    effective_weight = round(rank_weight * vote_penalty * territorial_bonus, 4)
+    effective_weight = round(rank_weight * vote_penalty, 4)
 
     # ─── 4. Time-lock: ¿ya votó? ¿puede modificar? ───────────────────────
     is_update = False
