@@ -34,7 +34,7 @@ interface BackendEntity {
   service_tags?: string[];
 }
 
-type CategoryTab = "" | "politico" | "empresario" | "periodista" | "evento";
+type CategoryTab = "" | "politico" | "empresario" | "periodista" | "evento" | "artista";
 
 const CATEGORY_TABS: { key: CategoryTab; label: string; icon: string; color: string }[] = [
   { key: "",           label: "Todos",      icon: "🌐", color: "#00E5FF" },
@@ -42,6 +42,7 @@ const CATEGORY_TABS: { key: CategoryTab; label: string; icon: string; color: str
   { key: "empresario", label: "Empresas",   icon: "🏢", color: "#00E5FF" },
   { key: "periodista", label: "Personajes", icon: "👤", color: "#C0C0C0" },
   { key: "evento",     label: "Eventos",    icon: "📅", color: "#8A2BE2" },
+  { key: "artista",    label: "Artistas",   icon: "🎤", color: "#FF8C00" },
 ];
 
 interface InitialData {

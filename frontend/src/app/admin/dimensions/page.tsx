@@ -19,6 +19,7 @@ const CATEGORIES = [
     { value: "empresario", label: "💼 Empresario" },
     { value: "empresa",    label: "🏢 Empresa" },
     { value: "evento",     label: "📅 Evento" },
+    { value: "artista",    label: "🎤 Artista" },
 ];
 
 interface Dimension {

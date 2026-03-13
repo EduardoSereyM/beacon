@@ -28,6 +28,7 @@ const CATEGORY_META: Record<string, { label: string; icon: string }> = {
     empresario: { label: "Empresario",        icon: "💼" },
     empresa:    { label: "Empresa",           icon: "🏢" },
     evento:     { label: "Evento",            icon: "📅" },
+    artista:    { label: "Artista",           icon: "🎤" },
 };
 
 /** Dimensión de evaluación (viene desde la API) */

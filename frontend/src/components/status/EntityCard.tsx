@@ -71,6 +71,7 @@ const CATEGORY_MAP: Record<string, { type: EntityType; label: string; icon: stri
     empresario: { type: "PERSONA_PUBLICA", label: "Empresario",icon: "💼",  color: "#00E5FF" },
     empresa:    { type: "COMPANY",        label: "Empresa",    icon: "🏢",  color: "#00E5FF" },
     evento:     { type: "EVENT",          label: "Evento",     icon: "📅",  color: "#8A2BE2" },
+    artista:    { type: "PERSONA_PUBLICA", label: "Artista",    icon: "🎤",  color: "#FF8C00" },
 };
 
 /** Fallback para tipos de entidad */

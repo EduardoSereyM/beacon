@@ -35,6 +35,7 @@ const CATEGORIES = [
     { value: "empresario", label: "Empresario/a" },
     { value: "empresa",    label: "Empresa / Organización" },
     { value: "evento",     label: "Evento" },
+    { value: "artista",    label: "Artista" },
 ];
 
 const REGIONES_CHILE = [

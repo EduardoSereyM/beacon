@@ -246,5 +246,9 @@ from app.api.v1.admin.polls_admin import router as admin_polls_router  # noqa: E
 app.include_router(polls_router,       prefix=f"{settings.API_V1_PREFIX}", tags=["Polls"])
 app.include_router(admin_polls_router, prefix=f"{settings.API_V1_PREFIX}", tags=["Admin — Polls"])
 
+# ─── Events (Eventos con participantes) ──────────────────────────────────────
+from app.api.v1.endpoints.events import router as events_router          # noqa: E402
+from app.api.v1.admin.events_admin import router as admin_events_router  # noqa: E402
 
-
+app.include_router(events_router,       prefix=f"{settings.API_V1_PREFIX}", tags=["Events"])
+app.include_router(admin_events_router, prefix=f"{settings.API_V1_PREFIX}", tags=["Admin — Events"])

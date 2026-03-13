@@ -61,6 +61,7 @@ const CATEGORY_LABELS: Record<string, string> = {
     empresario: "💼 Empresario",
     empresa:    "🏢 Empresa",
     evento:     "📅 Evento",
+    artista:    "🎤 Artista",
 };
 
 const RANK_META: Record<string, { color: string; label: string }> = {
@@ -401,6 +402,7 @@ export default function AdminDashboard() {
                         { href: "/admin/dimensions", icon: "🎚️", label: "Dimensiones",           desc: "Criterios de evaluación por categoría",       active: true },
                         { href: "/admin/versus",     icon: "⚔️",  label: "Arena VS",              desc: "Crear y gestionar enfrentamientos VS",        active: true },
                         { href: "/admin/polls",      icon: "📊",  label: "Encuestas",             desc: "Crear y gestionar encuestas ciudadanas",      active: true },
+                        { href: "/admin/events",     icon: "📡",  label: "Eventos",               desc: "Crear eventos y gestionar participantes",     active: true },
                         { href: "/admin/audit",      icon: "📜",  label: "Audit Log",             desc: "Registro inmutable de acciones del sistema",  active: true },
                         { href: "#",                 icon: "🧬",  label: "DNA Scanner",           desc: "Próximamente — Monitor HUMAN/SUSPICIOUS",     active: false },
                     ].map((item) => (
