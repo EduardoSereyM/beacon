@@ -170,6 +170,7 @@ async def publish_verdict_pulse(
     is_gold_verdict: bool = False,
     voter_rank: str = "BASIC",
 ) -> bool:
+
     """
     Publica un pulso de veredicto al canal Redis de la entidad.
 
@@ -215,6 +216,113 @@ async def publish_verdict_pulse(
         return True
     except Exception as e:
         logger.error("Failed to publish pulse: %s", e)
+        await r.aclose()
+        return False
+
+
+async def publish_versus_pulse(
+    versus_id: str,
+    votes_a: int,
+    votes_b: int,
+    total_votes: int,
+    pct_a: float,
+    pct_b: float,
+) -> bool:
+    """
+    Publica un pulso VS al canal Redis del enfrentamiento.
+    Canal: beacon:pulse:versus:{versus_id}
+    """
+    r = await _get_redis_connection()
+    if not r:
+        return False
+
+    channel = f"beacon:pulse:versus:{versus_id}"
+    payload = {
+        "type": "VERSUS_PULSE",
+        "versus_id": versus_id,
+        "votes_a": votes_a,
+        "votes_b": votes_b,
+        "total_votes": total_votes,
+        "pct_a": pct_a,
+        "pct_b": pct_b,
+        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+    }
+
+    try:
+        await r.publish(channel, json.dumps(payload))
+        logger.info("VS Pulse | versus=%s | total=%d", versus_id, total_votes)
+        await r.aclose()
+        return True
+    except Exception as e:
+        logger.error("Failed to publish versus pulse: %s", e)
+        await r.aclose()
+        return False
+
+
+async def publish_event_pulse(
+    event_id: str,
+    entity_id: str,
+    new_avg: float | None,
+    vote_count: int,
+) -> bool:
+    """
+    Publica un pulso de evento al canal Redis del evento.
+    Canal: beacon:pulse:event:{event_id}
+    """
+    r = await _get_redis_connection()
+    if not r:
+        return False
+
+    channel = f"beacon:pulse:event:{event_id}"
+    payload = {
+        "type": "EVENT_PULSE",
+        "event_id": event_id,
+        "entity_id": entity_id,
+        "new_avg": new_avg,
+        "vote_count": vote_count,
+        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+    }
+
+    try:
+        await r.publish(channel, json.dumps(payload))
+        logger.info("Event Pulse | event=%s | entity=%s | avg=%s", event_id, entity_id, new_avg)
+        await r.aclose()
+        return True
+    except Exception as e:
+        logger.error("Failed to publish event pulse: %s", e)
+        await r.aclose()
+        return False
+
+
+async def publish_poll_pulse(
+    poll_id: str,
+    results: list,
+    total_votes: int,
+) -> bool:
+    """
+    Publica un pulso de encuesta al canal Redis de la encuesta.
+    Canal: beacon:pulse:poll:{poll_id}
+    """
+    r = await _get_redis_connection()
+    if not r:
+        return False
+
+    channel = f"beacon:pulse:poll:{poll_id}"
+    payload = {
+        "type": "POLL_PULSE",
+        "poll_id": poll_id,
+        "results": results,
+        "total_votes": total_votes,
+        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+    }
+
+    try:
+        await r.publish(channel, json.dumps(payload))
+        logger.info("Poll Pulse | poll=%s | total=%d", poll_id, total_votes)
+        await r.aclose()
+        return True
+    except Exception as e:
+        logger.error("Failed to publish poll pulse: %s", e)
         await r.aclose()
         return False
 

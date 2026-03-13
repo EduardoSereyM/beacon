@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/store";
+import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -58,6 +59,14 @@ function PollCard({ poll, token }: { poll: PollItem; token: string | null }) {
   const [results, setResults] = useState<PollResult[]>(poll.results);
   const [totalVotes, setTotalVotes] = useState(poll.total_votes);
   const [error, setError] = useState<string | null>(null);
+
+  // Efecto Kahoot — actualizar resultados en tiempo real
+  useBeaconPulse(`poll:${poll.id}`, (data) => {
+    if (data.type === "POLL_PULSE" && !voted) {
+      setResults(data.results as PollResult[]);
+      setTotalVotes(data.total_votes as number);
+    }
+  });
 
   const handleVote = async (optionValue: string) => {
     if (voted || voting) return;

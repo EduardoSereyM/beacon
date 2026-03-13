@@ -16,8 +16,11 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
+import logging
 
 from app.core.database import get_async_supabase_client
+
+logger = logging.getLogger("beacon.entities")
 
 router = APIRouter()
 
@@ -151,6 +154,43 @@ async def get_entity(entity_id: str):
     row = result.data[0]
     links = row.get("official_links") or {}
 
+    # ─── Desglose de votos por rango ─────────────────────────────────────
+    votes_breakdown = {
+        "verified_avg": None,
+        "verified_count": 0,
+        "basic_avg": None,
+        "basic_count": 0,
+    }
+    try:
+        reviews_res = await (
+            supabase.table("entity_reviews")
+            .select("vote_avg, user_id")
+            .eq("entity_id", entity_id)
+            .execute()
+        )
+        reviews = reviews_res.data or []
+        if reviews:
+            user_ids = list({r["user_id"] for r in reviews if r.get("user_id")})
+            users_res = await (
+                supabase.table("users")
+                .select("id, rank")
+                .in_("id", user_ids)
+                .execute()
+            )
+            rank_map = {u["id"]: u.get("rank", "BASIC") for u in (users_res.data or [])}
+            verified = [float(r["vote_avg"]) for r in reviews
+                        if r.get("vote_avg") is not None and rank_map.get(r["user_id"]) == "VERIFIED"]
+            basic = [float(r["vote_avg"]) for r in reviews
+                     if r.get("vote_avg") is not None and rank_map.get(r["user_id"]) == "BASIC"]
+            votes_breakdown = {
+                "verified_avg": round(sum(verified) / len(verified), 2) if verified else None,
+                "verified_count": len(verified),
+                "basic_avg": round(sum(basic) / len(basic), 2) if basic else None,
+                "basic_count": len(basic),
+            }
+    except Exception as e:
+        logger.warning(f"Vote breakdown error entity={entity_id}: {e}")
+
     return {
         "id": row["id"],
         "first_name": row.get("first_name", ""),
@@ -169,4 +209,5 @@ async def get_entity(entity_id: str):
         "reputation_score": round(float(row.get("reputation_score") or 0.0), 2),
         "total_reviews": int(row.get("total_reviews") or 0),
         "integrity_index": int(round(float(row.get("reputation_score") or 0.0) / 5.0 * 100)),
+        "votes_breakdown": votes_breakdown,
     }

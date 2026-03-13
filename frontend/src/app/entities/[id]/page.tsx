@@ -70,6 +70,13 @@ const FALLBACK_DIMENSIONS: Record<string, Dimension[]> = {
     ],
 };
 
+interface VotesBreakdown {
+    verified_avg: number | null;
+    verified_count: number;
+    basic_avg: number | null;
+    basic_count: number;
+}
+
 interface BackendEntity {
     id: string;
     first_name: string;
@@ -88,6 +95,7 @@ interface BackendEntity {
     is_verified: boolean;
     integrity_index: number;
     service_tags?: string[];
+    votes_breakdown?: VotesBreakdown;
 }
 
 // ─── Skeleton de carga ───
@@ -502,6 +510,79 @@ export default function EntityPage({ params }: EntityPageProps) {
                             </div>
                         </div>
                     </div>
+
+                    {/* ─── Desglose de votos por rango ─── */}
+                    {entity.votes_breakdown && (entity.votes_breakdown.verified_count > 0 || entity.votes_breakdown.basic_count > 0) && (
+                        <div className="glass rounded-xl p-5 mt-6">
+                            <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-3">
+                                🔬 Desglose por Rango
+                            </p>
+                            <div className="space-y-3">
+                                {/* VERIFIED */}
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#C0C0C0" }}>
+                                            VERIFIED
+                                        </p>
+                                        <p className="text-[9px] text-foreground-muted">
+                                            {entity.votes_breakdown.verified_count} {entity.votes_breakdown.verified_count === 1 ? "veredicto" : "veredictos"}
+                                        </p>
+                                    </div>
+                                    <span
+                                        className="text-sm font-mono font-bold"
+                                        style={{
+                                            color: entity.votes_breakdown.verified_avg !== null
+                                                ? entity.votes_breakdown.verified_avg >= 4.0 ? "#39FF14"
+                                                  : entity.votes_breakdown.verified_avg >= 3.0 ? "#FFD700"
+                                                  : "#FF073A"
+                                                : "rgba(255,255,255,0.2)",
+                                        }}
+                                    >
+                                        {entity.votes_breakdown.verified_avg !== null
+                                            ? entity.votes_breakdown.verified_avg.toFixed(2)
+                                            : "—"}
+                                    </span>
+                                </div>
+                                {/* BASIC */}
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#aaaaaa" }}>
+                                            BASIC
+                                        </p>
+                                        <p className="text-[9px] text-foreground-muted">
+                                            {entity.votes_breakdown.basic_count} {entity.votes_breakdown.basic_count === 1 ? "veredicto" : "veredictos"}
+                                        </p>
+                                    </div>
+                                    <span
+                                        className="text-sm font-mono font-bold"
+                                        style={{
+                                            color: entity.votes_breakdown.basic_avg !== null
+                                                ? entity.votes_breakdown.basic_avg >= 4.0 ? "#39FF14"
+                                                  : entity.votes_breakdown.basic_avg >= 3.0 ? "#FFD700"
+                                                  : "#FF073A"
+                                                : "rgba(255,255,255,0.2)",
+                                        }}
+                                    >
+                                        {entity.votes_breakdown.basic_avg !== null
+                                            ? entity.votes_breakdown.basic_avg.toFixed(2)
+                                            : "—"}
+                                    </span>
+                                </div>
+                                {/* Divider + total */}
+                                <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                                    <p className="text-[9px] text-foreground-muted uppercase tracking-wider">
+                                        Score ponderado final
+                                    </p>
+                                    <span
+                                        className="text-base font-mono font-black"
+                                        style={{ color: scoreColor }}
+                                    >
+                                        {entity.reputation_score.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </section>
 

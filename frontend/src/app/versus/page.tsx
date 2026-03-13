@@ -9,8 +9,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { Metadata } from "next";
 import { useAuthStore } from "@/store";
+import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const SUPABASE_STORAGE =
@@ -197,6 +197,15 @@ function VersusCard({
   const [pctB, setPctB] = useState(vs.pct_b);
   const [totalVotes, setTotalVotes] = useState(vs.total_votes);
   const [error, setError] = useState<string | null>(null);
+
+  // Efecto Kahoot — recibir votos de otros usuarios en tiempo real
+  useBeaconPulse(`versus:${vs.id}`, (data) => {
+    if (data.type === "VERSUS_PULSE") {
+      setPctA(data.pct_a as number);
+      setPctB(data.pct_b as number);
+      setTotalVotes(data.total_votes as number);
+    }
+  });
 
   const handleVote = async (side: "A" | "B") => {
     if (userVote || voting) return;

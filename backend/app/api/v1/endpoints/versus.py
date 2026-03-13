@@ -8,6 +8,7 @@ GET  /versus/{id}         → detalle VS + resultados parciales
 POST /versus/{id}/vote    → emitir voto A o B (JWT, 1 por usuario por VS)
 """
 
+import asyncio
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -15,6 +16,7 @@ import logging
 
 from app.core.database import get_async_supabase_client
 from app.api.v1.user.auth import get_current_user
+from app.api.v1.endpoints.realtime import publish_versus_pulse
 
 logger = logging.getLogger("beacon.versus")
 router = APIRouter()
@@ -198,6 +200,28 @@ async def vote_versus(
                 )
         except Exception as e:
             logger.warning(f"No se pudo actualizar reputation desde VS: {e}")
+
+    # Publicar pulso en tiempo real (Efecto Kahoot)
+    try:
+        vote_res = await (
+            supabase.table("versus_votes")
+            .select("voted_for")
+            .eq("versus_id", versus_id)
+            .execute()
+        )
+        votes = vote_res.data or []
+        votes_a = sum(1 for v in votes if v["voted_for"] == "A")
+        votes_b = sum(1 for v in votes if v["voted_for"] == "B")
+        total = len(votes)
+        pct_a = round(votes_a / total * 100, 1) if total else 50.0
+        pct_b = round(votes_b / total * 100, 1) if total else 50.0
+        asyncio.create_task(publish_versus_pulse(
+            versus_id=versus_id,
+            votes_a=votes_a, votes_b=votes_b,
+            total_votes=total, pct_a=pct_a, pct_b=pct_b,
+        ))
+    except Exception as e:
+        logger.warning(f"Pulse VS falló (no crítico): {e}")
 
     logger.info(f"VS voto | versus={versus_id} | user={user_id} | choice={payload.voted_for}")
     return {"success": True, "voted_for": payload.voted_for}

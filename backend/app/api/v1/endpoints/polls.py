@@ -8,6 +8,7 @@ GET  /polls/{id}         → detalle + resultados parciales
 POST /polls/{id}/vote    → emitir voto (JWT, 1 por usuario por encuesta)
 """
 
+import asyncio
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -15,6 +16,7 @@ import logging
 
 from app.core.database import get_async_supabase_client
 from app.api.v1.user.auth import get_current_user
+from app.api.v1.endpoints.realtime import publish_poll_pulse
 
 logger = logging.getLogger("beacon.polls")
 router = APIRouter()
@@ -192,6 +194,23 @@ async def vote_poll(
         .insert({"poll_id": poll_id, "user_id": user_id, "option_value": payload.option_value})
         .execute()
     )
+
+    # Publicar pulso en tiempo real (Efecto Kahoot)
+    try:
+        all_votes = await (
+            supabase.table("poll_votes")
+            .select("option_value")
+            .eq("poll_id", poll_id)
+            .execute()
+        )
+        updated_results = _compute_results(poll, all_votes.data or [])
+        asyncio.create_task(publish_poll_pulse(
+            poll_id=poll_id,
+            results=updated_results["results"],
+            total_votes=updated_results["total_votes"],
+        ))
+    except Exception as e:
+        logger.warning(f"Pulse Poll falló (no crítico): {e}")
 
     logger.info(f"Poll voto | poll={poll_id} | user={user_id} | value={payload.option_value}")
     return {"success": True, "option_value": payload.option_value}

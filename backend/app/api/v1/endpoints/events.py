@@ -9,6 +9,7 @@ POST /events/{id}/vote    → votar (score 1–5) por una entidad en el evento
                             (1 voto por usuario por entidad por evento)
 """
 
+import asyncio
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -16,6 +17,7 @@ import logging
 
 from app.core.database import get_async_supabase_client
 from app.api.v1.user.auth import get_current_user
+from app.api.v1.endpoints.realtime import publish_event_pulse
 
 logger = logging.getLogger("beacon.events")
 router = APIRouter()
@@ -224,6 +226,26 @@ async def vote_event(
         })
         .execute()
     )
+
+    # Publicar pulso en tiempo real (Efecto Kahoot)
+    try:
+        all_votes = await (
+            supabase.table("event_votes")
+            .select("score")
+            .eq("event_id", event_id)
+            .eq("entity_id", payload.entity_id)
+            .execute()
+        )
+        scores = [float(v["score"]) for v in (all_votes.data or []) if v.get("score") is not None]
+        new_avg = round(sum(scores) / len(scores), 2) if scores else None
+        asyncio.create_task(publish_event_pulse(
+            event_id=event_id,
+            entity_id=payload.entity_id,
+            new_avg=new_avg,
+            vote_count=len(scores),
+        ))
+    except Exception as e:
+        logger.warning(f"Pulse Event falló (no crítico): {e}")
 
     logger.info(
         f"Event voto | event={event_id} | entity={payload.entity_id} | "

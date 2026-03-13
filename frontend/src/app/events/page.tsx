@@ -8,8 +8,9 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/store";
+import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const SUPABASE_STORAGE =
@@ -118,17 +119,27 @@ function ParticipantCard({
   isOpen,
   token,
   onVoted,
+  liveScore,
 }: {
   participant: Participant;
   eventId: string;
   isOpen: boolean;
   token: string | null;
   onVoted: (entityId: string, score: number) => void;
+  liveScore?: { avg: number | null; count: number };
 }) {
   const [hoveredScore, setHoveredScore] = useState(0);
   const [userScore, setUserScore] = useState<number>(participant.user_score ?? 0);
   const [avgScore, setAvgScore] = useState<number | null>(participant.event_score_avg);
   const [voteCount, setVoteCount] = useState(participant.event_vote_count);
+
+  // Aplicar actualización en tiempo real (otros usuarios)
+  useEffect(() => {
+    if (liveScore) {
+      setAvgScore(liveScore.avg);
+      setVoteCount(liveScore.count);
+    }
+  }, [liveScore]);
   const [voting, setVoting] = useState(false);
   const [voted, setVoted] = useState(!!participant.user_score);
   const [error, setError] = useState<string | null>(null);
@@ -302,8 +313,22 @@ function ParticipantCard({
 
 // ─── EventCard ────────────────────────────────────────────────────────────────
 
+interface LiveScore { avg: number | null; count: number }
+
 function EventCard({ event, token }: { event: EventItem; token: string | null }) {
   const [votedMap, setVotedMap] = useState<Record<string, number>>({});
+  // Efecto Kahoot — scores actualizados en tiempo real para todos los participantes
+  const [liveScores, setLiveScores] = useState<Record<string, LiveScore>>({});
+
+  useBeaconPulse(`event:${event.id}`, (data) => {
+    if (data.type === "EVENT_PULSE") {
+      const eid = data.entity_id as string;
+      setLiveScores((prev) => ({
+        ...prev,
+        [eid]: { avg: data.new_avg as number | null, count: data.vote_count as number },
+      }));
+    }
+  });
 
   const handleVoted = (entityId: string, score: number) => {
     setVotedMap((prev) => ({ ...prev, [entityId]: score }));
@@ -400,6 +425,7 @@ function EventCard({ event, token }: { event: EventItem; token: string | null })
               isOpen={event.is_open}
               token={token}
               onVoted={handleVoted}
+              liveScore={liveScores[p.id]}
             />
           ))}
         </div>
