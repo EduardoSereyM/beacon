@@ -84,6 +84,9 @@ export default function NavbarClient() {
                         <Link href="/eventos" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Eventos
                         </Link>
+                        <Link href="/encuestas" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                            Encuestas
+                        </Link>
                         <Link
                             href="/versus"
                             className="hidden md:block text-xs hover:text-foreground transition-colors uppercase tracking-wider font-medium"

@@ -327,9 +327,9 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
                                     className={inputClass}
                                     style={errors.region ? INPUT_ERROR_STYLE : INPUT_STYLE}
                                 >
-                                    <option value="">Selecciona región</option>
+                                    <option value="" style={{ background: "#0a0a0a", color: "white" }}>Selecciona región</option>
                                     {Object.keys(CHILE_REGIONS).map((r) => (
-                                        <option key={r} value={r}>{r}</option>
+                                        <option key={r} value={r} style={{ background: "#0a0a0a", color: "white" }}>{r}</option>
                                     ))}
                                 </select>
                                 {errors.region && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.region}</p>}
@@ -345,9 +345,9 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
                                     className={inputClass}
                                     style={errors.commune ? INPUT_ERROR_STYLE : { ...INPUT_STYLE, opacity: !region ? 0.4 : 1 }}
                                 >
-                                    <option value="">{region ? "Selecciona comuna" : "Primero elige región"}</option>
+                                    <option value="" style={{ background: "#0a0a0a", color: "white" }}>{region ? "Selecciona comuna" : "Primero elige región"}</option>
                                     {communes.map((c) => (
-                                        <option key={c} value={c}>{c}</option>
+                                        <option key={c} value={c} style={{ background: "#0a0a0a", color: "white" }}>{c}</option>
                                     ))}
                                 </select>
                                 {errors.commune && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.commune}</p>}
