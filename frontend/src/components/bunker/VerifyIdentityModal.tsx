@@ -279,26 +279,43 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
                                     autoComplete="off"
                                     autoFocus
                                 />
-                                {errors.rut && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.rut}</p>}
-                                <p className="text-[10px] text-foreground-muted mt-1">
+                                {/* Validación en tiempo real */}
+                                {rut.length >= 3 && (
+                                    <p className="text-xs mt-1 font-semibold" style={{ color: validateRut(rut) ? "#4dff83" : "#ff5050" }}>
+                                        {validateRut(rut) ? "✓ RUT válido" : "✗ RUT inválido — verifica el dígito verificador"}
+                                    </p>
+                                )}
+                                {!rut && <p className="text-[10px] text-foreground-muted mt-1">
                                     Almacenado como hash SHA-256 irreversible. Nunca lo vemos en texto plano.
-                                </p>
+                                </p>}
                             </div>
 
                             {/* Año de nacimiento */}
                             <div>
                                 <label className={labelClass}>Año de nacimiento *</label>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
                                     value={birthYear}
-                                    onChange={(e) => { setBirthYear(e.target.value); setErrors((err) => ({ ...err, birthYear: "" })); }}
+                                    onChange={(e) => { setBirthYear(e.target.value.replace(/\D/g, "").slice(0, 4)); setErrors((err) => ({ ...err, birthYear: "" })); }}
                                     placeholder="1990"
-                                    min={1920}
-                                    max={CURRENT_YEAR - 14}
+                                    maxLength={4}
                                     className={inputClass}
                                     style={errors.birthYear ? INPUT_ERROR_STYLE : INPUT_STYLE}
                                 />
                                 {errors.birthYear && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.birthYear}</p>}
+                            </div>
+
+                            {/* País */}
+                            <div>
+                                <label className={labelClass}>País</label>
+                                <input
+                                    type="text"
+                                    value="Chile"
+                                    readOnly
+                                    className={inputClass}
+                                    style={{ ...INPUT_STYLE, opacity: 0.5, cursor: "default" }}
+                                />
                             </div>
 
                             {/* Región */}
