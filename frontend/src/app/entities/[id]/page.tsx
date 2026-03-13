@@ -260,7 +260,12 @@ export default function EntityPage({ params }: EntityPageProps) {
 
     const rawRank = isAuthenticated && user?.rank ? String(user.rank).toUpperCase() : "DISPLACED";
     const userRank: UserRank = VERDICT_LABELS[rawRank as UserRank] ? (rawRank as UserRank) : "DISPLACED";
-    const isLocalVote = isAuthenticated && ["politico", "periodista"].includes(cat);
+    // Bono territorial: solo VERIFIED + misma región que la entidad
+    const isLocalVote =
+        userRank === "VERIFIED" &&
+        !!user.region &&
+        !!entity.region &&
+        entity.region === user.region;
 
     const scoreColor =
         entity.reputation_score >= 4.0

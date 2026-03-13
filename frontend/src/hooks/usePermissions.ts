@@ -37,6 +37,7 @@ interface UserState {
     role: string;
     is_verified: boolean;
     integrity_score: number;
+    region: string | null;
 }
 
 interface Permissions {
@@ -133,7 +134,7 @@ function resolvePermissions(role: Role): Permissions {
 
 const ANON_STATE: UserState = {
     id: null, email: null, full_name: null,
-    rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
+    rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0, region: null,
 };
 
 export default function usePermissions(): PermissionsResult {
@@ -151,6 +152,7 @@ export default function usePermissions(): PermissionsResult {
         role: authUser.role || "user",
         is_verified: authUser.is_verified || false,
         integrity_score: authUser.integrity_score || 0.5,
+        region: authUser.region ?? null,
     } : ANON_STATE;
 
     const normalized = normalizeRank(user.rank) as "ANONYMOUS" | "BASIC" | "VERIFIED";

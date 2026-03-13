@@ -81,7 +81,7 @@ async def submit_vote(
     try:
         entity_result = await (
             supabase.table("entities")
-            .select("id, reputation_score, total_reviews")
+            .select("id, reputation_score, total_reviews, region, entity_type")
             .eq("id", entity_id)
             .eq("is_active", True)
             .single()
@@ -120,7 +120,21 @@ async def submit_vote(
         logger.warning(f"No se pudo leer {weight_key} de config_params, usando 0.5")
 
     vote_penalty = float(current_user.get("vote_penalty", 1.0))
-    effective_weight = round(rank_weight * vote_penalty, 4)
+
+    # ─── Bono territorial: VERIFIED + misma región que la entidad ────────
+    JURISDICTIONAL_TYPES = {"POLITICO", "PERIODISTA", "PERSONA_PUBLICA"}
+    user_region = (current_user.get("region") or "").strip()
+    entity_region = (entity.get("region") or "").strip()
+    entity_type = (entity.get("entity_type") or "").upper()
+    is_local = (
+        user_rank == "VERIFIED"
+        and entity_type in JURISDICTIONAL_TYPES
+        and bool(user_region)
+        and user_region == entity_region
+    )
+    territorial_bonus = 1.5 if is_local else 1.0
+
+    effective_weight = round(rank_weight * vote_penalty * territorial_bonus, 4)
 
     # ─── 4. Time-lock: ¿ya votó? ¿puede modificar? ───────────────────────
     is_update = False
@@ -285,4 +299,6 @@ async def submit_vote(
         "your_vote": round(vote_avg, 2),
         "effective_weight": effective_weight,
         "voter_rank": user_rank,
+        "is_local": is_local,
+        "territorial_bonus": territorial_bonus,
     }
