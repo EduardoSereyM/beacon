@@ -43,6 +43,7 @@ class UserCreate(UserBase):
     region: Optional[str] = Field(None, description="Región (ej: Metropolitana)")
     commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
     age_range: Optional[str] = Field(None, description="Rango etario (ej: 25-34)")
+    gender: Optional[str] = Field(None, description="Género (ej: Femenino)")
 
     @field_validator('password')
     @classmethod
@@ -89,6 +90,7 @@ class UserProfileUpdate(BaseModel):
     region: Optional[str] = Field(None, description="Región (ej: Metropolitana)")
     commune: Optional[str] = Field(None, description="Comuna (ej: Providencia)")
     age_range: Optional[str] = Field(None, description="Rango etario (ej: 25-34)")
+    gender: Optional[str] = Field(None, description="Género (ej: Femenino)")
 
 
 # ─── Respuesta Pública ───
@@ -109,6 +111,8 @@ class UserResponse(UserBase):
     commune: Optional[str] = None
     region: Optional[str] = None
     age_range: Optional[str] = None
+    gender: Optional[str] = None
+    birth_year: Optional[int] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

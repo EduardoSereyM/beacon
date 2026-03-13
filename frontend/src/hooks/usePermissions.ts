@@ -13,6 +13,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useAuthStore } from "@/store";
 
 // ─── Tipos ───
 
@@ -135,53 +136,22 @@ const ANON_STATE: UserState = {
     rank: "ANONYMOUS", role: "user", is_verified: false, integrity_score: 0,
 };
 
-function readFromStorage(): UserState {
-    if (typeof window === "undefined") return ANON_STATE;
-    try {
-        const stored = localStorage.getItem("beacon_user");
-        if (!stored) return ANON_STATE;
-        const parsed = JSON.parse(stored);
-        return {
-            id: parsed.id || null,
-            email: parsed.email || null,
-            full_name: parsed.full_name || null,
-            rank: normalizeRank(parsed.rank || "BASIC"),
-            role: parsed.role || "user",
-            is_verified: parsed.is_verified || false,
-            integrity_score: parsed.integrity_score || 0.5,
-        };
-    } catch {
-        return ANON_STATE;
-    }
-}
-
 export default function usePermissions(): PermissionsResult {
-    // Lazy initializer: lee localStorage una vez en mount, sin useEffect + setState
-    const [user, setUser] = useState<UserState>(readFromStorage);
+    const authUser = useAuthStore((state) => state.user);
+    const clearAuth = useAuthStore((state) => state.clearAuth);
 
-    // Sync multi-tab
-    useEffect(() => {
-        const handler = (e: StorageEvent) => {
-            if (e.key === "beacon_user") {
-                if (e.newValue) {
-                    const parsed = JSON.parse(e.newValue);
-                    setUser({
-                        id: parsed.id,
-                        email: parsed.email,
-                        full_name: parsed.full_name,
-                        rank: normalizeRank(parsed.rank || "BASIC"),
-                        role: parsed.role || "user",
-                        is_verified: parsed.is_verified || false,
-                        integrity_score: parsed.integrity_score || 0.5,
-                    });
-                } else {
-                    setUser(ANON_STATE);
-                }
-            }
-        };
-        window.addEventListener("storage", handler);
-        return () => window.removeEventListener("storage", handler);
-    }, []);
+    const [hydrated, setHydrated] = useState(false);
+    useEffect(() => { setHydrated(true); }, []);
+
+    const user: UserState = (hydrated && authUser) ? {
+        id: authUser.id,
+        email: authUser.email,
+        full_name: authUser.full_name,
+        rank: normalizeRank(authUser.rank),
+        role: authUser.role || "user",
+        is_verified: authUser.is_verified || false,
+        integrity_score: authUser.integrity_score || 0.5,
+    } : ANON_STATE;
 
     const normalized = normalizeRank(user.rank) as "ANONYMOUS" | "BASIC" | "VERIFIED";
     const permissions = useMemo(() => resolvePermissions(user.rank), [user.rank]);
@@ -199,8 +169,8 @@ export default function usePermissions(): PermissionsResult {
     const logout = useCallback(() => {
         localStorage.removeItem("beacon_token");
         localStorage.removeItem("beacon_user");
-        setUser(ANON_STATE);
-    }, []);
+        clearAuth();
+    }, [clearAuth]);
 
     return {
         user,

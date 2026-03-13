@@ -51,6 +51,7 @@ class User:
     commune: Optional[str] = None                   # Ej: "Providencia"
     region: Optional[str] = None                    # Ej: "Metropolitana"
     age_range: Optional[str] = None                 # Ej: "25-34"
+    gender: Optional[str] = None                    # Ej: "Femenino"
 
     # ─── Control del Búnker ───
     is_active: bool = True                          # Soft delete (nunca borrar datos)
@@ -81,6 +82,7 @@ class User:
             commune=data.get("commune"),
             region=data.get("region"),
             age_range=data.get("age_range"),
+            gender=data.get("gender"),
             is_active=data.get("is_active", True),
             is_shadow_banned=data.get("is_shadow_banned", False),
             created_at=data.get("created_at"),
@@ -107,6 +109,7 @@ class User:
             "commune": self.commune,
             "region": self.region,
             "age_range": self.age_range,
+            "gender": self.gender,
             "is_active": self.is_active,
             "is_shadow_banned": self.is_shadow_banned,
         }

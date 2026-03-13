@@ -20,6 +20,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store";
 
 // ═══════════════════════════════════════════
 //  DATOS GEOGRÁFICOS (País → Región → Comuna)
@@ -108,6 +109,9 @@ interface UserProfile {
     region?: string;
     commune?: string;
     age_range?: string;
+    gender?: string;
+    birth_year?: number;
+    verification_level?: number;
 }
 
 // ═══════════════════════════════════════════
@@ -149,6 +153,8 @@ export default function ProfilePage() {
     // ─── Auth ───
     const [token, setToken] = useState<string | null>(null);
     const [user, setUser] = useState<UserProfile | null>(null);
+
+    const setAuth = useAuthStore((state) => state.setAuth);
     const [loading, setLoading] = useState(true);
 
     // ─── Datos demográficos ───
@@ -156,11 +162,13 @@ export default function ProfilePage() {
     const [region, setRegion] = useState("");
     const [commune, setCommune] = useState("");
     const [ageRange, setAgeRange] = useState("");
+    const [isEditingDemo, setIsEditingDemo] = useState(false);
     const [demoSaving, setDemoSaving] = useState(false);
     const [demoMsg, setDemoMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // ─── Verificación ───
     const [birthYear, setBirthYear] = useState("");
+    const [gender, setGender] = useState("");
     const [rutRaw, setRutRaw] = useState("");
     const [rutClean, setRutClean] = useState("");
     const [rutValid, setRutValid] = useState<boolean | null>(null);
@@ -171,8 +179,7 @@ export default function ProfilePage() {
     const availableRegiones = useMemo(() => Object.keys(GEOGRAPHY[country] || {}), [country]);
     const availableCommunas = useMemo(() => GEOGRAPHY[country]?.[region] || [], [country, region]);
 
-    useEffect(() => { setRegion(""); setCommune(""); }, [country]);
-    useEffect(() => { setCommune(""); }, [region]);
+    // Cleanup: Los reset de cascada ahora viven en los onChange para no matar la carga inicial.
 
     // ─── Máscara RUT ───
     const handleRutChange = useCallback((value: string) => {
@@ -191,26 +198,46 @@ export default function ProfilePage() {
     // ─── Cargar sesión ───
     useEffect(() => {
         const storedToken = localStorage.getItem("beacon_token");
-        const storedUser = localStorage.getItem("beacon_user");
-        if (!storedToken || !storedUser) {
+        if (!storedToken) {
             router.replace("/");
             return;
         }
-        try {
-            const parsed: UserProfile = JSON.parse(storedUser);
-            setToken(storedToken);
-            setUser(parsed);
-            // Pre-llenar campos con datos existentes
-            setCountry(parsed.country || "Chile");
-            setRegion(parsed.region || "");
-            setCommune(parsed.commune || "");
-            setAgeRange(parsed.age_range || "");
-        } catch {
-            router.replace("/");
-        } finally {
-            setLoading(false);
-        }
-    }, [router]);
+        setToken(storedToken);
+
+        const fetchProfile = async () => {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/user/auth/me`, {
+                    headers: { Authorization: `Bearer ${storedToken}` }
+                });
+                if (!res.ok) throw new Error("No autorizado");
+                
+                const data: UserProfile = await res.json();
+                setUser(data);
+                
+                // Pre-llenar campos con datos existentes
+                setCountry(data.country || "Chile");
+                setRegion(data.region || "");
+                setCommune(data.commune || "");
+                setAgeRange(data.age_range || "");
+                setGender(data.gender || "");
+                setBirthYear(data.birth_year ? String(data.birth_year) : "");
+
+                // Sync legacy localStorage reference 
+                localStorage.setItem("beacon_user", JSON.stringify(data));
+                
+                // Sync Zustand store
+                setAuth(storedToken, data as any);
+            } catch {
+                localStorage.removeItem("beacon_token");
+                localStorage.removeItem("beacon_user");
+                router.replace("/");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, [router, API_URL]);
 
     // Validación año de nacimiento
     const birthYearNum = parseInt(birthYear, 10);
@@ -219,7 +246,7 @@ export default function ProfilePage() {
     // ─── Guardar demográficos ───
     const handleSaveDemographic = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token) return;
+        if (!token || !user) return;
         setDemoSaving(true);
         setDemoMsg(null);
         try {
@@ -234,15 +261,31 @@ export default function ProfilePage() {
                     region: region || undefined,
                     commune: commune || undefined,
                     age_range: ageRange || undefined,
+                    gender: user.is_verified ? (gender || undefined) : undefined,
+                    birth_year: user.is_verified && birthYearValid ? birthYearNum : undefined,
                 }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "Error al guardar");
-            setDemoMsg({ type: "success", text: "✓ Datos demográficos actualizados correctamente." });
+            setDemoMsg({ type: "success", text: "✓ Datos actualizados correctamente." });
+            
+            setIsEditingDemo(false);
+            
             // Actualizar localStorage
-            const updated = { ...user, country, region, commune, age_range: ageRange };
+            const updated = { 
+                ...user, 
+                country, 
+                region, 
+                commune, 
+                age_range: ageRange,
+                ...(user.is_verified ? { gender, birth_year: birthYearNum } : {})
+            };
             localStorage.setItem("beacon_user", JSON.stringify(updated));
             setUser(updated as UserProfile);
+            setAuth(token, updated as any);
+
+            // Refrescar para asegurar sincronía de todos los componentes
+            setTimeout(() => window.location.reload(), 1200);
         } catch (err: unknown) {
             setDemoMsg({ type: "error", text: err instanceof Error ? err.message : "Error desconocido" });
         } finally {
@@ -250,10 +293,10 @@ export default function ProfilePage() {
         }
     };
 
-    // ─── Guardar verificación (birth_year + RUT) ───
+    // ─── Guardar verificación (birth_year + RUT + gender) ───
     const handleSaveVerification = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token) return;
+        if (!token || !user) return;
 
         // Validaciones previas
         if (birthYear && !birthYearValid) {
@@ -269,19 +312,23 @@ export default function ProfilePage() {
         setVerifyMsg(null);
 
         try {
-            // 1) Guardar birth_year en el perfil (si se proporcionó)
-            if (birthYear && birthYearValid) {
+            // 1) Guardar birth_year y gender en el perfil (si se proporcionó)
+            if ((birthYear && birthYearValid) || gender) {
+                const payload: any = {};
+                if (birthYear && birthYearValid) payload.birth_year = birthYearNum;
+                if (gender) payload.gender = gender;
+
                 const res = await fetch(`${API_URL}/api/v1/user/auth/profile`, {
                     method: "PUT",
                     headers: {
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${token}`,
                     },
-                    body: JSON.stringify({ birth_year: birthYearNum }),
+                    body: JSON.stringify(payload),
                 });
                 if (!res.ok) {
                     const data = await res.json();
-                    throw new Error(data.detail || "Error al guardar año de nacimiento");
+                    throw new Error(data.detail || "Error al guardar año de nacimiento o género");
                 }
             }
 
@@ -303,17 +350,20 @@ export default function ProfilePage() {
                     const updated = { ...user, rank: data.new_rank, is_verified: true };
                     localStorage.setItem("beacon_user", JSON.stringify(updated));
                     setUser(updated as UserProfile);
+                    setAuth(token, updated as any);
                     setVerifyMsg({
                         type: "success",
                         text: data.new_rank === "VERIFIED"
                             ? "🏆 ¡Ascendiste a VERIFIED! Tu voto ahora tiene mayor peso."
                             : "✓ RUT verificado correctamente.",
                     });
+                    setTimeout(() => window.location.reload(), 1500);
                     return;
                 }
             }
 
             setVerifyMsg({ type: "success", text: "✓ Datos de verificación guardados." });
+            setTimeout(() => window.location.reload(), 1200);
         } catch (err: unknown) {
             setVerifyMsg({ type: "error", text: err instanceof Error ? err.message : "Error desconocido" });
         } finally {
@@ -415,9 +465,16 @@ export default function ProfilePage() {
                             <label className={labelClass}>País *</label>
                             <select
                                 value={country}
-                                onChange={(e) => setCountry(e.target.value)}
+                                onChange={(e) => {
+                                    setCountry(e.target.value);
+                                    if (e.target.value !== country) {
+                                        setRegion("");
+                                        setCommune("");
+                                    }
+                                }}
                                 required
-                                className={`${inputClass} appearance-none`}
+                                disabled={!isEditingDemo}
+                                className={`${inputClass} appearance-none disabled:opacity-50`}
                                 style={selectStyle(!!country)}
                             >
                                 <option value="">Seleccionar</option>
@@ -433,10 +490,15 @@ export default function ProfilePage() {
                                 <label className={labelClass}>Región *</label>
                                 <select
                                     value={region}
-                                    onChange={(e) => setRegion(e.target.value)}
+                                    onChange={(e) => {
+                                        setRegion(e.target.value);
+                                        if (e.target.value !== region) {
+                                            setCommune("");
+                                        }
+                                    }}
                                     required
-                                    disabled={!country}
-                                    className={`${inputClass} appearance-none disabled:opacity-40`}
+                                    disabled={!country || !isEditingDemo}
+                                    className={`${inputClass} appearance-none disabled:opacity-50`}
                                     style={selectStyle(!!region)}
                                 >
                                     <option value="">{country ? "Seleccionar" : "Elige país"}</option>
@@ -451,8 +513,8 @@ export default function ProfilePage() {
                                     value={commune}
                                     onChange={(e) => setCommune(e.target.value)}
                                     required
-                                    disabled={!region}
-                                    className={`${inputClass} appearance-none disabled:opacity-40`}
+                                    disabled={!region || !isEditingDemo}
+                                    className={`${inputClass} appearance-none disabled:opacity-50`}
                                     style={selectStyle(!!commune)}
                                 >
                                     <option value="">{region ? "Seleccionar" : "Elige región"}</option>
@@ -470,7 +532,8 @@ export default function ProfilePage() {
                                 value={ageRange}
                                 onChange={(e) => setAgeRange(e.target.value)}
                                 required
-                                className={`${inputClass} appearance-none`}
+                                disabled={!isEditingDemo}
+                                className={`${inputClass} appearance-none disabled:opacity-50`}
                                 style={selectStyle(!!ageRange)}
                             >
                                 <option value="">Seleccionar</option>
@@ -482,6 +545,42 @@ export default function ProfilePage() {
                                 <option value="65+">65+</option>
                             </select>
                         </div>
+
+                        {/* Año de nacimiento & Género (If verified, shown here to let user see/edit) */}
+                        {user.is_verified && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className={labelClass}>Año de Nacimiento</label>
+                                    <input
+                                        type="number"
+                                        placeholder="ej: 1990"
+                                        value={birthYear}
+                                        onChange={(e) => setBirthYear(e.target.value)}
+                                        min={1920}
+                                        max={2010}
+                                        disabled={!isEditingDemo}
+                                        className={`${inputClass} disabled:opacity-50`}
+                                        style={{ backgroundColor: "#0F0F0F", border: "1px solid rgba(255,255,255,0.1)" }}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Género</label>
+                                    <select
+                                        value={gender}
+                                        onChange={(e) => setGender(e.target.value)}
+                                        disabled={!isEditingDemo}
+                                        className={`${inputClass} appearance-none disabled:opacity-50`}
+                                        style={selectStyle(!!gender)}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        <option value="Masculino">Masculino</option>
+                                        <option value="Femenino">Femenino</option>
+                                        <option value="No Binario">No Binario</option>
+                                        <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                                    </select>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Feedback */}
                         {demoMsg && (
@@ -497,123 +596,204 @@ export default function ProfilePage() {
                             </p>
                         )}
 
-                        <button
-                            type="submit"
-                            disabled={demoSaving || !country || !region || !commune || !ageRange}
-                            className="w-full py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                            style={{
-                                background: `linear-gradient(135deg, ${CYAN}80, #1a6b7a)`,
-                                border: `1px solid ${CYAN}30`,
-                            }}
-                        >
-                            {demoSaving ? "Guardando..." : "Guardar Datos Demográficos"}
-                        </button>
+                        {isEditingDemo ? (
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditingDemo(false);
+                                        // Reset to user data
+                                        setCountry(user.country || "Chile");
+                                        setRegion(user.region || "");
+                                        setCommune(user.commune || "");
+                                        setAgeRange(user.age_range || "");
+                                        setGender(user.gender || "");
+                                        setBirthYear(user.birth_year ? String(user.birth_year) : "");
+                                        setDemoMsg(null);
+                                    }}
+                                    disabled={demoSaving}
+                                    className="flex-1 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-gray-400 hover:text-white transition-all duration-300 disabled:opacity-40"
+                                    style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={demoSaving || !country || !region || !commune || !ageRange}
+                                    className="flex-1 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    style={{
+                                        background: `linear-gradient(135deg, ${CYAN}80, #1a6b7a)`,
+                                        border: `1px solid ${CYAN}30`,
+                                    }}
+                                >
+                                    {demoSaving ? "Guardando..." : "Guardar Datos"}
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setIsEditingDemo(true)}
+                                className="w-full py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300"
+                                style={{
+                                    border: `1px solid ${CYAN}30`,
+                                    background: "transparent",
+                                }}
+                            >
+                                Modificar Datos
+                            </button>
+                        )}
                     </form>
                 </div>
 
                 {/* ═══════════════════════════════════
                     SECCIÓN 3 — VERIFICACIÓN DE IDENTIDAD
                 ═══════════════════════════════════ */}
-                <div
-                    className={sectionClass}
-                    style={{
-                        background: user.is_verified
-                            ? `rgba(212,175,55,0.04)`
-                            : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${user.is_verified ? `${GOLD}30` : "rgba(255,255,255,0.06)"}`,
-                    }}
-                >
-                    <div className="flex items-center justify-between mb-1">
-                        <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: GOLD }}>
-                            Verificación de Identidad
-                        </h2>
-                        {user.is_verified && (
-                            <span className="text-[9px] font-mono" style={{ color: GOLD }}>✓ Identidad verificada</span>
-                        )}
-                    </div>
-                    <p className="text-[9px] text-gray-500 font-mono mb-5">
-                        Completa estos datos junto a los demográficos para ascender a VERIFIED y aumentar el peso de tu voto.
-                    </p>
-
-                    <form onSubmit={handleSaveVerification} className="space-y-4">
-
-                        {/* Año de Nacimiento */}
-                        <div>
-                            <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
-                                Año de Nacimiento
-                                <span className="ml-1 text-[9px] normal-case text-gray-500">(opcional — requerido para VERIFIED)</span>
-                            </label>
-                            <input
-                                type="number"
-                                placeholder="ej: 1990"
-                                value={birthYear}
-                                onChange={(e) => setBirthYear(e.target.value)}
-                                min={1920}
-                                max={2010}
-                                className={inputClass}
-                                style={{
-                                    backgroundColor: "#0F0F0F",
-                                    border: `1px solid ${
-                                        birthYear.length === 0
-                                            ? "rgba(255,255,255,0.1)"
-                                            : birthYearValid
-                                                ? `${GOLD}40`
-                                                : "rgba(255,100,100,0.4)"
-                                    }`,
-                                }}
-                            />
-                            {birthYear.length > 0 && !birthYearValid && (
-                                <p className="text-[9px] mt-1 font-mono" style={{ color: RED }}>
-                                    Ingresa un año entre 1920 y 2010
-                                </p>
-                            )}
+                {!user.is_verified && (
+                    <div
+                        className={sectionClass}
+                        style={{
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.06)",
+                        }}
+                    >
+                        <div className="flex items-center justify-between mb-1">
+                            <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: GOLD }}>
+                                Verificación de Identidad
+                            </h2>
                         </div>
+                        <p className="text-[9px] text-gray-500 font-mono mb-5">
+                            Completa estos datos junto a los demográficos para ascender a VERIFIED y aumentar el peso de tu voto.
+                        </p>
 
-                        {/* RUT con máscara Módulo 11 */}
-                        <div>
-                            <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
-                                RUT
-                                <span className="ml-1 text-[9px] normal-case text-gray-500">(opcional — requerido para VERIFIED)</span>
-                            </label>
-                            <input
-                                type="text"
-                                value={rutRaw}
-                                onChange={(e) => handleRutChange(e.target.value)}
-                                placeholder="12.345.678-5"
-                                maxLength={12}
-                                disabled={user.is_verified}
-                                className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-                                style={{
-                                    backgroundColor: "#0F0F0F",
-                                    caretColor: GOLD,
-                                    border: `1px solid ${
-                                        rutValid === null
-                                            ? "rgba(255,255,255,0.1)"
-                                            : rutValid
-                                                ? `${GOLD}60`
-                                                : `${RED}60`
-                                    }`,
-                                    boxShadow: rutValid === true ? `0 0 10px ${GOLD}20` : "none",
-                                }}
-                            />
-                            {user.is_verified ? (
-                                <p className="text-[9px] mt-1 font-mono" style={{ color: GOLD }}>
-                                    ✓ RUT ya verificado — no se puede modificar
-                                </p>
-                            ) : rutClean.length >= 2 ? (
-                                <div className="flex items-center gap-2 mt-1.5">
-                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: rutValid ? GOLD : RED }} />
-                                    <span className="text-[9px] font-mono" style={{ color: rutValid ? GOLD : RED }}>
-                                        {rutValid
-                                            ? `Módulo 11 válido — ${rutRaw}`
-                                            : "RUT no válido — dígito verificador incorrecto"}
-                                    </span>
+                        <form onSubmit={handleSaveVerification} className="space-y-4">
+
+                            {/* Año de Nacimiento */}
+                            {user.birth_year ? (
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
+                                        Año de Nacimiento
+                                    </label>
+                                    <div className="flex items-center gap-2 mt-2 px-3 py-2.5 rounded-lg" style={{ backgroundColor: "rgba(212,175,55,0.05)", border: `1px solid ${GOLD}40` }}>
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: GOLD }} />
+                                        <span className="text-sm font-mono" style={{ color: GOLD }}>
+                                            Ya ingresado: {user.birth_year}
+                                        </span>
+                                    </div>
                                 </div>
-                            ) : null}
-                        </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
+                                        Año de Nacimiento
+                                        <span className="ml-1 text-[9px] normal-case text-gray-500">(opcional — requerido para VERIFIED)</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        placeholder="ej: 1990"
+                                        value={birthYear}
+                                        onChange={(e) => setBirthYear(e.target.value)}
+                                        min={1920}
+                                        max={2010}
+                                        className={inputClass}
+                                        style={{
+                                            backgroundColor: "#0F0F0F",
+                                            border: `1px solid ${
+                                                birthYear.length === 0
+                                                    ? "rgba(255,255,255,0.1)"
+                                                    : birthYearValid
+                                                        ? `${GOLD}40`
+                                                        : "rgba(255,100,100,0.4)"
+                                            }`,
+                                        }}
+                                    />
+                                    {birthYear.length > 0 && !birthYearValid && (
+                                        <p className="text-[9px] mt-1 font-mono" style={{ color: RED }}>
+                                            Ingresa un año entre 1920 y 2010
+                                        </p>
+                                    )}
+                                </div>
+                            )}
 
-                        {/* Progreso hacia VERIFIED */}
-                        {!user.is_verified && (
+                            {/* Género */}
+                            <div>
+                                <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
+                                    Género
+                                    <span className="ml-1 text-[9px] normal-case text-gray-500">(opcional — requerido para VERIFIED)</span>
+                                </label>
+                                <select
+                                    value={gender}
+                                    onChange={(e) => setGender(e.target.value)}
+                                    className={`${inputClass} appearance-none`}
+                                    style={{
+                                        backgroundColor: "#0F0F0F",
+                                        border: `1px solid ${
+                                            gender ? `${GOLD}40` : "rgba(255,255,255,0.1)"
+                                        }`,
+                                    }}
+                                >
+                                    <option value="">Seleccionar</option>
+                                    <option value="Masculino">Masculino</option>
+                                    <option value="Femenino">Femenino</option>
+                                    <option value="No Binario">No Binario</option>
+                                    <option value="Prefiero no decirlo">Prefiero no decirlo</option>
+                                </select>
+                            </div>
+
+                            {/* RUT con máscara Módulo 11 */}
+                            {user.verification_level && user.verification_level >= 2 ? (
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
+                                        RUT
+                                    </label>
+                                    <div className="flex items-center gap-2 mt-2 px-3 py-2.5 rounded-lg" style={{ backgroundColor: "rgba(212,175,55,0.05)", border: `1px solid ${GOLD}40` }}>
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: GOLD }} />
+                                        <span className="text-sm font-mono" style={{ color: GOLD }}>
+                                            RUT Validado Exitosamente
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: GOLD }}>
+                                        RUT
+                                        <span className="ml-1 text-[9px] normal-case text-gray-500">(opcional — requerido para VERIFIED)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={rutRaw}
+                                        onChange={(e) => handleRutChange(e.target.value)}
+                                        placeholder="12.345.678-5"
+                                        maxLength={12}
+                                        className={inputClass}
+                                        style={{
+                                            backgroundColor: "#0F0F0F",
+                                            caretColor: GOLD,
+                                            border: `1px solid ${
+                                                rutValid === null
+                                                    ? "rgba(255,255,255,0.1)"
+                                                    : rutValid
+                                                        ? `${GOLD}60`
+                                                        : `${RED}60`
+                                            }`,
+                                            boxShadow: rutValid === true ? `0 0 10px ${GOLD}20` : "none",
+                                        }}
+                                    />
+                                    {rutClean.length >= 2 ? (
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: rutValid ? GOLD : RED }} />
+                                            <span className="text-[9px] font-mono" style={{ color: rutValid ? GOLD : RED }}>
+                                                {rutValid ? "Dígito verificador correcto" : "RUT inválido"}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-[9px] mt-1.5 text-gray-600 font-mono">
+                                            Ingresa tu RUT sin puntos ni guion para validar
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+
+                            {/* Progreso hacia VERIFIED */}
                             <div
                                 className="px-3 py-2.5 rounded-lg text-[9px] font-mono"
                                 style={{
@@ -626,26 +806,25 @@ export default function ProfilePage() {
                                 <p className="font-bold mb-1" style={{ color: GOLD }}>Requisitos para VERIFIED:</p>
                                 <p>{country && region && commune ? "✓" : "○"} País + Región + Comuna</p>
                                 <p>{ageRange ? "✓" : "○"} Rango etario</p>
-                                <p>{birthYearValid ? "✓" : "○"} Año de nacimiento</p>
-                                <p>{user.is_verified ? "✓" : rutValid ? "✓" : "○"} RUT válido</p>
+                                <p>{user.birth_year || birthYearValid ? "✓" : "○"} Año de nacimiento</p>
+                                <p>{user.gender || gender ? "✓" : "○"} Género</p>
+                                <p>{(user.verification_level && user.verification_level >= 2) || rutValid ? "✓" : "○"} RUT válido</p>
                             </div>
-                        )}
 
-                        {/* Feedback */}
-                        {verifyMsg && (
-                            <p
-                                className="text-[10px] font-mono px-3 py-2 rounded-lg"
-                                style={{
-                                    color: verifyMsg.type === "success" ? GREEN : RED,
-                                    backgroundColor: verifyMsg.type === "success" ? `${GREEN}10` : `${RED}10`,
-                                    border: `1px solid ${verifyMsg.type === "success" ? `${GREEN}25` : `${RED}25`}`,
-                                }}
-                            >
-                                {verifyMsg.text}
-                            </p>
-                        )}
+                            {/* Feedback */}
+                            {verifyMsg && (
+                                <p
+                                    className="text-[10px] font-mono px-3 py-2 rounded-lg"
+                                    style={{
+                                        color: verifyMsg.type === "success" ? GREEN : RED,
+                                        backgroundColor: verifyMsg.type === "success" ? `${GREEN}10` : `${RED}10`,
+                                        border: `1px solid ${verifyMsg.type === "success" ? `${GREEN}25` : `${RED}25`}`,
+                                    }}
+                                >
+                                    {verifyMsg.text}
+                                </p>
+                            )}
 
-                        {!user.is_verified && (
                             <button
                                 type="submit"
                                 disabled={verifySaving || (!birthYear && !rutClean)}
@@ -658,9 +837,10 @@ export default function ProfilePage() {
                             >
                                 {verifySaving ? "Verificando..." : "Guardar Verificación"}
                             </button>
-                        )}
-                    </form>
-                </div>
+
+                        </form>
+                    </div>
+                )}
 
             </div>
         </div>

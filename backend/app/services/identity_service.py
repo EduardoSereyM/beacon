@@ -5,7 +5,7 @@ Gestiona la verificación de identidad y el ascenso de rangos.
 
 Sistema de 2 rangos (v1):
   BASIC    → Solo email verificado. Voto pesa 0.5x.
-  VERIFIED → 5 campos completos: RUT + birth_year + country + region + commune.
+  VERIFIED → 6 campos completos: RUT + birth_year + gender + country + region + commune.
              Voto pesa 1.0x.
 
 Funciones públicas:
@@ -40,16 +40,17 @@ async def _evaluate_rank(supabase, user_id: str) -> str:
     Requisitos (todos obligatorios):
       1. rut_hash presente (RUT verificado con Módulo 11)
       2. birth_year presente
-      3. country presente
-      4. region presente
-      5. commune presente
+      3. gender presente
+      4. country presente
+      5. region presente
+      6. commune presente
 
     Returns:
         'VERIFIED' si todos los campos están presentes, 'BASIC' en caso contrario.
     """
     result = await (
         supabase.table("users")
-        .select("rut_hash, birth_year, country, region, commune")
+        .select("rut_hash, birth_year, gender, country, region, commune")
         .eq("id", user_id)
         .single()
         .execute()
@@ -62,6 +63,7 @@ async def _evaluate_rank(supabase, user_id: str) -> str:
     all_fields_present = all([
         u.get("rut_hash"),
         u.get("birth_year"),
+        u.get("gender"),
         u.get("country"),
         u.get("region"),
         u.get("commune"),
@@ -222,6 +224,7 @@ async def update_demographic_profile(
     user_id: str,
     age_range: Optional[str] = None,
     birth_year: Optional[int] = None,
+    gender: Optional[str] = None,
     country: Optional[str] = None,
     region: Optional[str] = None,
     commune: Optional[str] = None,
@@ -233,13 +236,14 @@ async def update_demographic_profile(
       - Aumenta el integrity_score (+0.02 por campo nuevo)
       - Puede desencadenar el ascenso automático a VERIFIED
 
-    El ascenso a VERIFIED ocurre si tras la actualización se cumplen los 5 campos:
-      rut_hash + birth_year + country + region + commune
+    El ascenso a VERIFIED ocurre si tras la actualización se cumplen los 6 campos:
+      rut_hash + birth_year + gender + country + region + commune
 
     Args:
         user_id: UUID del ciudadano
         age_range:  Rango etario (ej: "25-34") — solo estadística, no afecta rango
         birth_year: Año de nacimiento (ej: 1990) — requerido para VERIFIED
+        gender:     Género (ej: "Femenino") — requerido para VERIFIED
         country:    País (ej: "Chile") — requerido para VERIFIED
         region:     Región (ej: "Metropolitana") — requerido para VERIFIED
         commune:    Comuna (ej: "Providencia") — requerido para VERIFIED
@@ -256,6 +260,7 @@ async def update_demographic_profile(
     field_map = {
         "age_range":  age_range,
         "birth_year": birth_year,
+        "gender":     gender,
         "country":    country,
         "region":     region,
         "commune":    commune,

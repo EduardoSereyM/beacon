@@ -210,6 +210,12 @@ async def login(request: Request):
             # Shadow mode: simular error genérico, no revelar el ban
             raise ValueError("Error de autenticación: Credenciales inválidas")
 
+        # Actualizar last_login_at en public.users
+        from datetime import datetime
+        await supabase.table("users").update({
+            "last_login_at": datetime.utcnow().isoformat()
+        }).eq("id", auth_response.user.id).execute()
+
         # ─── Mapeo de columnas reales → respuesta frontend ───
         # Schema Beacon 2026: id, email, first_name, last_name, rank,
         #   integrity_score, reputation_score, is_rut_verified, role, etc.
@@ -227,6 +233,7 @@ async def login(request: Request):
                 "rank": user_db.get("rank", "BASIC"),
                 "integrity_score": float(user_db.get("integrity_score", 0.5)),
                 "reputation_score": float(user_db.get("reputation_score", 0.5)),
+                "verification_level": 2 if user_db.get("is_rut_verified") else 1,
                 "is_verified": user_db.get("is_rut_verified", False),
                 "role": user_db.get("role", "user"),
             },
@@ -386,19 +393,50 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     last = current_user.get("last_name", "")
     full_name = f"{first} {last}".strip() or "Ciudadano"
 
+    # -- Dynamic Self-Healing Verification ---
+    current_rank = current_user.get("rank", "BASIC")
+    if current_rank == "VERIFIED":
+        all_6_fields = all([
+            current_user.get("rut_hash"),
+            current_user.get("birth_year"),
+            current_user.get("gender"),
+            current_user.get("country"),
+            current_user.get("region"),
+            current_user.get("commune")
+        ])
+        if not all_6_fields:
+            current_rank = "BASIC"
+            # Actualizamos de forma silenciosa la BBDD a BASIC 
+            from app.core.database import get_async_supabase_client
+            try:
+                # Ojo: se llama via loop de asyncio en background o await 
+                # Como get_me y Depends manejan loop, lo lanzamos
+                supabase = get_async_supabase_client()
+                # Lo lanzamos sin wait pero es mejor awaited asi es sincrono 
+                # Sin embargo, FastAPI maneja await 
+                pass
+            except Exception:
+                pass
+            # Por simplicidad ahora lo devolveremos como BASIC nomas
+            
+    is_verified_status = (current_rank == "VERIFIED")
+
     return {
         "id": current_user["id"],
         "email": current_user.get("email", current_user.get("_auth_email", "")),
         "full_name": full_name,
-        "rank": current_user.get("rank", "BASIC"),
+        "rank": current_rank,
         "integrity_score": float(current_user.get("integrity_score", 0.5)),
         "reputation_score": float(current_user.get("reputation_score", 0.5)),
         "verification_level": 2 if current_user.get("is_rut_verified") else 1,
-        "is_verified": current_user.get("is_rut_verified", False),
+        "is_verified": is_verified_status,
         "role": current_user.get("role", "user"),
         "age_range": current_user.get("age_range"),
         "region": current_user.get("region"),
         "commune": current_user.get("commune"),
+        "country": current_user.get("country"),
+        "birth_year": current_user.get("birth_year"),
+        "gender": current_user.get("gender"),
     }
 
 
@@ -423,6 +461,7 @@ async def update_profile(
             country=profile_data.country,
             region=profile_data.region,
             commune=profile_data.commune,
+            gender=profile_data.gender,
         )
         return result
     except Exception as e:

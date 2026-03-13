@@ -33,6 +33,8 @@ export interface BeaconUser {
   commune: string | null;
   region: string | null;
   age_range: string | null;
+  gender: string | null;
+  birth_year: number | null;
   created_at: string | null;
   role: string;
 }
