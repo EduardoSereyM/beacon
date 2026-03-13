@@ -75,7 +75,7 @@ async def list_entities(
 
     query = (
         supabase.table("entities")
-        .select("*")
+        .select("*", count="exact")
         .eq("is_active", True)
         .is_("deleted_at", "null")
         .order("reputation_score", desc=True)
@@ -126,7 +126,7 @@ async def list_entities(
 
     return {
         "entities": entities,
-        "total": len(entities),
+        "total": result.count if result.count is not None else len(entities),
         "offset": offset,
         "limit": limit,
     }
