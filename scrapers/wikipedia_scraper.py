@@ -26,6 +26,7 @@ import sys
 import time
 import argparse
 import requests
+import re
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -108,6 +109,43 @@ def obtener_summary_wikipedia(title: str) -> dict | None:
 # NÚCLEO: ENRIQUECIMIENTO POR ENTIDAD
 # ══════════════════════════════════════════════
 
+def limpiar_nombre_archivo(nombre: str) -> str:
+    """Limpia el nombre para usarlo en el sistema de archivos."""
+    nombre = nombre.lower().replace(" ", "_").strip()
+    return re.sub(r'[^a-z0-9_]', '', nombre)
+
+def descargar_imagen(url: str, nombre_completo: str, entity_id: str) -> str | None:
+    """Descarga la imagen localmente y retorna la ruta."""
+    if not url:
+        return None
+        
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp.raise_for_status()
+        
+        # Crear directorio si no existe
+        images_dir = os.path.join(SCRIPT_DIR, "images")
+        os.makedirs(images_dir, exist_ok=True)
+        
+        # Determinar extensión (.jpg, .png, etc.)
+        ext = url.split('.')[-1].split('?')[0]
+        if len(ext) > 4 or not ext.isalnum():
+            ext = "jpg" # Fallback
+            
+        nombre_limpio = limpiar_nombre_archivo(nombre_completo)
+        nombre_archivo = f"{nombre_limpio}_{entity_id[:8]}.{ext}"
+        filepath = os.path.join(images_dir, nombre_archivo)
+        
+        with open(filepath, "wb") as f:
+            f.write(resp.content)
+            
+        # Ruta relativa desde la raíz del proyecto usada para Supabase,  
+        #  aunque posteriormente se debe subir al bucket.
+        return f"scrapers/images/{nombre_archivo}"
+    except Exception as e:
+        print(f"  ⚠️  Error descargando foto: {e}")
+        return None
+
 def construir_nombre(entity: dict) -> str:
     """Construye el nombre de búsqueda desde los campos de la entidad."""
     partes = [
@@ -143,12 +181,11 @@ def enriquecer_entidad(
     print(f"\n🔍 [{category.upper()}] {nombre} ({entity_id[:8]}...)")
 
     # Verificar si ya tiene datos (modo safe)
-    tiene_bio = bool(entity.get("bio"))
     tiene_foto = bool(entity.get("photo_path"))
 
-    if tiene_bio and not overwrite_bio:
-        print(f"  ⏭️  Bio ya existe — saltando (usa --overwrite-bio para forzar)")
-        return {"status": "skipped", "reason": "bio_exists", "name": nombre}
+    if tiene_foto and not overwrite_photo:
+        print(f"  ⏭️  Foto ya existe — saltando (usa --overwrite-photo para forzar)")
+        return {"status": "skipped", "reason": "photo_exists", "name": nombre}
 
     # ─── Paso 1: Buscar en Wikipedia ───
     resultado_busqueda = buscar_en_wikipedia(nombre)
@@ -171,17 +208,17 @@ def enriquecer_entidad(
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    # Bio
-    if summary["extract"] and (not tiene_bio or overwrite_bio):
-        # Limitar a ~500 chars para bio (primer párrafo)
-        bio_text = summary["extract"][:500].rsplit(" ", 1)[0] + "..."
-        updates["bio"] = bio_text
-        print(f"  ✅ Bio extraída ({len(bio_text)} chars)")
-
-    # Foto
+    # Foto y Descarga Local
     if summary["thumbnail_url"] and (not tiene_foto or overwrite_photo):
-        updates["photo_path"] = summary["thumbnail_url"]
-        print(f"  🖼️  Foto → {summary['thumbnail_url'][:60]}...")
+        print(f"  🖼️  Encontrada URL → {summary['thumbnail_url'][:60]}...")
+        if not dry_run:
+            local_path = descargar_imagen(summary["thumbnail_url"], nombre, entity_id)
+            if local_path:
+                updates["photo_path"] = local_path
+                print(f"  ✅ Foto guardada en {local_path}")
+        else:
+            print(f"  🔵 DRY RUN — se descargaría la foto localmente")
+            updates["photo_path"] = f"scrapers/images/simulado_foto.jpg"
     elif tiene_foto and not overwrite_photo:
         print(f"  ⏭️  Foto ya existe — saltando")
 
@@ -286,7 +323,7 @@ def main():
             supabase.table("entities")
             .select(
                 "id, first_name, last_name, second_last_name, "
-                "category, bio, photo_path, official_links, region, party"
+                "category, photo_path, official_links, region, party"
             )
             .eq("is_active", True)
             .is_("deleted_at", "null")

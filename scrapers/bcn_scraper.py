@@ -33,7 +33,12 @@ import os
 import sys
 import time
 import argparse
+import os
+import sys
+import time
+import argparse
 import requests
+import re
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -49,8 +54,8 @@ from supabase import create_client, Client  # type: ignore
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 RATE_LIMIT_SECONDS = 3  # BCN es más sensible que Wikipedia
-BCN_SEARCH_URL = "https://www.bcn.cl/historiapolitica/resenas_parlamentarias/busqueda.html"
 BCN_BASE_URL = "https://www.bcn.cl"
+BCN_WIKI_URL = "https://www.bcn.cl/historiapolitica/resenas_parlamentarias/wiki/"
 
 HEADERS = {
     "User-Agent": (
@@ -66,96 +71,135 @@ HEADERS = {
 # HELPERS BCN
 # ══════════════════════════════════════════════
 
+def construir_slug_bcn(nombre_completo: str) -> str:
+    """
+    Convierte nombre a slug BCN estilo wiki.
+    Ej: 'Juan Luis Castro González' -> 'Juan_Luis_Castro_Gonz%C3%A1lez'
+    BCN usa nombre con mayúsculas separado por guiones bajos y URL-encoded.
+    """
+    import urllib.parse
+    slug = nombre_completo.strip().replace(" ", "_")
+    return urllib.parse.quote(slug, safe="_")
+
+
 def buscar_en_bcn(nombre_completo: str) -> str | None:
     """
-    Busca al parlamentario en BCN por nombre.
-    Retorna la URL de su ficha individual o None si no encontró.
+    Construye la URL directa al wiki de BCN para el parlamentario.
+    BCN usa https://www.bcn.cl/historiapolitica/resenas_parlamentarias/wiki/Nombre_Apellido
+    No tiene buscador—las fichas van directamente por slug del nombre.
+    Verifica que la página exista (status 200) antes de retornar.
     """
-    params = {"q": nombre_completo}
+    slug = construir_slug_bcn(nombre_completo)
+    url = BCN_WIKI_URL + slug
     try:
-        resp = requests.get(BCN_SEARCH_URL, params=params, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        # Los resultados de BCN están en links dentro de .resultado o similar
-        # Busca links que contengan el nombre
-        links = soup.find_all("a", href=True)
-        nombre_lower = nombre_completo.lower()
-
-        for link in links:
-            href = link.get("href", "")
-            texto = link.get_text(strip=True).lower()
-            # Verifica que el link apunta a una ficha de parlamentario
-            if "resena_parlamentaria" in href and any(
-                parte in texto for parte in nombre_lower.split()[:2]
-            ):
-                url = href if href.startswith("http") else BCN_BASE_URL + href
-                return url
-
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        if resp.status_code == 200:
+            return url
         return None
     except Exception as e:
-        print(f"  ⚠️  Error buscando en BCN '{nombre_completo}': {e}")
+        print(f"  ⚠️  Error verificando URL BCN '{url}': {e}")
         return None
 
+
+
+def limpiar_nombre_archivo(nombre: str) -> str:
+    """Limpia el nombre para usarlo en el sistema de archivos."""
+    nombre = nombre.lower().replace(" ", "_").strip()
+    return re.sub(r'[^a-z0-9_]', '', nombre)
+
+def descargar_imagen(url: str, nombre_completo: str, entity_id: str) -> str | None:
+    """Descarga la imagen localmente y retorna la ruta."""
+    if not url:
+        return None
+        
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp.raise_for_status()
+        
+        images_dir = os.path.join(SCRIPT_DIR, "images")
+        os.makedirs(images_dir, exist_ok=True)
+        
+        ext = url.split('.')[-1].split('?')[0]
+        if len(ext) > 4 or not ext.isalnum():
+            ext = "jpg"
+            
+        nombre_limpio = limpiar_nombre_archivo(nombre_completo)
+        nombre_archivo = f"{nombre_limpio}_{entity_id[:8]}.{ext}"
+        filepath = os.path.join(images_dir, nombre_archivo)
+        
+        with open(filepath, "wb") as f:
+            f.write(resp.content)
+            
+        return f"scrapers/images/{nombre_archivo}"
+    except Exception as e:
+        print(f"  ⚠️  Error descargando foto de BCN: {e}")
+        return None
 
 def extraer_datos_bcn(url: str) -> dict | None:
     """
-    Extrae datos desde la ficha de parlamentario en BCN.
-    Retorna dict con los campos encontrados o None si falla.
+    Extrae datos desde la ficha wiki de parlamentario en BCN.
+    Parsea el primer párrafo biográfico para extraer:
+      - party (partido político)
+      - position (cargo: Senador/Diputado)
+      - district (circunscripción o distrito)
+      - region (región representada)
+      - photo_url (foto oficial BCN)
     """
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
+        resp.encoding = "utf-8"  # Forzar UTF-8 para caracteres con tilde
         soup = BeautifulSoup(resp.text, "html.parser")
-
         datos = {"bcn_url": url}
 
         # ─── Foto ───
-        # BCN tiene foto en un <img> con clase o ID específico
-        foto_img = (
-            soup.find("img", class_="foto-parlamentario")
-            or soup.find("img", {"id": "foto_parlamentario"})
-            or soup.find("div", class_="foto").find("img") if soup.find("div", class_="foto") else None
-        )
-        if foto_img and foto_img.get("src"):
-            src = foto_img["src"]
-            datos["photo_url"] = src if src.startswith("http") else BCN_BASE_URL + src
+        for img in soup.find_all("img"):
+            src = img.get("src", "")
+            if "/img/" in src or "parlamentario" in src.lower() or "foto" in src.lower():
+                datos["photo_url"] = src if src.startswith("http") else BCN_BASE_URL + src
+                break
 
-        # ─── Bio ───
-        bio_div = (
-            soup.find("div", class_="resena")
-            or soup.find("div", {"id": "resena"})
-            or soup.find("div", class_="biografia")
-        )
-        if bio_div:
-            # Extraer solo el texto, limpiar whitespace
-            bio_text = " ".join(bio_div.get_text().split())
-            datos["bio"] = bio_text[:600].rsplit(" ", 1)[0] + "..." if len(bio_text) > 600 else bio_text
+        # ─── Extraer datos desde texto plano ───
+        # La ficha BCN tiene una tabla tipo:
+        # Senador | 2022 - 2030 | 8ª Circunscripción | Partido Socialista de Chile
+        # Extraímos el texto completo y aplicamos regex simples.
+        texto = soup.get_text(" ", strip=True)
 
-        # ─── Cargo, Partido, Región ───
-        # BCN muestra esto en una tabla de datos o lista de definición
-        tabla = soup.find("table", class_="datos-parlamentario") or soup.find("dl")
-        if tabla:
-            filas = tabla.find_all("tr") or []
-            for fila in filas:
-                celdas = fila.find_all(["th", "td"])
-                if len(celdas) >= 2:
-                    campo = celdas[0].get_text(strip=True).lower()
-                    valor = celdas[1].get_text(strip=True)
-                    if "partido" in campo:
-                        datos["party"] = valor
-                    elif "cargo" in campo or "calidad" in campo:
-                        datos["position"] = valor
-                    elif "región" in campo or "region" in campo:
-                        datos["region"] = valor
-                    elif "distrito" in campo or "circunscripción" in campo:
-                        datos["district"] = valor
+        # ─── Partido ───
+        partido_match = re.search(
+            r'Partido\s+[A-ZÀ-Ü][\w\s\-\'\u00e0-üÀ-Ü]+?(?=\s+(?:Diputad|Senad|\d{4}|$))',
+            texto
+        )
+        if partido_match:
+            datos["party"] = partido_match.group(0).strip()
+
+        # ─── Cargo ───
+        cargo_match = re.search(r'(Senadora?|Diputada?o?)', texto)
+        if cargo_match:
+            datos["position"] = cargo_match.group(1).strip()
+
+        # ─── Circunscripción/Distrito ───
+        dist_match = re.search(
+            r'(\d+[\u00aa\u00baªº]?\s*(?:Circunscripci\u00f3n|Distrito)(?:\s+N\u00ba\s*\d+)?)',
+            texto
+        )
+        if dist_match:
+            datos["district"] = dist_match.group(1).strip()
+
+        # ─── Región ───
+        region_match = re.search(
+            r'Regi\u00f3n\s+(?:de|del|de la|de los)\s+([A-Za-z\u00c0-\u00ff][\w\s\']+?)(?=\s*(?:,|\.|\d|Partido|Senado|Diputa|$))',
+            texto
+        )
+        if region_match:
+            datos["region"] = "Región " + region_match.group(1).strip()
 
         return datos if len(datos) > 1 else None
 
     except Exception as e:
         print(f"  ⚠️  Error extrayendo datos de BCN '{url}': {e}")
         return None
+
 
 
 # ══════════════════════════════════════════════
@@ -192,12 +236,12 @@ def enriquecer_entidad(
 
     print(f"\n🔍 [{category.upper()}] {nombre} ({entity_id[:8]}...)")
 
-    tiene_bio = bool(entity.get("bio"))
     tiene_foto = bool(entity.get("photo_path"))
 
-    if tiene_bio and tiene_foto and not overwrite_bio and not overwrite_photo:
-        print(f"  ⏭️  Bio y foto ya existen — saltando")
-        return {"status": "skipped", "reason": "already_complete", "name": nombre}
+    if tiene_foto and not overwrite_photo:
+        print(f"  ⏭️  Foto ya existe — saltando verificación de BCN si solo es foto")
+        # Todavía queremos traer region, partido, distrito, etc.
+        # No retornamos early si no tiene esos datos.
 
     # ─── Buscar en BCN ───
     bcn_url = buscar_en_bcn(nombre)
@@ -219,13 +263,19 @@ def enriquecer_entidad(
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if datos.get("bio") and (not tiene_bio or overwrite_bio):
-        updates["bio"] = datos["bio"]
-        print(f"  ✅ Bio extraída ({len(datos['bio'])} chars)")
+    # (Bio omitida por requerimiento de usuario)
 
+    # Descarga foto
     if datos.get("photo_url") and (not tiene_foto or overwrite_photo):
-        updates["photo_path"] = datos["photo_url"]
-        print(f"  🖼️  Foto → {datos['photo_url'][:60]}...")
+        print(f"  🖼️  Encontrada Foto en BCN → {datos['photo_url'][:60]}...")
+        if not dry_run:
+            local_path = descargar_imagen(datos["photo_url"], nombre, entity_id)
+            if local_path:
+                updates["photo_path"] = local_path
+                print(f"  ✅ Foto BCN guardada en {local_path}")
+        else:
+            print(f"  🔵 DRY RUN — se descargaría la foto BCN localmente")
+            updates["photo_path"] = f"scrapers/images/simulado_foto_bcn.jpg"
     elif tiene_foto and not overwrite_photo:
         print(f"  ⏭️  Foto ya existe")
 
@@ -314,7 +364,7 @@ def main():
             supabase.table("entities")
             .select(
                 "id, first_name, last_name, second_last_name, "
-                "category, bio, photo_path, official_links, "
+                "category, photo_path, official_links, "
                 "region, party, position, district"
             )
             .eq("is_active", True)
