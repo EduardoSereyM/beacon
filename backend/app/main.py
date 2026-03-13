@@ -232,5 +232,19 @@ app.include_router(
     tags=["Admin — Decay"],
 )
 
+# ─── P3 Versus ───────────────────────────────────────────────────────────────
+from app.api.v1.endpoints.versus import router as versus_router          # noqa: E402
+from app.api.v1.admin.versus_admin import router as admin_versus_router  # noqa: E402
+
+app.include_router(versus_router,       prefix=f"{settings.API_V1_PREFIX}", tags=["Versus"])
+app.include_router(admin_versus_router, prefix=f"{settings.API_V1_PREFIX}", tags=["Admin — Versus"])
+
+# ─── Encuestas (Polls) ───────────────────────────────────────────────────────
+from app.api.v1.endpoints.polls import router as polls_router          # noqa: E402
+from app.api.v1.admin.polls_admin import router as admin_polls_router  # noqa: E402
+
+app.include_router(polls_router,       prefix=f"{settings.API_V1_PREFIX}", tags=["Polls"])
+app.include_router(admin_polls_router, prefix=f"{settings.API_V1_PREFIX}", tags=["Admin — Polls"])
+
 
 

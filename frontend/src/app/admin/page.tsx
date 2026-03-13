@@ -395,10 +395,12 @@ export default function AdminDashboard() {
                 <h2 className="text-[10px] uppercase tracking-wider text-foreground-muted font-mono mb-3">
                     Acciones Rápidas
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {[
                         { href: "/admin/entities",   icon: "⚖️",  label: "Gestión de Entidades", desc: "Crear, editar y desactivar entidades",        active: true },
                         { href: "/admin/dimensions", icon: "🎚️", label: "Dimensiones",           desc: "Criterios de evaluación por categoría",       active: true },
+                        { href: "/admin/versus",     icon: "⚔️",  label: "Arena VS",              desc: "Crear y gestionar enfrentamientos VS",        active: true },
+                        { href: "/admin/polls",      icon: "📊",  label: "Encuestas",             desc: "Crear y gestionar encuestas ciudadanas",      active: true },
                         { href: "/admin/audit",      icon: "📜",  label: "Audit Log",             desc: "Registro inmutable de acciones del sistema",  active: true },
                         { href: "#",                 icon: "🧬",  label: "DNA Scanner",           desc: "Próximamente — Monitor HUMAN/SUSPICIOUS",     active: false },
                     ].map((item) => (
