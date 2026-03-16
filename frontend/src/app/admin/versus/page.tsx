@@ -368,7 +368,7 @@ export default function AdminVersusPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "#D4AF37" }}>Arena VS</h1>
           <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2, fontFamily: "monospace" }}>

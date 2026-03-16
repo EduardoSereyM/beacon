@@ -172,25 +172,25 @@ export default function AdminDashboard() {
         <div className="space-y-8">
 
             {/* ── Header ──────────────────────────────────────────────── */}
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight" style={{ color: "#D4AF37" }}>
                         Sovereign Dashboard
                     </h1>
-                    <p className="text-xs text-foreground-muted mt-1 font-mono">
+                    <p className="text-xs text-foreground-muted mt-2 sm:mt-4 font-mono">
                         Panel de control del Overlord — Sistema Beacon Protocol v1.0
                     </p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                     <button
                         onClick={fetchStats}
-                        className="text-[9px] px-3 py-1.5 rounded-lg uppercase tracking-wider font-mono transition-all"
+                        className="text-[9px] px-3 py-2.5 rounded-lg uppercase tracking-wider font-mono transition-all"
                         style={{ background: "rgba(212,175,55,0.08)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.15)" }}
                     >
                         ↻ Actualizar
                     </button>
                     {lastUpdated && (
-                        <p className="text-[9px] text-foreground-muted mt-1 font-mono">
+                        <p className="text-[9px] text-foreground-muted mt-2 font-mono">
                             Última sync: {lastUpdated.toLocaleTimeString("es-CL")}
                         </p>
                     )}

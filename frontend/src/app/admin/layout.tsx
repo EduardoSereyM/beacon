@@ -38,6 +38,7 @@ export default function AdminLayout({
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [adminEmail, setAdminEmail] = useState("");
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
     useEffect(() => {
         const token = localStorage.getItem("beacon_token");
@@ -85,17 +86,67 @@ export default function AdminLayout({
     if (!isAdmin) return null;
 
     return (
-        <div className="min-h-screen flex" style={{ background: "#080808" }}>
+        <div className="min-h-screen flex flex-col md:flex-row overflow-x-hidden" style={{ background: "#080808" }}>
+            {/* ─── Mobile Header (Solo en sm/md) ─── */}
+            <div 
+                className="md:hidden flex items-center justify-between p-4 z-30 shadow-md"
+                style={{
+                    background: "rgba(10, 10, 10, 0.95)",
+                    borderBottom: "1px solid rgba(212, 175, 55, 0.1)",
+                }}
+            >
+                <div className="flex items-center gap-2">
+                    <div
+                        className="w-8 h-8 rounded shrink-0 flex items-center justify-center"
+                        style={{ background: "linear-gradient(135deg, #D4AF37, #FF073A)" }}
+                    >
+                        <span className="text-sm">🛡️</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-sm font-bold uppercase tracking-wider leading-none" style={{ color: "#D4AF37" }}>
+                            Overlord
+                        </span>
+                    </div>
+                </div>
+                <button
+                    onClick={() => setIsMobileSidebarOpen(true)}
+                    className="p-2 text-foreground focus:outline-none"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            </div>
+
+            {/* ─── Overlay Fondo Oscuro para Menú Móvil ─── */}
+            {isMobileSidebarOpen && (
+                <div 
+                    className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+                    onClick={() => setIsMobileSidebarOpen(false)}
+                />
+            )}
+
             {/* ─── Sidebar del Overlord ─── */}
             <aside
-                className="w-56 flex-shrink-0 flex flex-col"
+                className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out md:relative md:w-56 md:translate-x-0 ${
+                    isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+                } flex-shrink-0 flex flex-col`}
                 style={{
                     background: "rgba(10, 10, 10, 0.95)",
                     borderRight: "1px solid rgba(212, 175, 55, 0.1)",
+                    minHeight: "100vh"
                 }}
             >
-                {/* Logo */}
-                <div className="p-4 pt-6">
+                {/* Logo y Botón Cerrar (Mobile) */}
+                <div className="p-4 pt-6 relative">
+                    <button
+                        onClick={() => setIsMobileSidebarOpen(false)}
+                        className="absolute top-4 right-4 p-2 text-foreground-muted hover:text-white md:hidden focus:outline-none"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                     <div className="flex items-center gap-2 mb-1">
                         <div
                             className="w-6 h-6 rounded flex items-center justify-center"
@@ -139,9 +190,10 @@ export default function AdminLayout({
                 {/* Navegación */}
                 <nav className="flex-1 px-3 mt-2">
                     {ADMIN_NAV.map((item) => (
-                        <a
+                        <Link
                             key={item.href}
                             href={item.href}
+                            onClick={() => setIsMobileSidebarOpen(false)}
                             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all duration-200 mb-1"
                             style={{
                                 color: "rgba(255, 255, 255, 0.6)",
@@ -157,7 +209,7 @@ export default function AdminLayout({
                         >
                             <span className="text-sm">{item.icon}</span>
                             {item.label}
-                        </a>
+                        </Link>
                     ))}
                 </nav>
 
@@ -174,8 +226,10 @@ export default function AdminLayout({
             </aside>
 
             {/* ─── Contenido Principal ─── */}
-            <main className="flex-1 overflow-y-auto p-6">
-                {children}
+            <main className="flex-1 w-full overflow-y-auto p-4 md:p-6 lg:p-8 h-[calc(100vh-64px)] md:h-screen">
+                <div className="max-w-7xl mx-auto">
+                    {children}
+                </div>
             </main>
         </div>
     );
