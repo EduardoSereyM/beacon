@@ -15,7 +15,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Personajes Públicos — Beacon Protocol",
   description:
-    "Periodistas, artistas, empresarios y toda figura pública evaluada por su audiencia real y verificada. Accountability ciudadano con votos ponderados por integridad.",
+    "Periodistas, presentadores, artistas y otras figuras evaluadas por su audiencia real y verificada. Accountability ciudadano con votos ponderados por integridad.",
   openGraph: {
     title: "Personajes Públicos — Beacon Protocol",
     description:
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   keywords: [
-    "personajes públicos", "periodistas", "artistas", "empresarios",
+    "personajes públicos", "periodistas", "presentadores", "artistas",
     "figuras públicas", "Chile", "integridad", "reputación",
   ],
 };
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Categorías que aparecen en /personajes (excluye politico y empresa)
-const PERSONAJES_CATEGORIES = ["periodista", "artista", "empresario", "evento"];
+const PERSONAJES_CATEGORIES = ["periodista", "artista", "presentador", "otro"];
 
 async function fetchInitialEntities() {
   try {
@@ -56,7 +56,7 @@ export default async function PersonajesPage() {
   return (
     <EntitiesListPage
       title="Personajes Públicos"
-      subtitle="Periodistas, artistas, empresarios y figuras que moldean la conversación pública. Evalúalos con el Protocolo Beacon."
+      subtitle="Periodistas, presentadores, artistas y otras figuras que moldean la conversación pública. Evalúalos con el Protocolo Beacon."
       allowedCategories={PERSONAJES_CATEGORIES}
       initialData={initialData}
     />

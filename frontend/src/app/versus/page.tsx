@@ -469,10 +469,10 @@ export default function VersusPage() {
             <span
               className="bg-clip-text text-transparent"
               style={{
-                backgroundImage: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
+                backgroundImage: "linear-gradient(135deg, #D4AF37, #e22b43)",
               }}
             >
-              VS
+              Versus
             </span>
           </h1>
           <p className="text-sm text-foreground-muted max-w-sm mx-auto">

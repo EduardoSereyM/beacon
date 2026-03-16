@@ -34,15 +34,17 @@ interface BackendEntity {
   service_tags?: string[];
 }
 
-type CategoryTab = "" | "politico" | "empresario" | "periodista" | "evento" | "artista";
+type CategoryTab = "" | "politico" | "empresario" | "periodista" | "evento" | "artista" | "presentador" | "otro";
 
 const CATEGORY_TABS: { key: CategoryTab; label: string; icon: string; color: string }[] = [
-  { key: "",           label: "Todos",      icon: "🌐", color: "#00E5FF" },
-  { key: "politico",   label: "Políticos",  icon: "⚖️", color: "#D4AF37" },
-  { key: "empresario", label: "Empresas",   icon: "🏢", color: "#00E5FF" },
-  { key: "periodista", label: "Personajes", icon: "👤", color: "#C0C0C0" },
-  { key: "evento",     label: "Eventos",    icon: "📅", color: "#8A2BE2" },
-  { key: "artista",    label: "Artistas",   icon: "🎤", color: "#FF8C00" },
+  { key: "",             label: "Todos",         icon: "🌐", color: "#00E5FF" },
+  { key: "politico",     label: "Políticos",     icon: "⚖️", color: "#D4AF37" },
+  { key: "empresario",   label: "Empresas",      icon: "🏢", color: "#00E5FF" },
+  { key: "periodista",   label: "Periodistas",   icon: "📰", color: "#C0C0C0" },
+  { key: "evento",       label: "Eventos",       icon: "📅", color: "#8A2BE2" },
+  { key: "artista",      label: "Artistas",      icon: "🎤", color: "#FF8C00" },
+  { key: "presentador",  label: "Presentadores", icon: "📺", color: "#FF1493" },
+  { key: "otro",         label: "Otros",         icon: "📌", color: "#A9A9A9" },
 ];
 
 interface InitialData {

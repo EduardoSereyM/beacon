@@ -17,7 +17,7 @@ import Link from "next/link";
 import logoDorado from "@/asset/brand/LogoBeaconCian.png";
 
 export default function NavbarClient() {
-    const [isModalOpen, setIsModalOpen]   = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [isVerifyOpen, setIsVerifyOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const { user, isAuthenticated, isBasic, isAdmin, logout } = usePermissions();
@@ -25,12 +25,12 @@ export default function NavbarClient() {
 
     // Eventos custom desde otros componentes
     useEffect(() => {
-        const openAuth   = () => setIsModalOpen(true);
+        const openAuth = () => setIsModalOpen(true);
         const openVerify = () => setIsVerifyOpen(true);
-        window.addEventListener("beacon:open-auth-modal",   openAuth);
+        window.addEventListener("beacon:open-auth-modal", openAuth);
         window.addEventListener("beacon:open-verify-modal", openVerify);
         return () => {
-            window.removeEventListener("beacon:open-auth-modal",   openAuth);
+            window.removeEventListener("beacon:open-auth-modal", openAuth);
             window.removeEventListener("beacon:open-verify-modal", openVerify);
         };
     }, []);
@@ -88,12 +88,8 @@ export default function NavbarClient() {
                         <Link href="/encuestas" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Encuestas
                         </Link>
-                        <Link
-                            href="/versus"
-                            className="text-[10px] lg:text-xs hover:text-foreground transition-colors uppercase tracking-wider font-medium"
-                            style={{ color: "#D4AF37" }}
-                        >
-                            VS
+                        <Link href="/versus" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                            Versus
                         </Link>
                     </div>
 
@@ -184,49 +180,49 @@ export default function NavbarClient() {
 
                     {/* ─── Hamburger Button (Mobile < lg) ─── */}
                     <div className="flex lg:hidden items-center gap-3 ml-auto">
-                            {isAuthenticated ? (
-                                <span
-                                    className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
-                                    style={{
-                                        backgroundColor: rank === "VERIFIED"
-                                            ? "rgba(77,255,131,0.12)"
-                                            : "rgba(255,140,0,0.12)",
-                                        color: rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
-                                        border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.25)" : "rgba(255,140,0,0.25)"}`,
-                                    }}
-                                >
-                                    {rank}
-                                </span>
-                            ) : (
-                                <button
-                                    onClick={() => setIsModalOpen(true)}
-                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-[#D4AF37]/10 flex-shrink-0 whitespace-nowrap"
-                                    style={{
-                                        background: "rgba(212,175,55,0.05)",
-                                        color: "#D4AF37",
-                                        border: "1px solid rgba(212,175,55,0.3)",
-                                    }}
-                                >
-                                    Entrar
-                                </button>
-                            )}
-                            <button
-                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                                className="text-foreground hover:text-white transition-colors p-2 -mr-2 focus:outline-none flex-shrink-0"
+                        {isAuthenticated ? (
+                            <span
+                                className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                                style={{
+                                    backgroundColor: rank === "VERIFIED"
+                                        ? "rgba(77,255,131,0.12)"
+                                        : "rgba(255,140,0,0.12)",
+                                    color: rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
+                                    border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.25)" : "rgba(255,140,0,0.25)"}`,
+                                }}
                             >
-                                {isMobileMenuOpen ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                                )}
+                                {rank}
+                            </span>
+                        ) : (
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-[#D4AF37]/10 flex-shrink-0 whitespace-nowrap"
+                                style={{
+                                    background: "rgba(212,175,55,0.05)",
+                                    color: "#D4AF37",
+                                    border: "1px solid rgba(212,175,55,0.3)",
+                                }}
+                            >
+                                Entrar
                             </button>
-                        </div>
+                        )}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            className="text-foreground hover:text-white transition-colors p-2 -mr-2 focus:outline-none flex-shrink-0"
+                        >
+                            {isMobileMenuOpen ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                            )}
+                        </button>
                     </div>
+                </div>
             </nav>
 
             {/* ═══ Mobile Menu Overlay ═══ */}
             {isMobileMenuOpen && (
-                <div 
+                <div
                     className="fixed inset-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-xl xl:hidden flex flex-col pt-24 pb-8 px-6 overflow-y-auto w-full min-h-screen"
                 >
                     <div className="flex flex-col items-center gap-6 mt-2 mb-4">
@@ -235,7 +231,7 @@ export default function NavbarClient() {
                                 <div className="text-sm font-mono text-foreground-muted mb-4 text-center w-full break-all px-4">
                                     {user.email || user.full_name}
                                 </div>
-                                
+
                                 <div className="flex flex-wrap justify-center gap-4 mb-6">
                                     {isAdmin && (
                                         <Link
@@ -257,7 +253,7 @@ export default function NavbarClient() {
                                         </button>
                                     )}
                                 </div>
-                                
+
                                 <div className="flex w-full gap-4 justify-center">
                                     <Link
                                         href="/profile"
