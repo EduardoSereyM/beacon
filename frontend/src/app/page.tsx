@@ -299,58 +299,59 @@ export default async function Home() {
       <SectionDivider />
 
       {/* ═══════════════════════════════════════════
-       *  TOP POLÍTICOS
+       *  ENCUESTAS
        * ═══════════════════════════════════════════ */}
       <section className="px-6 pb-10">
         <div className="max-w-7xl mx-auto">
-          <SectionHeader
-            icon="⚖️"
-            title="Top Políticos"
-            count={politicos.length}
-            href="/politicos"
-          />
-          <EntityGrid entities={politicos} cols={3} />
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: "#39FF14", boxShadow: "0 0 6px rgba(57,255,20,0.5)" }}
+              />
+              <span className="text-sm">📊</span>
+              <h2 className="text-xs tracking-[0.18em] uppercase text-foreground-muted font-medium">
+                Encuestas Activas
+              </h2>
+            </div>
+            <Link
+              href="/encuestas"
+              className="text-[10px] uppercase tracking-wider font-mono transition-colors hover:opacity-80"
+              style={{ color: "#00E5FF" }}
+            >
+              Ver todas →
+            </Link>
+          </div>
+          <div
+            className="rounded-xl p-8 text-center"
+            style={{
+              background: "linear-gradient(135deg, rgba(57,255,20,0.05) 0%, rgba(0,229,255,0.05) 100%)",
+              border: "1px solid rgba(57,255,20,0.15)",
+            }}
+          >
+            <p className="text-2xl mb-2">📊</p>
+            <p className="text-sm font-mono text-foreground-muted uppercase tracking-wider">
+              Próximamente — Encuestas ciudadanas verificadas
+            </p>
+            <Link
+              href="/encuestas"
+              className="inline-block mt-4 text-[11px] font-mono uppercase tracking-wider px-4 py-2 rounded-lg transition-all hover:scale-105"
+              style={{
+                backgroundColor: "rgba(57,255,20,0.08)",
+                border: "1px solid rgba(57,255,20,0.25)",
+                color: "#39FF14",
+              }}
+            >
+              Ver Encuestas →
+            </Link>
+          </div>
         </div>
       </section>
 
       <SectionDivider />
 
       {/* ═══════════════════════════════════════════
-       *  EMPRESAS DESTACADAS
-       * ═══════════════════════════════════════════ */}
-      <section className="px-6 pb-10">
-        <div className="max-w-7xl mx-auto">
-          <SectionHeader
-            icon="🏢"
-            title="Empresas Destacadas"
-            count={empresas.length}
-            href="/empresas"
-          />
-          <EntityGrid entities={empresas} cols={3} />
-        </div>
-      </section>
-
-      <SectionDivider />
-
-      {/* ═══════════════════════════════════════════
-       *  PERSONAJES PÚBLICOS
-       * ═══════════════════════════════════════════ */}
-      <section className="px-6 pb-10">
-        <div className="max-w-7xl mx-auto">
-          <SectionHeader
-            icon="👤"
-            title="Personajes Públicos"
-            count={periodistas.length}
-            href="/periodistas"
-          />
-          <EntityGrid entities={periodistas} cols={3} />
-        </div>
-      </section>
-
-      <SectionDivider />
-
-      {/* ═══════════════════════════════════════════
-       *  VS PLACEHOLDER (hasta que exista el endpoint)
+       *  VS
        * ═══════════════════════════════════════════ */}
       <section className="px-6 pb-10">
         <div className="max-w-7xl mx-auto">
@@ -398,6 +399,57 @@ export default async function Home() {
               Entrar al Arena →
             </Link>
           </div>
+        </div>
+      </section>
+
+      <SectionDivider />
+
+      {/* ═══════════════════════════════════════════
+       *  PERSONAJES PÚBLICOS
+       * ═══════════════════════════════════════════ */}
+      <section className="px-6 pb-10">
+        <div className="max-w-7xl mx-auto">
+          <SectionHeader
+            icon="👤"
+            title="Personajes Públicos"
+            count={periodistas.length}
+            href="/personajes"
+          />
+          <EntityGrid entities={periodistas} cols={3} />
+        </div>
+      </section>
+
+      <SectionDivider />
+
+      {/* ═══════════════════════════════════════════
+       *  EMPRESAS DESTACADAS
+       * ═══════════════════════════════════════════ */}
+      <section className="px-6 pb-10">
+        <div className="max-w-7xl mx-auto">
+          <SectionHeader
+            icon="🏢"
+            title="Empresas Destacadas"
+            count={empresas.length}
+            href="/empresas"
+          />
+          <EntityGrid entities={empresas} cols={3} />
+        </div>
+      </section>
+
+      <SectionDivider />
+
+      {/* ═══════════════════════════════════════════
+       *  TOP POLÍTICOS
+       * ═══════════════════════════════════════════ */}
+      <section className="px-6 pb-10">
+        <div className="max-w-7xl mx-auto">
+          <SectionHeader
+            icon="⚖️"
+            title="Top Políticos"
+            count={politicos.length}
+            href="/politicos"
+          />
+          <EntityGrid entities={politicos} cols={3} />
         </div>
       </section>
 
