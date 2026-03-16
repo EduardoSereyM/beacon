@@ -79,8 +79,11 @@ async def admin_create_entity(
                 detail=f"Campo obligatorio faltante: {field}",
             )
 
-    # Validar category contra CHECK constraint
-    valid_categories = ["politico", "periodista", "empresario", "empresa", "evento"]
+    # Validar category contra las categorías soportadas
+    valid_categories = [
+        "politico", "periodista", "empresario", "empresa", "evento",
+        "artista", "presentador", "influencer", "deportista", "activista", "otro",
+    ]
     cat = entity_data.get("category", "").lower()
     if cat not in valid_categories:
         raise HTTPException(
@@ -178,7 +181,10 @@ async def admin_update_entity(
 
     # Validar category si se envía
     if "category" in payload:
-        valid_categories = ["politico", "periodista", "empresario", "empresa", "evento"]
+        valid_categories = [
+            "politico", "periodista", "empresario", "empresa", "evento",
+            "artista", "presentador", "influencer", "deportista", "activista", "otro",
+        ]
         if payload["category"].lower() not in valid_categories:
             raise HTTPException(
                 status_code=400,

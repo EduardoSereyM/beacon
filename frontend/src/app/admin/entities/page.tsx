@@ -30,12 +30,17 @@ interface Entity {
 }
 
 const CATEGORIES = [
-    { value: "politico",   label: "Político/a" },
-    { value: "periodista", label: "Periodista / Persona Pública" },
-    { value: "empresario", label: "Empresario/a" },
-    { value: "empresa",    label: "Empresa / Organización" },
-    { value: "evento",     label: "Evento" },
-    { value: "artista",    label: "Artista" },
+    { value: "politico",    label: "Político/a" },
+    { value: "periodista",  label: "Periodista" },
+    { value: "presentador", label: "Presentador/a" },
+    { value: "empresario",  label: "Empresario/a" },
+    { value: "empresa",     label: "Empresa / Organización" },
+    { value: "artista",     label: "Artista" },
+    { value: "influencer",  label: "Influencer" },
+    { value: "deportista",  label: "Deportista" },
+    { value: "activista",   label: "Activista" },
+    { value: "evento",      label: "Evento" },
+    { value: "otro",        label: "Otro" },
 ];
 
 const REGIONES_CHILE = [
@@ -132,6 +137,7 @@ export default function AdminEntities() {
         setEditingId(null);
         setFormData(EMPTY_FORM);
         setChangeReason("");
+        setMessage(null);
         setShowForm(true);
     };
 
@@ -152,6 +158,7 @@ export default function AdminEntities() {
             official_links: entity.official_links || {},
         });
         setChangeReason("");
+        setMessage(null);
         setShowForm(true);
     };
 
@@ -556,6 +563,20 @@ export default function AdminEntities() {
                                     onChange={(e) => setChangeReason(e.target.value)}
                                     placeholder="Ej: Actualización de cargo post-elecciones 2026"
                                 />
+                            </div>
+                        )}
+
+                        {/* Error dentro del modal */}
+                        {message && message.type === "error" && (
+                            <div
+                                className="rounded-lg p-3 mt-4 text-xs font-mono"
+                                style={{
+                                    backgroundColor: "rgba(255, 7, 58, 0.08)",
+                                    border: "1px solid rgba(255, 7, 58, 0.2)",
+                                    color: "#FF073A",
+                                }}
+                            >
+                                {message.text}
                             </div>
                         )}
 

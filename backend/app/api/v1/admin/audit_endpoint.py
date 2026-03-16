@@ -7,10 +7,12 @@ Paginación real, filtros por action y entity_type.
 "Lo que entró al log, nunca sale. El Escriba no olvida."
 """
 
+import logging
 from fastapi import APIRouter, Depends, Query
 from app.core.database import get_async_supabase_client
 from app.api.v1.admin.require_admin import require_admin_role
 
+logger = logging.getLogger("beacon.audit_endpoint")
 router = APIRouter(prefix="/admin", tags=["Admin — Audit"])
 
 
@@ -40,10 +42,15 @@ async def admin_get_audit_logs(
     if entity_type:
         query = query.eq("entity_type", entity_type)
 
-    result = await query.execute()
+    try:
+        result = await query.execute()
+    except Exception as e:
+        logger.error("❌ audit_logs SELECT failed: %s", e, exc_info=True)
+        return {"logs": [], "total": 0, "limit": limit, "offset": offset, "error": str(e)}
 
     logs  = result.data  or []
     total = result.count or 0
+    logger.info("📜 audit_logs query → total=%s rows=%s", total, len(logs))
 
     # Enriquecer cada entrada con un label legible
     enriched = []

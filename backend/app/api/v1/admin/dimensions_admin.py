@@ -20,7 +20,10 @@ from app.api.v1.admin.require_admin import require_admin_role
 
 router = APIRouter(prefix="/admin", tags=["Admin — Dimensions"])
 
-VALID_CATEGORIES = ["politico", "periodista", "empresario", "empresa", "evento"]
+VALID_CATEGORIES = [
+    "politico", "periodista", "empresario", "empresa", "evento",
+    "artista", "presentador", "influencer", "deportista", "activista", "otro",
+]
 
 
 @router.get("/dimensions", summary="[ADMIN] Listar todas las dimensiones")
