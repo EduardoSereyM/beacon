@@ -30,10 +30,16 @@ export const metadata: Metadata = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Categorías que aparecen en /personajes (excluye politico y empresa)
+const PERSONAJES_CATEGORIES = ["periodista", "artista", "empresario", "evento"];
+
 async function fetchInitialEntities() {
   try {
-    // Sin filtro de categoría → trae todos; el usuario puede filtrar por tabs
-    const query = new URLSearchParams({ limit: "24", offset: "0" });
+    const query = new URLSearchParams({
+      categories: PERSONAJES_CATEGORIES.join(","),
+      limit: "24",
+      offset: "0",
+    });
     const res = await fetch(`${API_URL}/api/v1/entities?${query.toString()}`, {
       next: { revalidate: 60 },
     });
@@ -49,9 +55,9 @@ export default async function PersonajesPage() {
 
   return (
     <EntitiesListPage
-      defaultCategory=""
       title="Personajes Públicos"
       subtitle="Periodistas, artistas, empresarios y figuras que moldean la conversación pública. Evalúalos con el Protocolo Beacon."
+      allowedCategories={PERSONAJES_CATEGORIES}
       initialData={initialData}
     />
   );

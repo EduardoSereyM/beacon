@@ -19,6 +19,7 @@ import logoDorado from "@/asset/brand/LogoBeaconCian.png";
 export default function NavbarClient() {
     const [isModalOpen, setIsModalOpen]   = useState(false);
     const [isVerifyOpen, setIsVerifyOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const { user, isAuthenticated, isBasic, isAdmin, logout } = usePermissions();
     const rank = user.rank;
 
@@ -95,11 +96,11 @@ export default function NavbarClient() {
                             VS
                         </Link>
 
-                        {/* ─── Auth Section ─── */}
+                        {/* ─── Auth Section (Desktop) ─── */}
                         {isAuthenticated ? (
-                            <div className="flex items-center gap-3">
+                            <div className="hidden lg:flex items-center gap-3">
                                 <div
-                                    className="hidden sm:block w-px h-5 self-center"
+                                    className="w-px h-5 self-center"
                                     style={{ backgroundColor: "rgba(77, 255, 131, 1)" }}
                                 />
 
@@ -121,7 +122,7 @@ export default function NavbarClient() {
                                 {isBasic && (
                                     <button
                                         onClick={() => setIsVerifyOpen(true)}
-                                        className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
+                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
                                         style={{
                                             background: "rgba(255,140,0,0.12)",
                                             border: "1px solid rgba(255,140,0,0.35)",
@@ -166,7 +167,7 @@ export default function NavbarClient() {
                         ) : (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                                className="hidden lg:block px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
                                 style={{
                                     background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
                                     boxShadow: "0 0 12px rgba(212,175,55,0.2), 0 0 12px rgba(138,43,226,0.2)",
@@ -175,9 +176,115 @@ export default function NavbarClient() {
                                 Acceso al Búnker
                             </button>
                         )}
+
+                        {/* ─── Hamburger Button (Mobile) ─── */}
+                        <div className="flex lg:hidden items-center gap-3">
+                            {isAuthenticated && (
+                                <span
+                                    className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                                    style={{
+                                        backgroundColor: rank === "VERIFIED"
+                                            ? "rgba(77,255,131,0.12)"
+                                            : "rgba(255,140,0,0.12)",
+                                        color: rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
+                                        border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.25)" : "rgba(255,140,0,0.25)"}`,
+                                    }}
+                                >
+                                    {rank}
+                                </span>
+                            )}
+                            <button
+                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                                className="text-foreground hover:text-white transition-colors p-2 -mr-2 focus:outline-none"
+                            >
+                                {isMobileMenuOpen ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </nav>
+
+            {/* ═══ Mobile Menu Overlay ═══ */}
+            {isMobileMenuOpen && (
+                <div 
+                    className="fixed inset-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-xl lg:hidden flex flex-col pt-24 pb-8 px-6 overflow-y-auto w-full min-h-screen"
+                >
+                    <div className="flex flex-col gap-6 text-center mt-6">
+                        <Link href="/entities" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Entidades</Link>
+                        <Link href="/politicos" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Políticos</Link>
+                        <Link href="/empresas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Empresas</Link>
+                        <Link href="/personajes" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Personajes</Link>
+                        <Link href="/events" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Eventos</Link>
+                        <Link href="/encuestas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Encuestas</Link>
+                        <Link href="/versus" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-widest" style={{ color: "#D4AF37" }}>VS</Link>
+                    </div>
+
+                    <div className="w-full h-px bg-white/10 my-8 flex-shrink-0" />
+
+                    <div className="flex flex-col items-center gap-6 mt-auto">
+                        {isAuthenticated ? (
+                            <>
+                                <div className="text-sm font-mono text-foreground-muted mb-2 text-center w-full break-all px-4">
+                                    {user.email || user.full_name}
+                                </div>
+                                
+                                <div className="flex flex-wrap justify-center gap-4">
+                                    {isAdmin && (
+                                        <Link
+                                            href="/admin"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                            className="px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider"
+                                            style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.35)", color: "#D4AF37" }}
+                                        >
+                                            🛡️ Admin
+                                        </Link>
+                                    )}
+                                    {isBasic && (
+                                        <button
+                                            onClick={() => { setIsVerifyOpen(true); setIsMobileMenuOpen(false); }}
+                                            className="px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider"
+                                            style={{ background: "rgba(255,140,0,0.12)", border: "1px solid rgba(255,140,0,0.35)", color: "#FF8C00" }}
+                                        >
+                                            🔒 Verificar
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                <div className="flex w-full mt-2 gap-4 justify-center">
+                                    <Link
+                                        href="/profile"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                        className="flex-1 py-3 text-center border border-white/20 rounded-lg text-xs font-bold text-white tracking-widest uppercase hover:bg-white/10"
+                                    >
+                                        Mi Perfil
+                                    </Link>
+                                    <button
+                                        onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                                        className="flex-1 py-3 text-center border border-red-500/30 rounded-lg text-xs font-bold text-red-500 tracking-widest uppercase hover:bg-red-500/10"
+                                    >
+                                        Salir
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <button
+                                onClick={() => { setIsModalOpen(true); setIsMobileMenuOpen(false); }}
+                                className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-widest text-white mt-4"
+                                style={{
+                                    background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
+                                    boxShadow: "0 0 20px rgba(212,175,55,0.2), 0 0 20px rgba(138,43,226,0.2)",
+                                }}
+                            >
+                                Acceso al Búnker
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ═══ Banner BASIC — fixed justo bajo la navbar (z-40) ═══ */}
             {isAuthenticated && isBasic && (

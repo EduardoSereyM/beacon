@@ -52,6 +52,9 @@ interface InitialData {
 
 interface EntitiesListPageProps {
   defaultCategory?: CategoryTab;
+  /** Restricción de categorías visibles. Cuando se provee, los tabs y el fetch
+   *  se limitan a estas categorías (ej: ["periodista","artista","empresario","evento"]). */
+  allowedCategories?: string[];
   title: string;
   subtitle: string;
   /** Datos pre-cargados server-side (Server Component híbrido). Elimina el flicker inicial. */
@@ -60,6 +63,7 @@ interface EntitiesListPageProps {
 
 export default function EntitiesListPage({
   defaultCategory = "",
+  allowedCategories,
   title,
   subtitle,
   initialData,
@@ -78,12 +82,22 @@ export default function EntitiesListPage({
   const [offset, setOffset] = useState(0);
   const LIMIT = 24;
 
+  // Tabs visibles: si hay allowedCategories, filtra a "Todos" + categorías permitidas
+  const visibleTabs = allowedCategories
+    ? CATEGORY_TABS.filter((t) => t.key === "" || allowedCategories.includes(t.key))
+    : CATEGORY_TABS;
+
   // Fetch entities when filters change
   const fetchEntities = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) });
-      if (category) params.set("category", category);
+      if (category) {
+        params.set("category", category);
+      } else if (allowedCategories && allowedCategories.length > 0) {
+        // "Todos" en una página restringida → enviar multi-categorías al backend
+        params.set("categories", allowedCategories.join(","));
+      }
       if (search) params.set("search", search);
 
       const res = await fetch(`${API_URL}/api/v1/entities?${params.toString()}`);
@@ -101,7 +115,7 @@ export default function EntitiesListPage({
     } finally {
       setLoading(false);
     }
-  }, [category, search, offset]);
+  }, [category, search, offset, allowedCategories]);
 
   useEffect(() => {
     // Si tenemos datos del servidor (initialData), saltamos el primer fetch.
@@ -147,7 +161,7 @@ export default function EntitiesListPage({
         {/* ═══ Category Tabs (solo si no hay categoría fija) ═══ */}
         {!defaultCategory && (
           <div className="flex items-center gap-2 mb-6 flex-wrap">
-            {CATEGORY_TABS.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setCategory(tab.key)}

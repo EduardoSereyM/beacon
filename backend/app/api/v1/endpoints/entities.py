@@ -63,6 +63,7 @@ async def get_entity_filters():
 @router.get("/entities", summary="Listar entidades activas")
 async def list_entities(
     category: Optional[str] = Query(None, description="Filtrar por categoría: politico, periodista, empresario"),
+    categories: Optional[str] = Query(None, description="Filtrar por múltiples categorías separadas por coma: periodista,artista,empresario"),
     region: Optional[str] = Query(None, description="Filtrar por región"),
     party: Optional[str] = Query(None, description="Filtrar por partido político"),
     search: Optional[str] = Query(None, description="Búsqueda por nombre"),
@@ -87,6 +88,10 @@ async def list_entities(
 
     if category:
         query = query.eq("category", category.lower())
+    elif categories:
+        cat_list = [c.strip().lower() for c in categories.split(",") if c.strip()]
+        if cat_list:
+            query = query.in_("category", cat_list)
 
     if region:
         query = query.ilike("region", f"%{region}%")
