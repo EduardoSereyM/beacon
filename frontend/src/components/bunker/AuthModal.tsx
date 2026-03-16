@@ -511,7 +511,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         <span className="text-lg font-black text-[#0A0A0A]">B</span>
                     </div>
                     <h2 className="text-lg font-bold text-white tracking-wide">
-                        {mode === "login" ? "Acceso al Búnker" : mode === "register" ? "Registro Ciudadano" : "Recuperar Acceso"}
+                        {mode === "login" ? "Acceso" : mode === "register" ? "Registro Ciudadano" : "Recuperar Acceso"}
                     </h2>
                     <p className="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-widest">
                         {mode === "login"
@@ -845,7 +845,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                             {loading
                                 ? "Procesando..."
                                 : mode === "login"
-                                    ? "Entrar al Búnker"
+                                    ? "Entrar"
                                     : "Registrar Ciudadano"
                             }
                         </button>

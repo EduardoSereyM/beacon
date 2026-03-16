@@ -172,6 +172,7 @@ export default function usePermissions(): PermissionsResult {
         localStorage.removeItem("beacon_token");
         localStorage.removeItem("beacon_user");
         clearAuth();
+        window.location.href = "/";
     }, [clearAuth]);
 
     return {

@@ -173,13 +173,13 @@ export default function NavbarClient() {
                                     boxShadow: "0 0 12px rgba(212,175,55,0.2), 0 0 12px rgba(138,43,226,0.2)",
                                 }}
                             >
-                                Acceso al Búnker
+                                Acceso
                             </button>
                         )}
 
                         {/* ─── Hamburger Button (Mobile) ─── */}
                         <div className="flex lg:hidden items-center gap-3">
-                            {isAuthenticated && (
+                            {isAuthenticated ? (
                                 <span
                                     className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
                                     style={{
@@ -192,6 +192,17 @@ export default function NavbarClient() {
                                 >
                                     {rank}
                                 </span>
+                            ) : (
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white"
+                                    style={{
+                                        background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
+                                        boxShadow: "0 0 10px rgba(212,175,55,0.2)",
+                                    }}
+                                >
+                                    Entrar
+                                </button>
                             )}
                             <button
                                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -279,7 +290,7 @@ export default function NavbarClient() {
                                     boxShadow: "0 0 20px rgba(212,175,55,0.2), 0 0 20px rgba(138,43,226,0.2)",
                                 }}
                             >
-                                Acceso al Búnker
+                                Acceso
                             </button>
                         )}
                     </div>
