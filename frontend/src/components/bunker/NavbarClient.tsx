@@ -49,27 +49,27 @@ export default function NavbarClient() {
             >
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     {/* ─── Logo ─── */}
-                    <Link href="/" className="flex items-center gap-3 group">
+                    <Link href="/" className="flex items-center gap-2 sm:gap-3 group flex-shrink-0">
                         <Image
                             src={logoDorado}
                             alt="Beacon Protocol Logo"
-                            className="w-9 h-9 object-contain transition-all duration-300 group-hover:scale-105"
+                            className="w-7 h-7 sm:w-9 sm:h-9 object-contain transition-all duration-300 group-hover:scale-105"
                         />
-                        <div>
+                        <div className="flex flex-col">
                             <h1
-                                className="text-sm font-bold tracking-wide uppercase"
-                                style={{ color: "#D4AF37" }}
+                                className="text-[11px] sm:text-sm font-bold tracking-wide uppercase whitespace-nowrap"
+                                style={{ color: "#D4AF37", lineHeight: "1.1" }}
                             >
                                 Beacon Protocol
                             </h1>
-                            <p className="text-[9px] text-foreground-muted tracking-[0.25em] uppercase">
+                            <p className="text-[7px] sm:text-[9px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden min-[360px]:block mt-0.5" style={{ lineHeight: "1" }}>
                                 Motor de Integridad
                             </p>
                         </div>
                     </Link>
 
-                    {/* ─── Navigation Links ─── */}
-                    <div className="flex items-center gap-4">
+                    {/* ─── Navigation Links & Desktop Auth ─── */}
+                    <div className="flex items-center gap-4 ml-auto">
                         <Link href="/entities" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Entidades
                         </Link>
@@ -167,10 +167,12 @@ export default function NavbarClient() {
                         ) : (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="hidden lg:block px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                                className="hidden lg:block px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 hover:bg-[#D4AF37]/10"
                                 style={{
-                                    background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
-                                    boxShadow: "0 0 12px rgba(212,175,55,0.2), 0 0 12px rgba(138,43,226,0.2)",
+                                    background: "rgba(212,175,55,0.05)",
+                                    color: "#D4AF37",
+                                    border: "1px solid rgba(212,175,55,0.3)",
+                                    boxShadow: "0 0 10px rgba(212,175,55,0.1)",
                                 }}
                             >
                                 Acceso
@@ -195,10 +197,11 @@ export default function NavbarClient() {
                             ) : (
                                 <button
                                     onClick={() => setIsModalOpen(true)}
-                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white"
+                                    className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-[#D4AF37]/10 flex-shrink-0 whitespace-nowrap"
                                     style={{
-                                        background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
-                                        boxShadow: "0 0 10px rgba(212,175,55,0.2)",
+                                        background: "rgba(212,175,55,0.05)",
+                                        color: "#D4AF37",
+                                        border: "1px solid rgba(212,175,55,0.3)",
                                     }}
                                 >
                                     Entrar
@@ -206,7 +209,7 @@ export default function NavbarClient() {
                             )}
                             <button
                                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                                className="text-foreground hover:text-white transition-colors p-2 -mr-2 focus:outline-none"
+                                className="text-foreground hover:text-white transition-colors p-2 -mr-2 focus:outline-none flex-shrink-0"
                             >
                                 {isMobileMenuOpen ? (
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -284,10 +287,11 @@ export default function NavbarClient() {
                         ) : (
                             <button
                                 onClick={() => { setIsModalOpen(true); setIsMobileMenuOpen(false); }}
-                                className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-widest text-white mt-4"
+                                className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-widest mt-4 transition-all duration-300 hover:bg-[#D4AF37]/10"
                                 style={{
-                                    background: "linear-gradient(135deg, #D4AF37, #8A2BE2)",
-                                    boxShadow: "0 0 20px rgba(212,175,55,0.2), 0 0 20px rgba(138,43,226,0.2)",
+                                    background: "rgba(212,175,55,0.05)",
+                                    color: "#D4AF37",
+                                    border: "1px solid rgba(212,175,55,0.3)",
                                 }}
                             >
                                 Acceso

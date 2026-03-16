@@ -206,12 +206,13 @@ function ForgotPasswordForm({ onBack, apiUrl }: { onBack: () => void; apiUrl: st
                 <button
                     type="submit"
                     disabled={loading || !email}
-                    className="w-full py-3 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full py-3 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] hover:bg-[#D4AF37]/10 disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
                         background: email
-                            ? `linear-gradient(135deg, ${GOLD}, #8A2BE2)`
+                            ? "rgba(212,175,55,0.05)"
                             : "rgba(50,50,50,0.5)",
-                        boxShadow: email ? `0 0 20px ${GOLD}20` : "none",
+                        color: email ? "#D4AF37" : "#888",
+                        border: email ? "1px solid rgba(212,175,55,0.3)" : "1px solid rgba(255,255,255,0.05)",
                     }}
                 >
                     {loading ? "Enviando..." : "Enviar Enlace de Recuperación"}
@@ -832,13 +833,15 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                         <button
                             type="submit"
                             disabled={loading || !isFormValid}
-                            className="w-full py-3 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-xl disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            className="w-full py-3 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:bg-[#D4AF37]/10 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                             style={{
                                 background: isFormValid
-                                    ? `linear-gradient(135deg, ${GOLD}, #8A2BE2)`
+                                    ? "rgba(212,175,55,0.05)"
                                     : "rgba(50,50,50,0.5)",
+                                color: isFormValid ? "#D4AF37" : "#888",
+                                border: isFormValid ? "1px solid rgba(212,175,55,0.3)" : "1px solid rgba(255,255,255,0.05)",
                                 boxShadow: isFormValid
-                                    ? `0 0 20px ${GOLD}20, 0 0 20px rgba(138, 43, 226, 0.2)`
+                                    ? `0 0 20px ${GOLD}10`
                                     : "none",
                             }}
                         >
