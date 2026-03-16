@@ -21,6 +21,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAuthStore } from "@/store";
+import Image from "next/image";
+import logoCian from "@/asset/brand/LogoBeaconCian.png";
 
 // ═══════════════════════════════════════════
 //  DATOS GEOGRÁFICOS (Cascada País → Región → Comuna)
@@ -501,17 +503,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 />
 
                 {/* ─── Header ─── */}
-                <div className="px-8 pt-8 pb-4 text-center">
-                    <div
-                        className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4"
-                        style={{
-                            background: `linear-gradient(135deg, ${GOLD}, #8A2BE2)`,
-                            boxShadow: `0 0 20px ${GOLD}40`,
-                        }}
-                    >
-                        <span className="text-lg font-black text-[#0A0A0A]">B</span>
-                    </div>
-                    <h2 className="text-lg font-bold text-white tracking-wide">
+                <div className="px-8 pt-8 pb-4 text-center flex flex-col items-center">
+                    <Image
+                        src={logoCian}
+                        alt="Beacon Protocol Logo"
+                        className="w-12 h-12 object-contain mb-4 transition-all duration-300"
+                    />
+                    <h2 className="text-lg font-bold text-white tracking-wide mt-2">
                         {mode === "login" ? "Acceso" : mode === "register" ? "Registro Ciudadano" : "Recuperar Acceso"}
                     </h2>
                     <p className="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-widest">

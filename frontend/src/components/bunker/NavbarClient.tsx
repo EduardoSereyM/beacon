@@ -62,7 +62,7 @@ export default function NavbarClient() {
                             >
                                 Beacon Protocol
                             </h1>
-                            <p className="text-[7px] sm:text-[9px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden min-[360px]:block mt-0.5" style={{ lineHeight: "1" }}>
+                            <p className="text-[7.5px] sm:text-[9px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden sm:block mt-0.5" style={{ lineHeight: "1" }}>
                                 Motor de Integridad
                             </p>
                         </div>

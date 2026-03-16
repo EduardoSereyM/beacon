@@ -10,6 +10,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import EntityCard from "@/components/status/EntityCard";
+import HomeHeroClient from "@/components/home/HomeHeroClient";
 
 export const revalidate = 60;
 
@@ -223,78 +224,7 @@ export default async function Home() {
       {/* ═══════════════════════════════════════════
        *  HERO
        * ═══════════════════════════════════════════ */}
-      <section className="relative pt-20 pb-16 px-6 overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 60% 40% at 50% 30%, rgba(0,229,255,0.06) 0%, transparent 70%)",
-          }}
-        />
-
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          {/* Live badge */}
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 glass"
-            style={{
-              animation: "beaconPulse 3s ease-in-out infinite",
-              border: "1px solid rgba(255,7,58,0.7)",
-              boxShadow: "0 0 8px rgba(255, 7, 57, 0.81)",
-            }}
-          >
-            <div className="w-1.5 h-1.5 rounded-full bg-beacon-neon pulse-live" />
-            <span
-              className="text-[10px] tracking-[0.2em] uppercase font-mono"
-              style={{ color: "#FF073A" }}
-            >
-              Protocolo ANTIBOT Activo — Verificación Humana en Curso
-            </span>
-          </div>
-
-          {/* Título */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight mb-6">
-            <span className="text-foreground">La Verdad Humana,</span>
-            <br />
-            <span
-              className="bg-clip-text text-transparent"
-              style={{ backgroundImage: "linear-gradient(135deg, #00E5FF, #8A2BE2)" }}
-            >
-              Validada.
-            </span>
-          </h1>
-
-          <p className="text-base sm:text-lg text-foreground-muted max-w-xl mx-auto mb-10 leading-relaxed">
-            Tu voz tiene peso. Tu identidad tiene valor. Beacon valida la autenticidad de
-            cada opinión mediante verificación forense de comportamiento.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Link
-              href="/entities"
-              className="px-6 py-3 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all duration-300 hover:scale-105"
-              style={{
-                background: "linear-gradient(135deg, rgba(0,229,255,0.15), rgba(138,43,226,0.15))",
-                border: "1px solid rgba(0,229,255,0.3)",
-                color: "#00E5FF",
-              }}
-            >
-              Ver el Directorio Completo
-            </Link>
-            <Link
-              href="/versus"
-              className="px-6 py-3 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all duration-300 hover:scale-105"
-              style={{
-                background: "rgba(212,175,55,0.08)",
-                border: "1px solid rgba(212,175,55,0.25)",
-                color: "#D4AF37",
-              }}
-            >
-              ⚔️ VS del Momento
-            </Link>
-          </div>
-        </div>
-      </section>
+      <HomeHeroClient />
 
       <SectionDivider />
 
