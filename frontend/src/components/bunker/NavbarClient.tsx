@@ -47,7 +47,7 @@ export default function NavbarClient() {
                     borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
                 }}
             >
-                <div className="max-w-7xl mx-auto flex items-center justify-between">
+                <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-2">
                     {/* ─── Logo ─── */}
                     <Link href="/" className="flex items-center gap-2 sm:gap-3 group flex-shrink-0">
                         <Image
@@ -68,41 +68,43 @@ export default function NavbarClient() {
                         </div>
                     </Link>
 
-                    {/* ─── Navigation Links & Desktop Auth ─── */}
-                    <div className="flex items-center gap-4 ml-auto">
-                        <Link href="/entities" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                    {/* ─── Navigation Links (Desktop lg+) ─── */}
+                    <div className="hidden lg:flex xl:items-center gap-3 xl:gap-5 ml-auto">
+                        <Link href="/entities" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Entidades
                         </Link>
-                        <Link href="/politicos" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/politicos" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Políticos
                         </Link>
-                        <Link href="/empresas" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/empresas" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Empresas
                         </Link>
-                        <Link href="/personajes" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/personajes" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Personajes
                         </Link>
-                        <Link href="/events" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/events" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Eventos
                         </Link>
-                        <Link href="/encuestas" className="hidden lg:block text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/encuestas" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Encuestas
                         </Link>
                         <Link
                             href="/versus"
-                            className="hidden md:block text-xs hover:text-foreground transition-colors uppercase tracking-wider font-medium"
+                            className="text-[10px] lg:text-xs hover:text-foreground transition-colors uppercase tracking-wider font-medium"
                             style={{ color: "#D4AF37" }}
                         >
                             VS
                         </Link>
+                    </div>
 
-                        {/* ─── Auth Section (Desktop) ─── */}
+                    {/* ─── Auth Section (Desktop lg+) ─── */}
+                    <div className="hidden lg:flex items-center gap-3 w-full xl:w-auto xl:flex-shrink-0 justify-end mt-2 pt-3 border-t border-white/10 xl:border-none xl:mt-0 xl:pt-0 xl:pl-4 xl:ml-2 relative">
+                        {/* Custom vertical divider only visible on XL (1 line layout) */}
+                        <div
+                            className="hidden xl:block absolute left-0 top-1/2 -translate-y-1/2 w-px h-5 bg-[#4DFF83]/40"
+                        />
                         {isAuthenticated ? (
-                            <div className="hidden lg:flex items-center gap-3">
-                                <div
-                                    className="w-px h-5 self-center"
-                                    style={{ backgroundColor: "rgba(77, 255, 131, 1)" }}
-                                />
+                            <>
 
                                 {isAdmin && (
                                     <Link
@@ -163,11 +165,11 @@ export default function NavbarClient() {
                                 >
                                     Salir
                                 </button>
-                            </div>
+                            </>
                         ) : (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="hidden lg:block px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 hover:bg-[#D4AF37]/10"
+                                className="hidden xl:block px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 hover:bg-[#D4AF37]/10"
                                 style={{
                                     background: "rgba(212,175,55,0.05)",
                                     color: "#D4AF37",
@@ -178,9 +180,10 @@ export default function NavbarClient() {
                                 Acceso
                             </button>
                         )}
+                    </div>
 
-                        {/* ─── Hamburger Button (Mobile) ─── */}
-                        <div className="flex lg:hidden items-center gap-3">
+                    {/* ─── Hamburger Button (Mobile < lg) ─── */}
+                    <div className="flex lg:hidden items-center gap-3 ml-auto">
                             {isAuthenticated ? (
                                 <span
                                     className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
@@ -219,34 +222,21 @@ export default function NavbarClient() {
                             </button>
                         </div>
                     </div>
-                </div>
             </nav>
 
             {/* ═══ Mobile Menu Overlay ═══ */}
             {isMobileMenuOpen && (
                 <div 
-                    className="fixed inset-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-xl lg:hidden flex flex-col pt-24 pb-8 px-6 overflow-y-auto w-full min-h-screen"
+                    className="fixed inset-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-xl xl:hidden flex flex-col pt-24 pb-8 px-6 overflow-y-auto w-full min-h-screen"
                 >
-                    <div className="flex flex-col gap-6 text-center mt-6">
-                        <Link href="/entities" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Entidades</Link>
-                        <Link href="/politicos" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Políticos</Link>
-                        <Link href="/empresas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Empresas</Link>
-                        <Link href="/personajes" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Personajes</Link>
-                        <Link href="/events" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Eventos</Link>
-                        <Link href="/encuestas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Encuestas</Link>
-                        <Link href="/versus" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-widest" style={{ color: "#D4AF37" }}>VS</Link>
-                    </div>
-
-                    <div className="w-full h-px bg-white/10 my-8 flex-shrink-0" />
-
-                    <div className="flex flex-col items-center gap-6 mt-auto">
+                    <div className="flex flex-col items-center gap-6 mt-2 mb-4">
                         {isAuthenticated ? (
-                            <>
-                                <div className="text-sm font-mono text-foreground-muted mb-2 text-center w-full break-all px-4">
+                            <div className="w-full max-w-[280px] mx-auto">
+                                <div className="text-sm font-mono text-foreground-muted mb-4 text-center w-full break-all px-4">
                                     {user.email || user.full_name}
                                 </div>
                                 
-                                <div className="flex flex-wrap justify-center gap-4">
+                                <div className="flex flex-wrap justify-center gap-4 mb-6">
                                     {isAdmin && (
                                         <Link
                                             href="/admin"
@@ -268,7 +258,7 @@ export default function NavbarClient() {
                                     )}
                                 </div>
                                 
-                                <div className="flex w-full mt-2 gap-4 justify-center">
+                                <div className="flex w-full gap-4 justify-center">
                                     <Link
                                         href="/profile"
                                         onClick={() => setIsMobileMenuOpen(false)}
@@ -283,11 +273,11 @@ export default function NavbarClient() {
                                         Salir
                                     </button>
                                 </div>
-                            </>
+                            </div>
                         ) : (
                             <button
                                 onClick={() => { setIsModalOpen(true); setIsMobileMenuOpen(false); }}
-                                className="w-full py-4 rounded-xl text-sm font-bold uppercase tracking-widest mt-4 transition-all duration-300 hover:bg-[#D4AF37]/10"
+                                className="w-full max-w-[280px] mx-auto py-4 rounded-xl text-sm font-bold uppercase tracking-widest transition-all duration-300 hover:bg-[#D4AF37]/10"
                                 style={{
                                     background: "rgba(212,175,55,0.05)",
                                     color: "#D4AF37",
@@ -297,6 +287,18 @@ export default function NavbarClient() {
                                 Acceso
                             </button>
                         )}
+                    </div>
+
+                    <div className="w-full h-px bg-white/10 my-6 flex-shrink-0" />
+
+                    <div className="flex flex-col gap-6 text-center mb-auto">
+                        <Link href="/entities" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Entidades</Link>
+                        <Link href="/politicos" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Políticos</Link>
+                        <Link href="/empresas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Empresas</Link>
+                        <Link href="/personajes" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Personajes</Link>
+                        <Link href="/events" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Eventos</Link>
+                        <Link href="/encuestas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Encuestas</Link>
+                        <Link href="/versus" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-widest" style={{ color: "#D4AF37" }}>VS</Link>
                     </div>
                 </div>
             )}
