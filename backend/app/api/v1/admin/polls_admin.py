@@ -12,10 +12,14 @@ Endpoints:
   POST   /admin/polls/upload-image → Subir imagen cabecera al bucket 'encuestas'
 """
 
+import logging
+import uuid
+
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any
-import uuid
+
+logger = logging.getLogger("beacon.polls_admin")
 
 from app.core.database import get_async_supabase_client
 from app.core.audit_logger import audit_bus
@@ -88,9 +92,10 @@ async def admin_upload_poll_image(
         await supabase.storage.from_(POLLS_BUCKET).upload(
             path=filename,
             file=contents,
-            file_options={"content-type": file.content_type, "upsert": "false"},
+            file_options={"content-type": file.content_type, "upsert": False},
         )
     except Exception as e:
+        logger.error(f"Storage upload error | bucket={POLLS_BUCKET} | path={filename} | err={e}")
         raise HTTPException(status_code=500, detail=f"Error subiendo imagen: {e}")
 
     public_url = supabase.storage.from_(POLLS_BUCKET).get_public_url(filename)
@@ -108,7 +113,7 @@ async def admin_list_polls(admin: dict = Depends(require_admin_role)):
         .order("created_at", desc=True)
         .execute()
     )
-    return {"polls": result.data, "total": len(result.data)}
+    return {"items": result.data, "total": len(result.data)}
 
 
 @router.post("", summary="[ADMIN] Crear encuesta", status_code=201)
