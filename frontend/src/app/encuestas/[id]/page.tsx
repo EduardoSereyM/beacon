@@ -1,12 +1,7 @@
 /**
  * BEACON PROTOCOL — /encuestas/[id]
  * ====================================
- * Detalle de encuesta: imagen, preguntas (multi-pregunta desde JSONB),
- * votación y QR compartible.
- *
- * Endpoints reales:
- *   GET  /api/v1/polls/{id}       → detalle + resultados
- *   POST /api/v1/polls/{id}/vote  → votar con { option_value: string }
+ * Detalle de encuesta con imagen, multi-pregunta, votación, QR inline y share social.
  */
 
 "use client";
@@ -14,7 +9,7 @@
 import { use, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import ShareQR from "@/components/shared/ShareQR";
+import QRCode from "react-qr-code";
 import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 
@@ -53,7 +48,7 @@ interface Poll {
   is_open: boolean;
   total_votes: number;
   results: PollResult[];
-  questions: QuestionDef[] | null; // JSONB con multi-pregunta
+  questions: QuestionDef[] | null;
 }
 
 interface EncuestaPageProps {
@@ -62,348 +57,218 @@ interface EncuestaPageProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("es-CL", {
+function formatDateHour(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleString("es-CL", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
-// ─── Componente votación multi-pregunta ───────────────────────────────────────
+// ─── Share Social ─────────────────────────────────────────────────────────────
 
-function MultiQuestionForm({
-  questions,
-  onSubmit,
-  submitting,
-}: {
-  questions: QuestionDef[];
-  onSubmit: (answers: Record<string, string>) => void;
-  submitting: boolean;
-}) {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [localError, setLocalError] = useState<string | null>(null);
+function SocialShareBar({ url, title }: { url: string; title: string }) {
+  const [copied, setCopied] = useState(false);
+  const text = encodeURIComponent(`${title} — Encuesta BEACON`);
+  const encUrl = encodeURIComponent(url);
 
-  const setOption = (qid: string, val: string) =>
-    setAnswers((p) => ({ ...p, [qid]: val }));
+  const networks = [
+    {
+      id: "whatsapp",
+      label: "WhatsApp",
+      icon: "💬",
+      color: "#25D366",
+      href: `https://wa.me/?text=${text}%20${encUrl}`,
+    },
+    {
+      id: "twitter",
+      label: "X",
+      icon: "𝕏",
+      color: "#fff",
+      href: `https://twitter.com/intent/tweet?text=${text}&url=${encUrl}`,
+    },
+    {
+      id: "telegram",
+      label: "Telegram",
+      icon: "✈️",
+      color: "#229ED9",
+      href: `https://t.me/share/url?url=${encUrl}&text=${text}`,
+    },
+    {
+      id: "facebook",
+      label: "Facebook",
+      icon: "f",
+      color: "#1877F2",
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encUrl}`,
+    },
+    {
+      id: "instagram",
+      label: "Instagram",
+      icon: "📸",
+      color: "#E1306C",
+      href: null, // no direct share — solo copy
+    },
+    {
+      id: "tiktok",
+      label: "TikTok",
+      icon: "♪",
+      color: "#EE1D52",
+      href: null, // no direct share — solo copy
+    },
+  ];
 
-  function handleSubmit() {
-    const missing = questions.find((q) => !answers[q.id]);
-    if (missing) {
-      setLocalError(`Responde: "${missing.text}"`);
-      return;
-    }
-    setLocalError(null);
-    onSubmit(answers);
+  function copyLink() {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
 
   return (
     <div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 20 }}>
-        {questions.map((q, idx) => (
-          <div
-            key={q.id}
-            style={{
-              borderRadius: 12,
-              padding: "16px 18px",
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 9,
-                fontFamily: "monospace",
-                color: "rgba(255,255,255,0.3)",
-                textTransform: "uppercase",
-                marginBottom: 6,
-              }}
-            >
-              Pregunta {idx + 1}
-            </p>
-            <p style={{ fontSize: 13, fontWeight: 600, color: "#f5f5f5", marginBottom: 14 }}>
-              {q.text}
-            </p>
-
-            {/* Opciones múltiple */}
-            {q.type === "multiple_choice" && q.options && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {q.options.map((opt) => {
-                  const sel = answers[q.id] === opt;
-                  return (
-                    <button
-                      key={opt}
-                      onClick={() => setOption(q.id, opt)}
-                      style={{
-                        textAlign: "left",
-                        padding: "10px 14px",
-                        borderRadius: 10,
-                        fontSize: 12,
-                        border: `1px solid ${sel ? "rgba(212,175,55,0.5)" : "rgba(255,255,255,0.07)"}`,
-                        background: sel ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.02)",
-                        color: sel ? "#D4AF37" : "#f5f5f5",
-                        cursor: "pointer",
-                        transition: "all 0.15s",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      {sel && <span style={{ fontSize: 10, color: "#D4AF37" }}>✓</span>}
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Escala numérica */}
-            {q.type === "scale" && (
-              <div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {Array.from(
-                    { length: (q.scale_max ?? 5) - (q.scale_min ?? 1) + 1 },
-                    (_, i) => (q.scale_min ?? 1) + i
-                  ).map((n) => {
-                    const sel = answers[q.id] === String(n);
-                    return (
-                      <button
-                        key={n}
-                        onClick={() => setOption(q.id, String(n))}
-                        style={{
-                          width: 42,
-                          height: 42,
-                          borderRadius: 8,
-                          border: `1px solid ${sel ? "rgba(57,255,20,0.5)" : "rgba(255,255,255,0.08)"}`,
-                          background: sel ? "rgba(57,255,20,0.15)" : "rgba(255,255,255,0.02)",
-                          color: sel ? "#39FF14" : "rgba(255,255,255,0.5)",
-                          fontSize: 13,
-                          fontFamily: "monospace",
-                          fontWeight: sel ? 700 : 400,
-                          cursor: "pointer",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {n}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                  <span
-                    style={{
-                      fontSize: 9,
-                      fontFamily: "monospace",
-                      color: "rgba(255,255,255,0.3)",
-                    }}
-                  >
-                    {q.scale_min ?? 1} — Mínimo
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 9,
-                      fontFamily: "monospace",
-                      color: "rgba(255,255,255,0.3)",
-                    }}
-                  >
-                    Máximo — {q.scale_max ?? 5}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {localError && (
-        <div
-          style={{
-            borderRadius: 8,
-            padding: "10px 14px",
-            fontSize: 11,
-            fontFamily: "monospace",
-            color: "#FF073A",
-            background: "rgba(255,7,58,0.07)",
-            border: "1px solid rgba(255,7,58,0.2)",
-            marginBottom: 14,
-          }}
-        >
-          {localError}
-        </div>
-      )}
-
-      <button
-        onClick={handleSubmit}
-        disabled={submitting}
+      <p
         style={{
-          width: "100%",
-          padding: "12px 0",
-          borderRadius: 12,
-          fontSize: 12,
+          fontSize: 9,
           fontFamily: "monospace",
-          fontWeight: 700,
+          color: "rgba(255,255,255,0.3)",
           textTransform: "uppercase",
           letterSpacing: "0.1em",
-          border: "none",
-          background: submitting
-            ? "rgba(212,175,55,0.3)"
-            : "linear-gradient(135deg, #D4AF37, #B8860B)",
-          color: "#0A0A0A",
-          cursor: submitting ? "not-allowed" : "pointer",
-          transition: "all 0.2s",
-          opacity: submitting ? 0.7 : 1,
+          marginBottom: 10,
         }}
       >
-        {submitting ? "Enviando…" : "Enviar respuesta"}
-      </button>
+        Compartir en
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        {networks.map((n) =>
+          n.href ? (
+            <a
+              key={n.id}
+              href={n.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={n.label}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: `${n.color}18`,
+                border: `1px solid ${n.color}40`,
+                color: n.color,
+                fontSize: n.id === "twitter" ? 14 : 16,
+                fontWeight: 800,
+                textDecoration: "none",
+                transition: "transform 0.15s, background 0.15s",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.background = `${n.color}30`;
+                (e.currentTarget as HTMLAnchorElement).style.transform = "scale(1.1)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.background = `${n.color}18`;
+                (e.currentTarget as HTMLAnchorElement).style.transform = "scale(1)";
+              }}
+            >
+              {n.icon}
+            </a>
+          ) : (
+            /* Instagram / TikTok → copiar link con tooltip */
+            <button
+              key={n.id}
+              onClick={copyLink}
+              title={`${n.label} — Copia el link y pégalo en ${n.label}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: `${n.color}18`,
+                border: `1px solid ${n.color}40`,
+                color: n.color,
+                fontSize: 16,
+                cursor: "pointer",
+                transition: "transform 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.1)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+              }}
+            >
+              {n.icon}
+            </button>
+          )
+        )}
+
+        {/* Copy URL */}
+        <button
+          onClick={copyLink}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            height: 36,
+            padding: "0 12px",
+            borderRadius: 10,
+            fontSize: 10,
+            fontFamily: "monospace",
+            fontWeight: 700,
+            background: copied ? "rgba(57,255,20,0.15)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${copied ? "rgba(57,255,20,0.4)" : "rgba(255,255,255,0.12)"}`,
+            color: copied ? "#39FF14" : "rgba(255,255,255,0.5)",
+            cursor: "pointer",
+            transition: "all 0.2s",
+          }}
+        >
+          {copied ? "✓ Copiado" : "🔗 Copiar link"}
+        </button>
+      </div>
     </div>
   );
 }
 
-// ─── Componente votación simple (legacy single-question) ──────────────────────
+// ─── QR inline ────────────────────────────────────────────────────────────────
 
-function SingleQuestionVote({
-  poll,
-  onVote,
-  voting,
-}: {
-  poll: Poll;
-  onVote: (val: string) => void;
-  voting: boolean;
-}) {
-  const [scaleVal, setScaleVal] = useState(poll.scale_min ?? 1);
-
-  if (poll.poll_type === "multiple_choice") {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {(poll.options || []).map((opt) => (
-          <button
-            key={opt}
-            onClick={() => onVote(opt)}
-            disabled={voting}
-            style={{
-              textAlign: "left",
-              padding: "11px 14px",
-              borderRadius: 10,
-              fontSize: 12,
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.02)",
-              color: "#f5f5f5",
-              cursor: voting ? "not-allowed" : "pointer",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              if (!voting)
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "rgba(212,175,55,0.4)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor =
-                "rgba(255,255,255,0.08)";
-            }}
-          >
-            {opt}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
+function InlineQR({ url }: { url: string }) {
   return (
-    <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-        {Array.from(
-          { length: (poll.scale_max ?? 5) - (poll.scale_min ?? 1) + 1 },
-          (_, i) => (poll.scale_min ?? 1) + i
-        ).map((n) => (
-          <button
-            key={n}
-            onClick={() => setScaleVal(n)}
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 8,
-              border: `1px solid ${scaleVal === n ? "rgba(57,255,20,0.5)" : "rgba(255,255,255,0.08)"}`,
-              background:
-                scaleVal === n ? "rgba(57,255,20,0.15)" : "rgba(255,255,255,0.02)",
-              color: scaleVal === n ? "#39FF14" : "rgba(255,255,255,0.5)",
-              fontSize: 13,
-              fontFamily: "monospace",
-              fontWeight: scaleVal === n ? 700 : 400,
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      <button
-        onClick={() => onVote(String(scaleVal))}
-        disabled={voting}
-        style={{
-          padding: "10px 24px",
-          borderRadius: 10,
-          fontSize: 11,
-          fontFamily: "monospace",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-          border: "1px solid rgba(57,255,20,0.4)",
-          background: "rgba(57,255,20,0.08)",
-          color: "#39FF14",
-          cursor: voting ? "not-allowed" : "pointer",
-        }}
-      >
-        {voting ? "…" : `Votar ${scaleVal}`}
-      </button>
+    <div
+      style={{
+        padding: 8,
+        background: "#fff",
+        borderRadius: 10,
+        display: "inline-flex",
+        lineHeight: 0,
+      }}
+    >
+      <QRCode value={url} size={72} level="M" />
     </div>
   );
 }
 
 // ─── Resultados ───────────────────────────────────────────────────────────────
 
-function PollResults({
-  poll,
-  userVote,
-}: {
-  poll: Poll;
-  userVote: string | null;
-}) {
+function PollResults({ poll, userVote }: { poll: Poll; userVote: string | null }) {
   if (poll.poll_type === "scale") {
     const r = poll.results[0];
     return (
       <div style={{ textAlign: "center", padding: "20px 0" }}>
-        <p
-          style={{
-            fontSize: 48,
-            fontFamily: "monospace",
-            fontWeight: 900,
-            color: "#00E5FF",
-            lineHeight: 1,
-          }}
-        >
+        <p style={{ fontSize: 52, fontFamily: "monospace", fontWeight: 900, color: "#00E5FF", lineHeight: 1 }}>
           {r?.average ?? "–"}
         </p>
-        <p
-          style={{
-            fontSize: 10,
-            fontFamily: "monospace",
-            color: "rgba(255,255,255,0.3)",
-            marginTop: 6,
-          }}
-        >
+        <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", marginTop: 6 }}>
           promedio · {r?.count ?? 0} votos
         </p>
         {userVote && (
-          <p
-            style={{
-              fontSize: 11,
-              fontFamily: "monospace",
-              color: "#39FF14",
-              marginTop: 10,
-            }}
-          >
+          <p style={{ fontSize: 11, fontFamily: "monospace", color: "#39FF14", marginTop: 10 }}>
             Tu voto: {userVote} ✓
           </p>
         )}
@@ -422,68 +287,197 @@ function PollResults({
             style={{
               position: "relative",
               overflow: "hidden",
-              padding: "10px 14px",
-              borderRadius: 10,
-              border: `1px solid ${isUser ? "rgba(0,229,255,0.4)" : "rgba(255,255,255,0.07)"}`,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: `1px solid ${isUser ? "rgba(212,175,55,0.5)" : "rgba(255,255,255,0.07)"}`,
               background: "rgba(255,255,255,0.02)",
             }}
           >
             <div
               style={{
                 position: "absolute",
-                left: 0,
-                top: 0,
+                left: 0, top: 0,
                 height: "100%",
                 width: `${pct}%`,
-                background: isUser
-                  ? "rgba(0,229,255,0.1)"
-                  : "rgba(255,255,255,0.04)",
-                transition: "width 0.6s ease",
+                background: isUser ? "rgba(212,175,55,0.12)" : "rgba(255,255,255,0.04)",
+                transition: "width 0.7s ease",
+                borderRadius: 12,
               }}
             />
-            <div
-              style={{
-                position: "relative",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 12,
-                  color: isUser ? "#00E5FF" : "#f5f5f5",
-                  fontWeight: isUser ? 600 : 400,
-                }}
-              >
-                {isUser && "✓ "}
-                {r.option}
+            <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: isUser ? "#D4AF37" : "#f5f5f5", fontWeight: isUser ? 700 : 400 }}>
+                {isUser && "✓ "}{r.option}
               </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontFamily: "monospace",
-                  color: isUser ? "#00E5FF" : "rgba(255,255,255,0.3)",
-                  fontWeight: isUser ? 700 : 400,
-                }}
-              >
+              <span style={{ fontSize: 12, fontFamily: "monospace", color: isUser ? "#D4AF37" : "rgba(255,255,255,0.3)", fontWeight: isUser ? 700 : 400 }}>
                 {pct}%
               </span>
             </div>
           </div>
         );
       })}
-      <p
-        style={{
-          fontSize: 9,
-          fontFamily: "monospace",
-          color: "rgba(255,255,255,0.2)",
-          textAlign: "right",
-          marginTop: 4,
-        }}
-      >
+      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 4 }}>
         {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"}
       </p>
+    </div>
+  );
+}
+
+// ─── Formulario multi-pregunta ────────────────────────────────────────────────
+
+function MultiQuestionForm({ questions, onSubmit, submitting }: {
+  questions: QuestionDef[];
+  onSubmit: (answers: Record<string, string>) => void;
+  submitting: boolean;
+}) {
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [localError, setLocalError] = useState<string | null>(null);
+  const sorted = [...questions].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+  const total = sorted.length;
+  const answered = sorted.filter((q) => answers[q.id]).length;
+
+  function handleSubmit() {
+    const missing = sorted.find((q) => !answers[q.id]);
+    if (missing) { setLocalError(`Responde: "${missing.text}"`); return; }
+    setLocalError(null);
+    onSubmit(answers);
+  }
+
+  return (
+    <div>
+      {/* Progress */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2 }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${total > 0 ? (answered / total) * 100 : 0}%`,
+              background: "linear-gradient(90deg, #D4AF37, #39FF14)",
+              borderRadius: 2,
+              transition: "width 0.4s ease",
+            }}
+          />
+        </div>
+        <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>
+          {answered}/{total}
+        </span>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 20 }}>
+        {sorted.map((q, idx) => (
+          <div key={q.id} style={{ borderRadius: 14, padding: "18px 20px", background: "rgba(255,255,255,0.025)", border: `1px solid ${answers[q.id] ? "rgba(212,175,55,0.2)" : "rgba(255,255,255,0.06)"}`, transition: "border-color 0.2s" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
+              <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", paddingTop: 1, minWidth: 20 }}>
+                {String(idx + 1).padStart(2, "0")}
+              </span>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#f5f5f5", lineHeight: 1.5 }}>{q.text}</p>
+            </div>
+
+            {q.type === "multiple_choice" && q.options && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 30 }}>
+                {q.options.map((opt) => {
+                  const sel = answers[q.id] === opt;
+                  return (
+                    <button key={opt} onClick={() => setAnswers((p) => ({ ...p, [q.id]: opt }))}
+                      style={{ textAlign: "left", padding: "10px 14px", borderRadius: 10, fontSize: 12, border: `1px solid ${sel ? "rgba(212,175,55,0.6)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(212,175,55,0.12)" : "rgba(255,255,255,0.02)", color: sel ? "#D4AF37" : "#e0e0e0", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8, fontWeight: sel ? 600 : 400 }}>
+                      <span style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${sel ? "#D4AF37" : "rgba(255,255,255,0.2)"}`, background: sel ? "#D4AF37" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 8, color: "#000" }}>
+                        {sel && "✓"}
+                      </span>
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {q.type === "scale" && (
+              <div style={{ paddingLeft: 30 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  {Array.from({ length: (q.scale_max ?? 5) - (q.scale_min ?? 1) + 1 }, (_, i) => (q.scale_min ?? 1) + i).map((n) => {
+                    const sel = answers[q.id] === String(n);
+                    return (
+                      <button key={n} onClick={() => setAnswers((p) => ({ ...p, [q.id]: String(n) }))}
+                        style={{ width: 44, height: 44, borderRadius: 10, border: `1.5px solid ${sel ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(57,255,20,0.18)" : "rgba(255,255,255,0.02)", color: sel ? "#39FF14" : "rgba(255,255,255,0.5)", fontSize: 14, fontFamily: "monospace", fontWeight: sel ? 800 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                        {n}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>{q.scale_min ?? 1} — Mín</span>
+                  <span style={{ fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>Máx — {q.scale_max ?? 5}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {localError && (
+        <div style={{ borderRadius: 8, padding: "10px 14px", fontSize: 11, fontFamily: "monospace", color: "#FF073A", background: "rgba(255,7,58,0.07)", border: "1px solid rgba(255,7,58,0.2)", marginBottom: 14 }}>
+          {localError}
+        </div>
+      )}
+
+      <button onClick={handleSubmit} disabled={submitting || answered < total}
+        style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 13, fontFamily: "monospace", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", border: "none", background: answered < total ? "rgba(255,255,255,0.06)" : submitting ? "rgba(212,175,55,0.4)" : "linear-gradient(135deg, #D4AF37 0%, #F5C842 50%, #B8860B 100%)", color: answered < total ? "rgba(255,255,255,0.3)" : "#0A0A0A", cursor: answered < total ? "not-allowed" : submitting ? "wait" : "pointer", transition: "all 0.2s", boxShadow: answered >= total && !submitting ? "0 4px 24px rgba(212,175,55,0.3)" : "none" }}>
+        {submitting ? "Enviando…" : answered < total ? `Completa ${total - answered} pregunta${total - answered !== 1 ? "s" : ""} más` : "Enviar respuesta →"}
+      </button>
+    </div>
+  );
+}
+
+// ─── Votación single-question ─────────────────────────────────────────────────
+
+function SingleQuestionVote({ poll, onVote, voting }: { poll: Poll; onVote: (v: string) => void; voting: boolean }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [scaleVal, setScaleVal] = useState(poll.scale_min ?? 1);
+
+  if (poll.poll_type === "multiple_choice") {
+    return (
+      <div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+          {(poll.options || []).map((opt) => {
+            const sel = selected === opt;
+            return (
+              <button key={opt} onClick={() => setSelected(opt)} disabled={voting}
+                style={{ textAlign: "left", padding: "12px 16px", borderRadius: 12, fontSize: 13, border: `1.5px solid ${sel ? "rgba(212,175,55,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.02)", color: sel ? "#D4AF37" : "#e0e0e0", cursor: voting ? "not-allowed" : "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 10, fontWeight: sel ? 600 : 400 }}>
+                <span style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${sel ? "#D4AF37" : "rgba(255,255,255,0.2)"}`, background: sel ? "#D4AF37" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 9, color: "#000" }}>
+                  {sel && "✓"}
+                </span>
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={() => selected && onVote(selected)} disabled={!selected || voting}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 13, fontFamily: "monospace", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", border: "none", background: !selected ? "rgba(255,255,255,0.05)" : voting ? "rgba(212,175,55,0.4)" : "linear-gradient(135deg, #D4AF37 0%, #F5C842 50%, #B8860B 100%)", color: !selected ? "rgba(255,255,255,0.25)" : "#0A0A0A", cursor: !selected || voting ? "not-allowed" : "pointer", transition: "all 0.2s", boxShadow: selected && !voting ? "0 4px 24px rgba(212,175,55,0.3)" : "none" }}>
+          {voting ? "Enviando…" : selected ? "Confirmar voto →" : "Selecciona una opción"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+        {Array.from({ length: (poll.scale_max ?? 5) - (poll.scale_min ?? 1) + 1 }, (_, i) => (poll.scale_min ?? 1) + i).map((n) => {
+          const sel = scaleVal === n;
+          return (
+            <button key={n} onClick={() => setScaleVal(n)}
+              style={{ width: 46, height: 46, borderRadius: 10, border: `1.5px solid ${sel ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(57,255,20,0.18)" : "rgba(255,255,255,0.02)", color: sel ? "#39FF14" : "rgba(255,255,255,0.5)", fontSize: 15, fontFamily: "monospace", fontWeight: sel ? 800 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+              {n}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+        <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>{poll.scale_min ?? 1} — Mínimo</span>
+        <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>Máximo — {poll.scale_max ?? 5}</span>
+      </div>
+      <button onClick={() => onVote(String(scaleVal))} disabled={voting}
+        style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 13, fontFamily: "monospace", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", border: "none", background: voting ? "rgba(57,255,20,0.3)" : "linear-gradient(135deg, #39FF14 0%, #00E5FF 100%)", color: "#0A0A0A", cursor: voting ? "wait" : "pointer", transition: "all 0.2s", boxShadow: !voting ? "0 4px 24px rgba(57,255,20,0.25)" : "none" }}>
+        {voting ? "Enviando…" : `Votar ${scaleVal} →`}
+      </button>
     </div>
   );
 }
@@ -497,25 +491,14 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-
   const [voted, setVoted] = useState(false);
   const [userVote, setUserVote] = useState<string | null>(null);
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState(false);
 
-  // Efecto Kahoot — actualizar resultados en tiempo real post-voto
   useBeaconPulse(`poll:${id}`, (data) => {
-    if (data.type === "POLL_PULSE" && poll && voted) {
-      setPoll((p) =>
-        p
-          ? {
-              ...p,
-              results: data.results as PollResult[],
-              total_votes: data.total_votes as number,
-            }
-          : p
-      );
+    if (data.type === "POLL_PULSE" && voted) {
+      setPoll((p) => p ? { ...p, results: data.results as PollResult[], total_votes: data.total_votes as number } : p);
     }
   });
 
@@ -524,513 +507,212 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
     setNotFound(false);
     try {
       const res = await fetch(`${API_URL}/api/v1/polls/${id}`);
-      if (res.status === 404) {
-        setNotFound(true);
-        return;
-      }
+      if (res.status === 404) { setNotFound(true); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setPoll(data);
-    } catch {
-      setNotFound(true);
-    } finally {
-      setLoading(false);
-    }
+      setPoll(await res.json());
+    } catch { setNotFound(true); }
+    finally { setLoading(false); }
   }, [id]);
 
-  useEffect(() => {
-    fetchPoll();
-  }, [fetchPoll]);
+  useEffect(() => { fetchPoll(); }, [fetchPoll]);
 
-  // ── Voto único (single-question) ──────────────────────────────
-  async function handleSingleVote(optionValue: string) {
-    if (!token) {
-      setError("Debes iniciar sesión para votar.");
-      return;
-    }
-    setVoting(true);
-    setError(null);
+  async function doVote(optionValue: string) {
+    if (!token) { setError("Debes iniciar sesión para votar."); return; }
+    setVoting(true); setError(null);
     try {
       const res = await fetch(`${API_URL}/api/v1/polls/${id}/vote`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ option_value: optionValue }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Error al votar");
       setUserVote(optionValue);
       setVoted(true);
-      setSuccessMsg(true);
-      await fetchPoll(); // refrescar resultados
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al votar");
-    } finally {
-      setVoting(false);
-    }
-  }
-
-  // ── Voto multi-pregunta ────────────────────────────────────────
-  // Para multi-pregunta, se vota solo la primera pregunta (backend actual).
-  async function handleMultiVote(answers: Record<string, string>) {
-    if (!token) {
-      setError("Debes iniciar sesión para votar.");
-      return;
-    }
-    if (!poll?.questions?.length) return;
-
-    // Votar con la respuesta de la primera pregunta
-    const firstQ = poll.questions.sort(
-      (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
-    )[0];
-    const optionValue = answers[firstQ.id];
-    if (!optionValue) return;
-
-    setVoting(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/polls/${id}/vote`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ option_value: optionValue }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Error al votar");
-      setUserVote(optionValue);
-      setVoted(true);
-      setSuccessMsg(true);
       await fetchPoll();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al votar");
-    } finally {
-      setVoting(false);
-    }
+    } finally { setVoting(false); }
   }
 
-  // ─── Render states ────────────────────────────────────────────────────────────
+  async function handleMultiVote(answers: Record<string, string>) {
+    if (!poll?.questions?.length) return;
+    const firstQ = [...poll.questions].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))[0];
+    await doVote(answers[firstQ.id]);
+  }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p
-          style={{
-            fontSize: 11,
-            fontFamily: "monospace",
-            color: "rgba(255,255,255,0.3)",
-          }}
-          className="animate-pulse"
-        >
-          Cargando encuesta…
-        </p>
+  // ── Render states ──────────────────────────────────────────────────────────
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }} className="animate-pulse">
+        Cargando encuesta…
+      </p>
+    </div>
+  );
+
+  if (notFound || !poll) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-4xl mb-4">📊</p>
+        <p className="text-sm mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>Encuesta no encontrada.</p>
+        <Link href="/encuestas" style={{ fontSize: 11, fontFamily: "monospace", color: "#00E5FF" }}>← Volver</Link>
       </div>
-    );
-  }
-
-  if (notFound || !poll) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-4xl mb-4">📊</p>
-          <p className="text-sm mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Encuesta no encontrada o inactiva.
-          </p>
-          <Link
-            href="/encuestas"
-            style={{ fontSize: 11, fontFamily: "monospace", color: "#00E5FF" }}
-          >
-            ← Volver a encuestas
-          </Link>
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   const hasMultiQ = (poll.questions?.length ?? 0) > 1;
-  const pageUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/encuestas/${id}`
-      : `https://www.beaconchile.cl/encuestas/${id}`;
+  const pageUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/encuestas/${id}`
+    : `https://www.beaconchile.cl/encuestas/${id}`;
 
   return (
-    <div className="min-h-screen pt-20 pb-16 px-6">
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
+    <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6">
+      <div style={{ maxWidth: 660, margin: "0 auto" }}>
 
-        {/* Breadcrumb */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 20,
-          }}
-        >
-          <Link
-            href="/encuestas"
-            style={{
-              fontSize: 11,
-              fontFamily: "monospace",
-              color: "rgba(255,255,255,0.4)",
-              textDecoration: "none",
-            }}
-          >
+        {/* ── Breadcrumb ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+          <Link href="/encuestas" style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.35)", textDecoration: "none" }}>
             ← Encuestas
           </Link>
-          <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>/</span>
-          <span
-            style={{
-              fontSize: 10,
-              fontFamily: "monospace",
-              color: "#39FF14",
-              letterSpacing: "0.08em",
-            }}
-          >
+          <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 11 }}>/</span>
+          <span style={{ fontSize: 10, fontFamily: "monospace", color: "#39FF14", letterSpacing: "0.08em" }}>
             POLL:{id.slice(0, 8).toUpperCase()}
           </span>
-          <div style={{ marginLeft: "auto" }}>
-            <ShareQR url={pageUrl} title={poll.title} label="Compartir" />
-          </div>
         </div>
 
-        {/* Card principal */}
-        <div
-          style={{
-            borderRadius: 20,
-            overflow: "hidden",
-            border: `1px solid ${poll.is_open ? "rgba(57,255,20,0.15)" : "rgba(255,255,255,0.08)"}`,
-            background: "rgba(17,17,17,0.9)",
-          }}
-        >
+        {/* ── Card ── */}
+        <div style={{ borderRadius: 24, overflow: "hidden", border: `1px solid ${poll.is_open ? "rgba(57,255,20,0.15)" : "rgba(255,255,255,0.08)"}`, background: "rgba(14,14,14,0.95)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}>
+
           {/* Imagen cabecera */}
-          {poll.header_image && (
-            <div className="relative w-full" style={{ height: 220 }}>
-              <Image
-                src={poll.header_image}
-                alt={poll.title}
-                fill
-                className="object-cover"
-                sizes="640px"
-                priority
-              />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to bottom, transparent 30%, rgba(10,10,10,0.92))",
-                }}
-              />
-              {/* Estado sobre imagen */}
-              <div className="absolute bottom-4 left-5">
+          {poll.header_image ? (
+            <div className="relative w-full" style={{ height: 260 }}>
+              <Image src={poll.header_image} alt={poll.title} fill className="object-cover" sizes="660px" priority />
+              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(14,14,14,0.97) 85%)" }} />
+
+              {/* Header overlay: badges + QR + share */}
+              <div className="absolute inset-x-0 bottom-0 p-5" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  {/* Status */}
+                  {poll.is_open ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontFamily: "monospace", color: "#39FF14", background: "rgba(0,0,0,0.7)", padding: "3px 12px", borderRadius: 20, border: "1px solid rgba(57,255,20,0.35)", backdropFilter: "blur(8px)" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#39FF14", display: "inline-block", animation: "pulse 2s infinite" }} />
+                      ABIERTA
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.5)", background: "rgba(0,0,0,0.7)", padding: "3px 12px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.12)" }}>
+                      CERRADA
+                    </span>
+                  )}
+                </div>
+                {/* QR pequeño */}
+                <div style={{ padding: 6, background: "#fff", borderRadius: 10, display: "inline-flex", lineHeight: 0, boxShadow: "0 2px 16px rgba(0,0,0,0.5)", flexShrink: 0 }}>
+                  <QRCode value={pageUrl} size={64} level="M" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Sin imagen: header con gradiente */
+            <div style={{ padding: "28px 28px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <div>
                 {poll.is_open ? (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      fontSize: 10,
-                      fontFamily: "monospace",
-                      color: "#39FF14",
-                      background: "rgba(0,0,0,0.7)",
-                      padding: "3px 12px",
-                      borderRadius: 20,
-                      border: "1px solid rgba(57,255,20,0.3)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        background: "#39FF14",
-                        display: "inline-block",
-                      }}
-                    />
-                    ABIERTA · cierra {formatDate(poll.ends_at)}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontFamily: "monospace", color: "#39FF14" }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#39FF14", display: "inline-block" }} />
+                    ABIERTA
                   </span>
                 ) : (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontFamily: "monospace",
-                      color: "rgba(255,255,255,0.5)",
-                      background: "rgba(0,0,0,0.7)",
-                      padding: "3px 12px",
-                      borderRadius: 20,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                    }}
-                  >
-                    CERRADA
-                  </span>
+                  <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>CERRADA</span>
                 )}
               </div>
+              <InlineQR url={pageUrl} />
             </div>
           )}
 
-          <div style={{ padding: "24px 28px 28px" }}>
-            {/* Título + descripción */}
-            <h1
-              style={{
-                fontSize: 20,
-                fontWeight: 800,
-                color: "#f5f5f5",
-                marginBottom: 8,
-                lineHeight: 1.3,
-              }}
-            >
+          <div style={{ padding: "22px 28px 30px" }}>
+            {/* Título */}
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: "#f5f5f5", marginBottom: 8, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
               {poll.title}
             </h1>
             {poll.description && (
-              <p
-                style={{
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.45)",
-                  marginBottom: 8,
-                  lineHeight: 1.6,
-                }}
-              >
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginBottom: 6, lineHeight: 1.6 }}>
                 {poll.description}
               </p>
             )}
-            {!poll.header_image && (
-              <div style={{ marginBottom: 12 }}>
-                {poll.is_open ? (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      fontSize: 10,
-                      fontFamily: "monospace",
-                      color: "#39FF14",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        background: "#39FF14",
-                        display: "inline-block",
-                      }}
-                    />
-                    ABIERTA · cierra {formatDate(poll.ends_at)}
-                  </span>
-                ) : (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontFamily: "monospace",
-                      color: "rgba(255,255,255,0.3)",
-                    }}
-                  >
-                    Cerrada · {formatDate(poll.ends_at)}
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Fecha con hora */}
+            <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", marginBottom: 16 }}>
+              {poll.is_open ? "⏳ Cierra" : "🔒 Cerró"} el {formatDateHour(poll.ends_at)} hrs
+            </p>
+
+            {/* Share social */}
+            <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <SocialShareBar url={pageUrl} title={poll.title} />
+            </div>
 
             {/* Divisor */}
-            <div
-              style={{
-                height: 1,
-                background: "rgba(255,255,255,0.06)",
-                margin: "16px 0",
-              }}
-            />
+            <div style={{ height: 1, background: "rgba(255,255,255,0.06)", marginBottom: 22 }} />
 
-            {/* ── Estado: ya votó ── */}
-            {voted && successMsg ? (
+            {/* ── Contenido de votación ── */}
+            {voted ? (
               <div>
-                <div
-                  style={{
-                    borderRadius: 14,
-                    padding: "20px 24px",
-                    textAlign: "center",
-                    background: "rgba(57,255,20,0.05)",
-                    border: "1px solid rgba(57,255,20,0.2)",
-                    marginBottom: 20,
-                  }}
-                >
-                  <p style={{ fontSize: 28, marginBottom: 8 }}>✅</p>
-                  <p
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: "#39FF14",
-                      marginBottom: 4,
-                    }}
-                  >
-                    ¡Gracias por participar!
-                  </p>
-                  <p
-                    style={{
-                      fontSize: 10,
-                      fontFamily: "monospace",
-                      color: "rgba(255,255,255,0.3)",
-                    }}
-                  >
+                <div style={{ borderRadius: 16, padding: "22px 24px", textAlign: "center", background: "rgba(57,255,20,0.05)", border: "1px solid rgba(57,255,20,0.2)", marginBottom: 20 }}>
+                  <p style={{ fontSize: 32, marginBottom: 10 }}>✅</p>
+                  <p style={{ fontSize: 15, fontWeight: 800, color: "#39FF14", marginBottom: 4 }}>¡Gracias por participar!</p>
+                  <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
                     Tu respuesta fue registrada con ponderación por integridad.
                   </p>
                 </div>
-                {/* Mostrar resultados post-voto */}
                 <PollResults poll={poll} userVote={userVote} />
               </div>
             ) : !poll.is_open ? (
-              /* ── Cerrada: solo resultados ── */
               <div>
-                <p
-                  style={{
-                    fontSize: 11,
-                    fontFamily: "monospace",
-                    color: "rgba(255,255,255,0.3)",
-                    marginBottom: 16,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                  }}
-                >
+                <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 16 }}>
                   Resultados finales
                 </p>
                 <PollResults poll={poll} userVote={null} />
               </div>
             ) : !token ? (
-              /* ── Sin sesión ── */
-              <div
-                style={{
-                  borderRadius: 12,
-                  padding: "16px 20px",
-                  background: "rgba(0,229,255,0.04)",
-                  border: "1px solid rgba(0,229,255,0.12)",
-                  textAlign: "center",
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 12,
-                    color: "#00E5FF",
-                    fontFamily: "monospace",
-                    marginBottom: 4,
-                  }}
-                >
+              <div style={{ borderRadius: 14, padding: "20px 22px", background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)", textAlign: "center" }}>
+                <p style={{ fontSize: 13, color: "#00E5FF", fontFamily: "monospace", marginBottom: 6 }}>
                   Inicia sesión para participar
                 </p>
-                <p
-                  style={{
-                    fontSize: 10,
-                    color: "rgba(255,255,255,0.3)",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  Tu voto se pondera por tu rango BASIC (0.5×) o VERIFIED (1.0×)
+                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>
+                  Tu voto se pondera: BASIC 0.5× · VERIFIED 1.0×
                 </p>
               </div>
             ) : hasMultiQ ? (
-              /* ── Multi-pregunta ── */
               <div>
-                <p
-                  style={{
-                    fontSize: 9,
-                    fontFamily: "monospace",
-                    color: "rgba(255,255,255,0.3)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    marginBottom: 14,
-                  }}
-                >
-                  {poll.questions!.length} preguntas
-                </p>
                 <MultiQuestionForm
-                  questions={poll.questions!.sort(
-                    (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
-                  )}
+                  questions={poll.questions!}
                   onSubmit={handleMultiVote}
                   submitting={voting}
                 />
                 {error && (
-                  <p
-                    style={{
-                      fontSize: 11,
-                      fontFamily: "monospace",
-                      color: "#FF073A",
-                      marginTop: 10,
-                      textAlign: "center",
-                    }}
-                  >
+                  <p style={{ fontSize: 11, fontFamily: "monospace", color: "#FF073A", marginTop: 10, textAlign: "center" }}>
                     {error}
                   </p>
                 )}
               </div>
             ) : (
-              /* ── Single-question ── */
               <div>
-                {/* Texto de la pregunta */}
-                {poll.questions?.[0]?.text ? (
-                  <p
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: "#f5f5f5",
-                      marginBottom: 16,
-                      lineHeight: 1.5,
-                    }}
-                  >
+                {poll.questions?.[0]?.text && (
+                  <p style={{ fontSize: 15, fontWeight: 700, color: "#f5f5f5", marginBottom: 18, lineHeight: 1.5 }}>
                     {poll.questions[0].text}
                   </p>
-                ) : null}
-                <SingleQuestionVote
-                  poll={poll}
-                  onVote={handleSingleVote}
-                  voting={voting}
-                />
+                )}
+                <SingleQuestionVote poll={poll} onVote={doVote} voting={voting} />
                 {error && (
-                  <p
-                    style={{
-                      fontSize: 11,
-                      fontFamily: "monospace",
-                      color: "#FF073A",
-                      marginTop: 12,
-                      textAlign: "center",
-                    }}
-                  >
+                  <p style={{ fontSize: 11, fontFamily: "monospace", color: "#FF073A", marginTop: 12, textAlign: "center" }}>
                     {error}
                   </p>
                 )}
               </div>
             )}
 
-            {/* Footer info */}
-            <p
-              style={{
-                fontSize: 9,
-                fontFamily: "monospace",
-                color: "rgba(255,255,255,0.15)",
-                textAlign: "center",
-                marginTop: 20,
-              }}
-            >
-              {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"} ·
-              Ponderación BASIC 0.5× · VERIFIED 1.0×
+            {/* Footer */}
+            <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.12)", textAlign: "center", marginTop: 22 }}>
+              {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"} · BASIC 0.5× · VERIFIED 1.0× · BEACON Protocol
             </p>
           </div>
-        </div>
-
-        {/* QR compartir — bloque inferior */}
-        <div
-          style={{
-            marginTop: 20,
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <ShareQR
-            url={pageUrl}
-            title={poll.title}
-            label="Compartir encuesta"
-            size={160}
-          />
         </div>
       </div>
     </div>
