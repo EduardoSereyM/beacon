@@ -12,7 +12,7 @@ import Image from "next/image";
 import QRCode from "react-qr-code";
 import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
-import { usePermissions } from "@/hooks/usePermissions";
+import usePermissions from "@/hooks/usePermissions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
