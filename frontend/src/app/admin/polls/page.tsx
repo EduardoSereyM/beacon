@@ -54,6 +54,12 @@ function getToken(): string {
   return localStorage.getItem("beacon_token") || "";
 }
 
+function handle401(): void {
+  localStorage.removeItem("beacon_token");
+  localStorage.removeItem("beacon_user");
+  window.dispatchEvent(new CustomEvent("beacon:session-expired"));
+}
+
 function authHeaders() {
   return {
     Authorization: `Bearer ${getToken()}`,
@@ -305,6 +311,7 @@ export default function AdminPollsPage() {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/v1/admin/polls`, { headers: authHeaders() });
+      if (res.status === 401) { handle401(); return; }
       if (res.ok) {
         const d = await res.json();
         setItems(d.items || []);
@@ -349,6 +356,7 @@ export default function AdminPollsPage() {
         headers: { Authorization: `Bearer ${getToken()}` },
         body: form,
       });
+      if (res.status === 401) { handle401(); return; }
       if (!res.ok) throw new Error("Error subiendo imagen");
       const data = await res.json();
       setHeaderImage(data.url);
@@ -411,6 +419,7 @@ export default function AdminPollsPage() {
       const method = editItem ? "PATCH" : "POST";
 
       const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) });
+      if (res.status === 401) { handle401(); return; }
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.detail || "Error al guardar");
