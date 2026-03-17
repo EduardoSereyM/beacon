@@ -246,6 +246,3 @@ app.include_router(
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Encuestas"],
 )
-
-
-

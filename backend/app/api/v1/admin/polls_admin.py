@@ -1,20 +1,20 @@
 """
 BEACON PROTOCOL — Polls Admin CRUD
 ====================================
-Endpoints para gestión de encuestas por administradores.
-Incluye: crear/editar/eliminar polls, preguntas y upload de imagen de cabecera.
+CRUD de encuestas para administradores.
+Schema real: tabla `polls` con `questions` JSONB y `poll_votes`.
 
 Endpoints:
   GET    /admin/polls              → Lista todas las encuestas
-  POST   /admin/polls              → Crear encuesta con preguntas
+  POST   /admin/polls              → Crear encuesta
   PATCH  /admin/polls/{id}         → Editar encuesta
-  DELETE /admin/polls/{id}         → Eliminar encuesta (cascade)
-  POST   /admin/polls/upload-image → Subir imagen de cabecera al bucket 'encuestas'
+  DELETE /admin/polls/{id}         → Eliminar encuesta
+  POST   /admin/polls/upload-image → Subir imagen cabecera al bucket 'encuestas'
 """
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Any
 import uuid
 
 from app.core.database import get_async_supabase_client
@@ -23,44 +23,47 @@ from app.api.v1.admin.require_admin import require_admin_role
 
 router = APIRouter(prefix="/admin/polls", tags=["Admin — Polls"])
 
-POLLS_BUCKET = "encuestas"
+POLLS_BUCKET = "encuestas"  # bucket público para imágenes de encuestas
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 # ── Schemas ────────────────────────────────────────────────────
 
-class PollQuestionIn(BaseModel):
-    question_text: str = Field(..., min_length=1, max_length=500)
-    question_type: str = Field(..., pattern="^(multiple_choice|numeric_scale)$")
-    options: Optional[List[str]] = None          # Solo para multiple_choice
-    scale_min: Optional[int] = Field(1, ge=1, le=10)
-    scale_max: Optional[int] = Field(10, ge=2, le=10)
+class QuestionDef(BaseModel):
+    """Definición de una pregunta dentro del JSONB questions[]."""
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    text: str = Field(..., min_length=1, max_length=500)
+    type: str = Field(..., pattern="^(multiple_choice|scale)$")
+    options: Optional[List[str]] = None   # solo multiple_choice
+    scale_min: Optional[int] = Field(None, ge=1, le=9)
+    scale_max: Optional[int] = Field(None, ge=2, le=10)
     order_index: int = 0
 
 
 class PollCreateIn(BaseModel):
     title: str = Field(..., min_length=1, max_length=300)
     description: Optional[str] = None
-    cover_image_url: Optional[str] = None
-    start_at: Optional[str] = None   # ISO 8601
-    end_at: Optional[str] = None     # ISO 8601
+    header_image: Optional[str] = None
+    starts_at: str          # ISO 8601
+    ends_at: str            # ISO 8601
     is_active: bool = True
-    questions: List[PollQuestionIn] = Field(..., min_length=1)
+    questions: List[QuestionDef] = Field(..., min_length=1)
 
 
 class PollUpdateIn(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=300)
     description: Optional[str] = None
-    cover_image_url: Optional[str] = None
-    start_at: Optional[str] = None
-    end_at: Optional[str] = None
+    header_image: Optional[str] = None
+    starts_at: Optional[str] = None
+    ends_at: Optional[str] = None
     is_active: Optional[bool] = None
+    questions: Optional[List[QuestionDef]] = None
 
 
-# ── Endpoints ──────────────────────────────────────────────────
+# ── Upload imagen ──────────────────────────────────────────────
 
-@router.post("/upload-image", summary="[ADMIN] Subir imagen de cabecera de encuesta")
+@router.post("/upload-image", summary="[ADMIN] Subir imagen de cabecera")
 async def admin_upload_poll_image(
     file: UploadFile = File(...),
     admin: dict = Depends(require_admin_role),
@@ -94,80 +97,76 @@ async def admin_upload_poll_image(
     return {"url": public_url, "path": filename}
 
 
+# ── CRUD ───────────────────────────────────────────────────────
+
 @router.get("", summary="[ADMIN] Lista todas las encuestas")
 async def admin_list_polls(admin: dict = Depends(require_admin_role)):
     supabase = get_async_supabase_client()
     result = await (
         supabase.table("polls")
-        .select("*, poll_questions(*)")
+        .select("*")
         .order("created_at", desc=True)
         .execute()
     )
     return {"polls": result.data, "total": len(result.data)}
 
 
-@router.post("", summary="[ADMIN] Crear encuesta con preguntas", status_code=201)
+@router.post("", summary="[ADMIN] Crear encuesta", status_code=201)
 async def admin_create_poll(
     body: PollCreateIn,
     admin: dict = Depends(require_admin_role),
 ):
-    supabase = get_async_supabase_client()
-
     # Validar preguntas
     for q in body.questions:
-        if q.question_type == "multiple_choice":
-            if not q.options or len(q.options) < 2:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"La pregunta '{q.question_text}' de opción múltiple requiere al menos 2 opciones.",
-                )
-        if q.question_type == "numeric_scale" and q.scale_min >= q.scale_max:
+        if q.type == "multiple_choice" and (not q.options or len(q.options) < 2):
             raise HTTPException(
                 status_code=400,
-                detail=f"scale_min ({q.scale_min}) debe ser menor que scale_max ({q.scale_max}).",
+                detail=f"Pregunta '{q.text}' requiere al menos 2 opciones.",
             )
+        if q.type == "scale":
+            mn = q.scale_min or 1
+            mx = q.scale_max or 5
+            if mn >= mx:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"scale_min ({mn}) debe ser menor que scale_max ({mx}).",
+                )
 
-    # Crear poll
-    poll_payload = {
+    supabase = get_async_supabase_client()
+
+    questions_json = [q.model_dump() for q in body.questions]
+
+    payload = {
         "title": body.title,
         "description": body.description,
-        "cover_image_url": body.cover_image_url,
-        "start_at": body.start_at,
-        "end_at": body.end_at,
+        "header_image": body.header_image,
+        "starts_at": body.starts_at,
+        "ends_at": body.ends_at,
         "is_active": body.is_active,
         "created_by": admin["user_id"],
+        "questions": questions_json,
+        # poll_type refleja el tipo de la primera pregunta (retrocompat.)
+        "poll_type": body.questions[0].type,
+        "options": body.questions[0].options if body.questions[0].type == "multiple_choice" else None,
+        "scale_min": body.questions[0].scale_min or 1,
+        "scale_max": body.questions[0].scale_max or 5,
     }
-    poll_res = await supabase.table("polls").insert(poll_payload).execute()
-    if not poll_res.data:
+
+    result = await supabase.table("polls").insert(payload).execute()
+    if not result.data:
         raise HTTPException(status_code=500, detail="Error creando encuesta.")
 
-    poll = poll_res.data[0]
-    poll_id = poll["id"]
-
-    # Crear preguntas
-    questions_payload = [
-        {
-            "poll_id": poll_id,
-            "question_text": q.question_text,
-            "question_type": q.question_type,
-            "options": q.options,
-            "scale_min": q.scale_min,
-            "scale_max": q.scale_max,
-            "order_index": q.order_index,
-        }
-        for q in body.questions
-    ]
-    q_res = await supabase.table("poll_questions").insert(questions_payload).execute()
+    poll = result.data[0]
 
     await audit_bus.alog_event(
         actor_id=admin["user_id"],
         action="OVERLORD_ACTION_CREATE_POLL",
         entity_type="POLL",
-        entity_id=poll_id,
+        entity_id=poll["id"],
         details={"title": body.title, "questions": len(body.questions)},
     )
 
-    return {"poll": poll, "questions": q_res.data}
+    return {"poll": poll}
 
 
 @router.patch("/{poll_id}", summary="[ADMIN] Editar encuesta")
@@ -178,12 +177,26 @@ async def admin_update_poll(
 ):
     supabase = get_async_supabase_client()
 
-    # Verificar existencia
-    existing = await supabase.table("polls").select("id, title").eq("id", poll_id).maybe_single().execute()
+    existing = await (
+        supabase.table("polls")
+        .select("id, title")
+        .eq("id", poll_id)
+        .maybe_single()
+        .execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
 
-    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    patch: dict[str, Any] = {}
+    if body.title is not None:      patch["title"] = body.title
+    if body.description is not None: patch["description"] = body.description
+    if body.header_image is not None: patch["header_image"] = body.header_image
+    if body.starts_at is not None:   patch["starts_at"] = body.starts_at
+    if body.ends_at is not None:     patch["ends_at"] = body.ends_at
+    if body.is_active is not None:   patch["is_active"] = body.is_active
+    if body.questions is not None:
+        patch["questions"] = [q.model_dump() for q in body.questions]
+
     if not patch:
         raise HTTPException(status_code=400, detail="No hay campos para actualizar.")
 
@@ -194,7 +207,7 @@ async def admin_update_poll(
         action="OVERLORD_ACTION_UPDATE_POLL",
         entity_type="POLL",
         entity_id=poll_id,
-        details={"changes": patch, "old_title": existing.data["title"]},
+        details={"changes": list(patch.keys()), "old_title": existing.data["title"]},
     )
 
     return {"poll": result.data[0] if result.data else None}
@@ -207,7 +220,13 @@ async def admin_delete_poll(
 ):
     supabase = get_async_supabase_client()
 
-    existing = await supabase.table("polls").select("id, title").eq("id", poll_id).maybe_single().execute()
+    existing = await (
+        supabase.table("polls")
+        .select("id, title")
+        .eq("id", poll_id)
+        .maybe_single()
+        .execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
 

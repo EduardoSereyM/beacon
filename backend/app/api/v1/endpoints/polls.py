@@ -1,197 +1,216 @@
 """
-BEACON PROTOCOL — Encuestas (Endpoints Públicos)
-==================================================
-Lectura pública + respuestas autenticadas.
+BEACON PROTOCOL — Polls Router (Encuestas)
+==========================================
+Endpoints públicos para encuestas ciudadanas.
 
-Endpoints:
-  GET  /encuestas            → Lista encuestas activas
-  GET  /encuestas/{id}       → Detalle + preguntas
-  POST /encuestas/{id}/respond → Responder (JWT requerido)
-  GET  /encuestas/{id}/results → Resultados ponderados
+GET  /polls              → lista encuestas activas
+GET  /polls/{id}         → detalle + resultados parciales
+POST /polls/{id}/vote    → emitir voto (JWT, 1 por usuario por encuesta)
 """
 
+import asyncio
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import List
-from collections import defaultdict
+import logging
 
 from app.core.database import get_async_supabase_client
 from app.api.v1.user.auth import get_current_user
+from app.api.v1.endpoints.realtime import publish_poll_pulse
 
-router = APIRouter(prefix="/encuestas", tags=["Encuestas"])
-
-
-# ── Schemas ────────────────────────────────────────────────────
-
-class QuestionAnswer(BaseModel):
-    question_id: str
-    answer: dict   # MC: {"option": "X"} | scale: {"value": 7}
+logger = logging.getLogger("beacon.polls")
+router = APIRouter()
 
 
-class PollRespondIn(BaseModel):
-    answers: List[QuestionAnswer]
+# ─── Schemas ──────────────────────────────────────────────────────────────────
+
+class PollVotePayload(BaseModel):
+    option_value: str  # opción elegida ("Sí", "No") o valor numérico en scale ("4")
 
 
-# ── Endpoints ──────────────────────────────────────────────────
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
-@router.get("", summary="Lista encuestas activas")
-async def list_polls(limit: int = 20, offset: int = 0):
+def _is_open(p: dict) -> bool:
+    now = datetime.now(timezone.utc)
+    try:
+        start = datetime.fromisoformat(str(p["starts_at"]).replace("Z", "+00:00"))
+        end   = datetime.fromisoformat(str(p["ends_at"]).replace("Z", "+00:00"))
+        return start <= now <= end
+    except Exception:
+        return False
+
+
+def _compute_results(poll: dict, votes: list) -> dict:
+    """Agrega resultados según tipo de encuesta."""
+    poll_type = poll.get("poll_type", "multiple_choice")
+    total = len(votes)
+
+    if poll_type == "multiple_choice":
+        options = poll.get("options") or []
+        counts = {opt: 0 for opt in options}
+        for v in votes:
+            val = v.get("option_value", "")
+            if val in counts:
+                counts[val] += 1
+        results = [
+            {"option": opt, "count": cnt, "pct": round(cnt / total * 100, 1) if total else 0}
+            for opt, cnt in counts.items()
+        ]
+    else:  # scale
+        values = []
+        for v in votes:
+            try:
+                values.append(float(v["option_value"]))
+            except (ValueError, TypeError):
+                pass
+        avg = round(sum(values) / len(values), 2) if values else 0
+        results = [{"average": avg, "count": len(values)}]
+
+    return {
+        **poll,
+        "total_votes": total,
+        "results": results,
+        "is_open": _is_open(poll),
+    }
+
+
+# ─── Endpoints ────────────────────────────────────────────────────────────────
+
+@router.get("/polls", summary="Listar encuestas activas")
+async def list_polls():
     supabase = get_async_supabase_client()
-    result = await (
-        supabase.table("polls")
-        .select("id, title, description, cover_image_url, start_at, end_at, created_at")
-        .eq("is_active", True)
-        .order("created_at", desc=True)
-        .range(offset, offset + limit - 1)
-        .execute()
-    )
-    return {"polls": result.data, "total": len(result.data)}
+    now_iso = datetime.now(timezone.utc).isoformat()
 
-
-@router.get("/{poll_id}", summary="Detalle de encuesta con preguntas")
-async def get_poll(poll_id: str):
-    supabase = get_async_supabase_client()
-    result = await (
-        supabase.table("polls")
-        .select("*, poll_questions(*)")
-        .eq("id", poll_id)
-        .eq("is_active", True)
-        .maybe_single()
-        .execute()
-    )
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
-
-    # Ordenar preguntas por order_index
-    poll = result.data
-    if poll.get("poll_questions"):
-        poll["poll_questions"].sort(key=lambda q: q.get("order_index", 0))
-
-    return poll
-
-
-@router.post("/{poll_id}/respond", summary="Responder encuesta (requiere JWT)")
-async def respond_poll(
-    poll_id: str,
-    body: PollRespondIn,
-    current_user: dict = Depends(get_current_user),
-):
-    supabase = get_async_supabase_client()
-
-    # Verificar que la encuesta existe y está activa
-    poll = await (
-        supabase.table("polls")
-        .select("id, start_at, end_at, is_active")
-        .eq("id", poll_id)
-        .maybe_single()
-        .execute()
-    )
-    if not poll.data or not poll.data["is_active"]:
-        raise HTTPException(status_code=404, detail="Encuesta no encontrada o inactiva.")
-
-    # Peso del voto según rango del usuario
-    user_rank = current_user.get("rank", "BASIC")
-    weight = 1.0 if user_rank == "VERIFIED" else 0.5
-
-    # Verificar que no haya respondido ya (check por primera pregunta)
-    if body.answers:
-        already = await (
-            supabase.table("poll_responses")
-            .select("id")
-            .eq("poll_id", poll_id)
-            .eq("user_id", current_user["id"])
-            .limit(1)
+    try:
+        result = await (
+            supabase.table("polls")
+            .select("id, title, description, poll_type, options, scale_min, scale_max, starts_at, ends_at")
+            .eq("is_active", True)
+            .lte("starts_at", now_iso)
+            .gte("ends_at", now_iso)
+            .order("starts_at", desc=True)
             .execute()
         )
-        if already.data:
-            raise HTTPException(status_code=409, detail="Ya has respondido esta encuesta.")
+    except Exception as e:
+        logger.error(f"Error listando polls: {e}")
+        raise HTTPException(status_code=503, detail="Error al obtener encuestas")
 
-    # Insertar respuestas
-    payload = [
-        {
-            "poll_id": poll_id,
-            "question_id": a.question_id,
-            "user_id": current_user["id"],
-            "answer": a.answer,
-            "weight": weight,
-        }
-        for a in body.answers
-    ]
-    await supabase.table("poll_responses").insert(payload).execute()
+    items = result.data or []
+    enriched = []
+    for p in items:
+        try:
+            vote_res = await (
+                supabase.table("poll_votes")
+                .select("option_value")
+                .eq("poll_id", p["id"])
+                .execute()
+            )
+            enriched.append(_compute_results(p, vote_res.data or []))
+        except Exception:
+            enriched.append(_compute_results(p, []))
 
-    return {"ok": True, "weight_applied": weight, "answers_saved": len(payload)}
+    return {"items": enriched, "total": len(enriched)}
 
 
-@router.get("/{poll_id}/results", summary="Resultados ponderados de la encuesta")
-async def poll_results(poll_id: str):
+@router.get("/polls/{poll_id}", summary="Detalle encuesta con resultados")
+async def get_poll(poll_id: str):
     supabase = get_async_supabase_client()
+    try:
+        res = await (
+            supabase.table("polls")
+            .select("*")
+            .eq("poll_id", poll_id)
+            .single()
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(status_code=404, detail="Encuesta no encontrada")
 
-    # Traer encuesta + preguntas
-    poll = await (
-        supabase.table("polls")
-        .select("id, title, poll_questions(*)")
-        .eq("id", poll_id)
-        .maybe_single()
-        .execute()
-    )
-    if not poll.data:
-        raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
-
-    questions = {q["id"]: q for q in (poll.data.get("poll_questions") or [])}
-
-    # Traer todas las respuestas
-    responses = await (
-        supabase.table("poll_responses")
-        .select("question_id, answer, weight")
+    vote_res = await (
+        supabase.table("poll_votes")
+        .select("option_value")
         .eq("poll_id", poll_id)
         .execute()
     )
+    return _compute_results(res.data, vote_res.data or [])
 
-    # Agregar resultados ponderados por pregunta
-    results = {}
-    for r in responses.data:
-        qid = r["question_id"]
-        q = questions.get(qid)
-        if not q:
-            continue
 
-        if qid not in results:
-            results[qid] = {
-                "question_id": qid,
-                "question_text": q["question_text"],
-                "question_type": q["question_type"],
-                "total_responses": 0,
-                "total_weight": 0.0,
-            }
-            if q["question_type"] == "multiple_choice":
-                results[qid]["option_counts"] = defaultdict(float)
-            else:
-                results[qid]["weighted_sum"] = 0.0
-                results[qid]["weighted_avg"] = 0.0
+@router.post("/polls/{poll_id}/vote", summary="Votar en encuesta")
+async def vote_poll(
+    poll_id: str,
+    payload: PollVotePayload,
+    current_user: dict = Depends(get_current_user),
+):
+    supabase = get_async_supabase_client()
+    user_id = current_user["id"]
 
-        w = float(r["weight"])
-        results[qid]["total_responses"] += 1
-        results[qid]["total_weight"] += w
+    # Verificar encuesta
+    try:
+        poll_res = await (
+            supabase.table("polls")
+            .select("id, poll_type, options, scale_min, scale_max, starts_at, ends_at, is_active")
+            .eq("id", poll_id)
+            .single()
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(status_code=404, detail="Encuesta no encontrada")
 
-        if q["question_type"] == "multiple_choice":
-            opt = r["answer"].get("option", "")
-            results[qid]["option_counts"][opt] += w
-        else:
-            val = r["answer"].get("value", 0)
-            results[qid]["weighted_sum"] += val * w
+    poll = poll_res.data
+    if not poll["is_active"]:
+        raise HTTPException(status_code=409, detail="Esta encuesta no está activa")
+    if not _is_open(poll):
+        raise HTTPException(status_code=409, detail="Esta encuesta no está abierta para votar")
 
-    # Calcular promedios finales
-    for qid, res in results.items():
-        if res["question_type"] == "numeric_scale" and res["total_weight"] > 0:
-            res["weighted_avg"] = round(res["weighted_sum"] / res["total_weight"], 2)
-        if "option_counts" in res:
-            res["option_counts"] = dict(res["option_counts"])
+    # Validar opción
+    if poll["poll_type"] == "multiple_choice":
+        options = poll.get("options") or []
+        if payload.option_value not in options:
+            raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones: {options}")
+    else:  # scale
+        try:
+            val = float(payload.option_value)
+            if not (poll["scale_min"] <= val <= poll["scale_max"]):
+                raise ValueError
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Valor fuera de rango [{poll['scale_min']}-{poll['scale_max']}]"
+            )
 
-    return {
-        "poll_id": poll_id,
-        "title": poll.data["title"],
-        "total_respondents": len(set(
-            r["question_id"] for r in responses.data
-        )) and len(responses.data),
-        "results": list(results.values()),
-    }
+    # 1 voto por usuario
+    existing = await (
+        supabase.table("poll_votes")
+        .select("id")
+        .eq("poll_id", poll_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if existing.data:
+        raise HTTPException(status_code=409, detail="Ya votaste en esta encuesta")
+
+    await (
+        supabase.table("poll_votes")
+        .insert({"poll_id": poll_id, "user_id": user_id, "option_value": payload.option_value})
+        .execute()
+    )
+
+    # Publicar pulso en tiempo real (Efecto Kahoot)
+    try:
+        all_votes = await (
+            supabase.table("poll_votes")
+            .select("option_value")
+            .eq("poll_id", poll_id)
+            .execute()
+        )
+        updated_results = _compute_results(poll, all_votes.data or [])
+        asyncio.create_task(publish_poll_pulse(
+            poll_id=poll_id,
+            results=updated_results["results"],
+            total_votes=updated_results["total_votes"],
+        ))
+    except Exception as e:
+        logger.warning(f"Pulse Poll falló (no crítico): {e}")
+
+    logger.info(f"Poll voto | poll={poll_id} | user={user_id} | value={payload.option_value}")
+    return {"success": True, "option_value": payload.option_value}
