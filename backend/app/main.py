@@ -254,3 +254,17 @@ app.include_router(
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Encuestas — Detalle"],
 )
+
+# ─── P3 Versus ───────────────────────────────────────────────────────────────
+from app.api.v1.endpoints.versus import router as versus_router          # noqa: E402
+from app.api.v1.admin.versus_admin import router as admin_versus_router  # noqa: E402
+
+app.include_router(versus_router,       prefix=f"{settings.API_V1_PREFIX}", tags=["Versus"])
+app.include_router(admin_versus_router, prefix=f"{settings.API_V1_PREFIX}", tags=["Admin — Versus"])
+
+# ─── Events (Eventos con participantes) ──────────────────────────────────────
+from app.api.v1.endpoints.events import router as events_router          # noqa: E402
+from app.api.v1.admin.events_admin import router as admin_events_router  # noqa: E402
+
+app.include_router(events_router,       prefix=f"{settings.API_V1_PREFIX}", tags=["Events"])
+app.include_router(admin_events_router, prefix=f"{settings.API_V1_PREFIX}", tags=["Admin — Events"])
