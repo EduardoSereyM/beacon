@@ -16,6 +16,7 @@ import logoDorado from "@/asset/brand/LogoBeaconCian.png";
 
 export default function NavbarClient() {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [sessionExpiredMsg, setSessionExpiredMsg] = useState(false);
     const { user, isAuthenticated, isAdmin, logout } = usePermissions();
 
     // Escuchar evento custom desde usePermissions.openAuthModal()
@@ -23,6 +24,16 @@ export default function NavbarClient() {
         const handler = () => setIsModalOpen(true);
         window.addEventListener("beacon:open-auth-modal", handler);
         return () => window.removeEventListener("beacon:open-auth-modal", handler);
+    }, []);
+
+    // Sesión expirada: abrir modal con aviso
+    useEffect(() => {
+        const handler = () => {
+            setSessionExpiredMsg(true);
+            setIsModalOpen(true);
+        };
+        window.addEventListener("beacon:session-expired", handler);
+        return () => window.removeEventListener("beacon:session-expired", handler);
     }, []);
 
     return (
@@ -168,7 +179,11 @@ export default function NavbarClient() {
             </nav>
 
             {/* ═══ Auth Modal ═══ */}
-            <AuthModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <AuthModal
+                isOpen={isModalOpen}
+                onClose={() => { setIsModalOpen(false); setSessionExpiredMsg(false); }}
+                sessionExpired={sessionExpiredMsg}
+            />
         </>
     );
 }

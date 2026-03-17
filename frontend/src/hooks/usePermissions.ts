@@ -137,6 +137,18 @@ function resolvePermissions(role: Role): Permissions {
     return base;
 }
 
+// ─── Helper: verificar expiración de JWT ──────────────────────────────
+// Decodifica el payload (base64) y compara exp con Date.now().
+// Devuelve true si el token está vencido o no es parseable.
+function isTokenExpired(token: string): boolean {
+    try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return typeof payload.exp === "number" && payload.exp * 1000 < Date.now();
+    } catch {
+        return true;
+    }
+}
+
 // ─── Helper: normalizar rank legacy → v1 ──────────────────────────────
 // Protección de compatibilidad: si el backend devuelve un rank del sistema
 // de 4 rangos (BRONZE/SILVER/GOLD/DIAMOND), lo mapea al sistema v1.
@@ -169,6 +181,19 @@ export default function usePermissions(): PermissionsResult {
     // Leer usuario de localStorage al montar
     useEffect(() => {
         try {
+            const token = localStorage.getItem("beacon_token");
+
+            // Si el token existe pero está vencido → limpiar sesión
+            if (token && isTokenExpired(token)) {
+                localStorage.removeItem("beacon_token");
+                localStorage.removeItem("beacon_user");
+                // Disparar modal de login para que el usuario sepa qué pasó
+                setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent("beacon:session-expired"));
+                }, 300);
+                return;
+            }
+
             const stored = localStorage.getItem("beacon_user");
             if (stored) {
                 const parsed = JSON.parse(stored);
