@@ -9,6 +9,7 @@
 
 import { use } from "react";
 import Link from "next/link";
+import ShareQR from "@/components/shared/ShareQR";
 
 interface EventPageProps {
     params: Promise<{ id: string }>;
@@ -35,6 +36,9 @@ export default function EventPage({ params }: EventPageProps) {
                     >
                         EVENT:{id.slice(0, 8).toUpperCase()}
                     </span>
+                    <div className="ml-auto">
+                        <ShareQR title={`Evento — ${id.slice(0, 8).toUpperCase()}`} label="Compartir" />
+                    </div>
                 </div>
 
                 {/* Event Card */}
