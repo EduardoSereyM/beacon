@@ -334,6 +334,94 @@ async def publish_poll_pulse(
 # No puede enviar datos.
 
 
+async def publish_poll_pulse(
+    poll_id: str,
+    results: list,
+    total_votes: int,
+) -> bool:
+    """
+    Publica un pulso de encuesta al canal Redis del poll.
+    Reutiliza el mismo connection manager con clave "poll:{poll_id}".
+    Devuelve True si se publicó, False si Redis no disponible.
+    """
+    r = await _get_redis_connection()
+    if not r:
+        # Sin Redis: broadcast directo vía manager (en memoria)
+        payload = {
+            "type": "POLL_PULSE",
+            "poll_id": poll_id,
+            "results": results,
+            "total_votes": total_votes,
+        }
+        await manager.broadcast_to_entity(f"poll:{poll_id}", payload)
+        return True
+
+    channel = f"beacon:pulse:poll:{poll_id}"
+    payload = {
+        "type": "POLL_PULSE",
+        "poll_id": poll_id,
+        "results": results,
+        "total_votes": total_votes,
+    }
+    try:
+        await r.publish(channel, json.dumps(payload))
+        return True
+    except Exception as e:
+        logger.warning("publish_poll_pulse error: %s", e)
+        return False
+
+
+@router.websocket("/poll-pulse/{poll_id}")
+async def poll_pulse_ws(websocket: WebSocket, poll_id: str) -> None:
+    """
+    WebSocket de solo lectura para recibir actualizaciones en tiempo real
+    de una encuesta específica (Efecto Kahoot).
+
+    Conexión: ws://host/api/v1/realtime/poll-pulse/{poll_id}
+    """
+    if len(poll_id) < 3:
+        await websocket.close(code=4001, reason="Invalid poll_id")
+        return
+
+    channel_key = f"poll:{poll_id}"
+    await manager.connect(websocket, channel_key)
+
+    import asyncio
+
+    async def poll_redis_subscriber() -> None:
+        r = await _get_redis_connection()
+        if not r:
+            return
+        pubsub = r.pubsub()
+        channel = f"beacon:pulse:poll:{poll_id}"
+        await pubsub.subscribe(channel)
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    try:
+                        data = json.loads(message["data"])
+                        await manager.broadcast_to_entity(channel_key, data)
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.warning("poll redis_subscriber error: %s", e)
+        finally:
+            await pubsub.unsubscribe(channel)
+
+    subscriber_task = asyncio.create_task(poll_redis_subscriber())
+
+    try:
+        while True:
+            _ = await websocket.receive_text()
+    except WebSocketDisconnect:
+        logger.info("WS poll disconnected | poll=%s", poll_id)
+    except Exception as e:
+        logger.warning("WS poll error | poll=%s | err=%s", poll_id, e)
+    finally:
+        manager.disconnect(websocket, channel_key)
+        subscriber_task.cancel()
+
+
 @router.websocket("/pulse/{entity_id}")
 async def entity_pulse_ws(websocket: WebSocket, entity_id: str) -> None:
     """

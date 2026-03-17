@@ -50,6 +50,24 @@ export default function AdminLayout({
             return;
         }
 
+        // Verificar expiración del JWT antes de entrar al admin
+        try {
+            const payload = JSON.parse(atob(token.split(".")[1]));
+            if (typeof payload.exp === "number" && payload.exp * 1000 < Date.now()) {
+                localStorage.removeItem("beacon_token");
+                localStorage.removeItem("beacon_user");
+                window.dispatchEvent(new CustomEvent("beacon:session-expired"));
+                router.push("/");
+                setLoading(false);
+                return;
+            }
+        } catch {
+            // Token malformado — redirigir
+            router.push("/");
+            setLoading(false);
+            return;
+        }
+
         try {
             const user = JSON.parse(userRaw);
 

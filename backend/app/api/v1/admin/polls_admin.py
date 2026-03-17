@@ -1,86 +1,77 @@
 """
-BEACON PROTOCOL — Admin Polls (CRUD)
-======================================
-POST   /admin/polls               → crear encuesta con multi-pregunta
-GET    /admin/polls               → listar todas
-PATCH  /admin/polls/{id}          → editar
-DELETE /admin/polls/{id}          → desactivar (soft)
-POST   /admin/polls/upload-image  → subir imagen de cabecera al Storage
+BEACON PROTOCOL — Polls Admin CRUD
+====================================
+CRUD de encuestas para administradores.
+Schema real: tabla `polls` con `questions` JSONB y `poll_votes`.
+
+Endpoints:
+  GET    /admin/polls              → Lista todas las encuestas
+  POST   /admin/polls              → Crear encuesta
+  PATCH  /admin/polls/{id}         → Editar encuesta
+  DELETE /admin/polls/{id}         → Eliminar encuesta
+  POST   /admin/polls/upload-image → Subir imagen cabecera al bucket 'encuestas'
 """
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from pydantic import BaseModel
-from typing import Optional, List
-import uuid
 import logging
+import uuid
+
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from pydantic import BaseModel, Field
+from typing import Optional, List, Any
+
+logger = logging.getLogger("beacon.polls_admin")
 
 from app.core.database import get_async_supabase_client
+from app.core.audit_logger import audit_bus
 from app.api.v1.admin.require_admin import require_admin_role
 
-logger = logging.getLogger("beacon.admin.polls")
-router = APIRouter()
+router = APIRouter(prefix="/admin/polls", tags=["Admin — Polls"])
 
-STORAGE_BUCKET = "imagenes"
+POLLS_BUCKET = "encuestas"  # bucket público para imágenes de encuestas
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
-# ─── Schemas ──────────────────────────────────────────────────────────────────
+# ── Schemas ────────────────────────────────────────────────────
 
-class PollQuestion(BaseModel):
-    text: str
-    type: str                          # "multiple_choice" | "scale"
-    options: Optional[List[str]] = None  # solo multiple_choice
-    scale_points: Optional[int] = None   # solo scale (2-10)
+class QuestionDef(BaseModel):
+    """Definición de una pregunta dentro del JSONB questions[]."""
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    text: str = Field(..., min_length=1, max_length=500)
+    type: str = Field(..., pattern="^(multiple_choice|scale)$")
+    options: Optional[List[str]] = None   # solo multiple_choice
+    scale_min: Optional[int] = Field(None, ge=1, le=9)
+    scale_max: Optional[int] = Field(None, ge=2, le=10)
+    order_index: int = 0
 
 
-class PollCreate(BaseModel):
-    title: str
+class PollCreateIn(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
     description: Optional[str] = None
     header_image: Optional[str] = None
-    questions: List[PollQuestion]
-    starts_at: str   # ISO 8601
-    ends_at: str     # ISO 8601
+    starts_at: str          # ISO 8601
+    ends_at: str            # ISO 8601
+    is_active: bool = True
+    questions: List[QuestionDef] = Field(..., min_length=1)
 
 
-class PollUpdate(BaseModel):
-    title: Optional[str] = None
+class PollUpdateIn(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=300)
     description: Optional[str] = None
     header_image: Optional[str] = None
-    questions: Optional[List[PollQuestion]] = None
     starts_at: Optional[str] = None
     ends_at: Optional[str] = None
     is_active: Optional[bool] = None
+    questions: Optional[List[QuestionDef]] = None
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+# ── Upload imagen ──────────────────────────────────────────────
 
-def _validate_questions(questions: List[PollQuestion]) -> None:
-    if not questions:
-        raise HTTPException(status_code=400, detail="Se requiere al menos una pregunta")
-    for i, q in enumerate(questions, 1):
-        if not q.text.strip():
-            raise HTTPException(status_code=400, detail=f"Pregunta {i}: el texto es obligatorio")
-        if q.type not in ("multiple_choice", "scale"):
-            raise HTTPException(status_code=400, detail=f"Pregunta {i}: tipo inválido '{q.type}'")
-        if q.type == "multiple_choice":
-            valid_opts = [o for o in (q.options or []) if o.strip()]
-            if len(valid_opts) < 2:
-                raise HTTPException(status_code=400, detail=f"Pregunta {i}: se requieren al menos 2 opciones")
-        if q.type == "scale":
-            pts = q.scale_points
-            if pts is None or not (2 <= pts <= 10):
-                raise HTTPException(status_code=400, detail=f"Pregunta {i}: scale_points debe estar entre 2 y 10")
-
-
-# ─── Endpoints ────────────────────────────────────────────────────────────────
-
-@router.post("/admin/polls/upload-image", summary="Subir imagen de cabecera de encuesta")
-async def upload_poll_image(
+@router.post("/upload-image", summary="[ADMIN] Subir imagen de cabecera")
+async def admin_upload_poll_image(
     file: UploadFile = File(...),
     admin: dict = Depends(require_admin_role),
 ):
-    """Sube una imagen al bucket y devuelve la URL pública para usar como header_image."""
     if file.content_type not in ALLOWED_MIME:
         raise HTTPException(
             status_code=400,
@@ -88,136 +79,170 @@ async def upload_poll_image(
         )
     contents = await file.read()
     if len(contents) > MAX_BYTES:
-        raise HTTPException(status_code=400, detail=f"Archivo demasiado grande. Máximo 5 MB.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Archivo demasiado grande ({len(contents) // 1024} KB). Máximo 5 MB.",
+        )
 
     ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "jpg"
-    filename = f"polls/{uuid.uuid4().hex}.{ext}"
+    filename = f"covers/{uuid.uuid4().hex}.{ext}"
 
     supabase = get_async_supabase_client()
     try:
-        await supabase.storage.from_(STORAGE_BUCKET).upload(
+        await supabase.storage.from_(POLLS_BUCKET).upload(
             path=filename,
             file=contents,
-            file_options={"content-type": file.content_type, "upsert": "false"},
+            file_options={"content-type": file.content_type, "upsert": False},
         )
     except Exception as e:
+        logger.error(f"Storage upload error | bucket={POLLS_BUCKET} | path={filename} | err={e}")
         raise HTTPException(status_code=500, detail=f"Error subiendo imagen: {e}")
 
-    public_url = await supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
-    logger.info(f"Poll image uploaded | path={filename} | admin={admin['user_id']}")
+    public_url = supabase.storage.from_(POLLS_BUCKET).get_public_url(filename)
     return {"url": public_url, "path": filename}
 
 
-@router.post("/admin/polls", summary="Crear encuesta")
-async def create_poll(
-    body: PollCreate,
+# ── CRUD ───────────────────────────────────────────────────────
+
+@router.get("", summary="[ADMIN] Lista todas las encuestas")
+async def admin_list_polls(admin: dict = Depends(require_admin_role)):
+    supabase = get_async_supabase_client()
+    result = await (
+        supabase.table("polls")
+        .select("*")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return {"items": result.data, "total": len(result.data)}
+
+
+@router.post("", summary="[ADMIN] Crear encuesta", status_code=201)
+async def admin_create_poll(
+    body: PollCreateIn,
     admin: dict = Depends(require_admin_role),
 ):
-    _validate_questions(body.questions)
-
-    questions_payload = [q.model_dump() for q in body.questions]
-
-    supabase = get_async_supabase_client()
-    try:
-        res = await (
-            supabase.table("polls")
-            .insert({
-                "title": body.title,
-                "description": body.description,
-                "header_image": body.header_image,
-                "questions": questions_payload,
-                "starts_at": body.starts_at,
-                "ends_at": body.ends_at,
-                "created_by": admin["user_id"],
-            })
-            .execute()
-        )
-    except Exception as e:
-        logger.error(f"Error creando poll: {e}")
-        raise HTTPException(status_code=503, detail="Error al crear encuesta")
-
-    logger.info(f"Poll creada | id={res.data[0]['id']} | admin={admin['user_id']}")
-    return res.data[0]
-
-
-@router.get("/admin/polls", summary="Listar todas las encuestas")
-async def list_polls_admin(
-    admin: dict = Depends(require_admin_role),
-):
-    supabase = get_async_supabase_client()
-    try:
-        res = await (
-            supabase.table("polls")
-            .select("*")
-            .order("created_at", desc=True)
-            .execute()
-        )
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Error: {e}")
-
-    items = res.data or []
-
-    for p in items:
-        try:
-            vote_res = await (
-                supabase.table("poll_votes")
-                .select("id", count="exact")
-                .eq("poll_id", p["id"])
-                .execute()
+    # Validar preguntas
+    for q in body.questions:
+        if q.type == "multiple_choice" and (not q.options or len(q.options) < 2):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Pregunta '{q.text}' requiere al menos 2 opciones.",
             )
-            p["total_votes"] = vote_res.count or 0
-        except Exception:
-            p["total_votes"] = 0
+        if q.type == "scale":
+            mn = q.scale_min or 1
+            mx = q.scale_max or 5
+            if mn >= mx:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"scale_min ({mn}) debe ser menor que scale_max ({mx}).",
+                )
 
-    return {"items": items, "total": len(items)}
+    supabase = get_async_supabase_client()
+
+    questions_json = [q.model_dump() for q in body.questions]
+
+    payload = {
+        "title": body.title,
+        "description": body.description,
+        "header_image": body.header_image,
+        "starts_at": body.starts_at,
+        "ends_at": body.ends_at,
+        "is_active": body.is_active,
+        "created_by": admin["user_id"],
+        "questions": questions_json,
+        # poll_type refleja el tipo de la primera pregunta (retrocompat.)
+        "poll_type": body.questions[0].type,
+        "options": body.questions[0].options if body.questions[0].type == "multiple_choice" else None,
+        "scale_min": body.questions[0].scale_min or 1,
+        "scale_max": body.questions[0].scale_max or 5,
+    }
+
+    result = await supabase.table("polls").insert(payload).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Error creando encuesta.")
+
+    poll = result.data[0]
+
+    await audit_bus.alog_event(
+        actor_id=admin["user_id"],
+        action="OVERLORD_ACTION_CREATE_POLL",
+        entity_type="POLL",
+        entity_id=poll["id"],
+        details={"title": body.title, "questions": len(body.questions)},
+    )
+
+    return {"poll": poll}
 
 
-@router.patch("/admin/polls/{poll_id}", summary="Editar encuesta")
-async def update_poll(
+@router.patch("/{poll_id}", summary="[ADMIN] Editar encuesta")
+async def admin_update_poll(
     poll_id: str,
-    body: PollUpdate,
+    body: PollUpdateIn,
     admin: dict = Depends(require_admin_role),
 ):
-    if body.questions is not None:
-        _validate_questions(body.questions)
+    supabase = get_async_supabase_client()
 
-    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    existing = await (
+        supabase.table("polls")
+        .select("id, title")
+        .eq("id", poll_id)
+        .maybe_single()
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
+
+    patch: dict[str, Any] = {}
+    if body.title is not None:      patch["title"] = body.title
+    if body.description is not None: patch["description"] = body.description
+    if body.header_image is not None: patch["header_image"] = body.header_image
+    if body.starts_at is not None:   patch["starts_at"] = body.starts_at
+    if body.ends_at is not None:     patch["ends_at"] = body.ends_at
+    if body.is_active is not None:   patch["is_active"] = body.is_active
     if body.questions is not None:
         patch["questions"] = [q.model_dump() for q in body.questions]
+
     if not patch:
-        raise HTTPException(status_code=400, detail="Nada que actualizar")
+        raise HTTPException(status_code=400, detail="No hay campos para actualizar.")
 
-    supabase = get_async_supabase_client()
-    try:
-        res = await (
-            supabase.table("polls")
-            .update(patch)
-            .eq("id", poll_id)
-            .execute()
-        )
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Error: {e}")
+    result = await supabase.table("polls").update(patch).eq("id", poll_id).execute()
 
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Encuesta no encontrada")
+    await audit_bus.alog_event(
+        actor_id=admin["user_id"],
+        action="OVERLORD_ACTION_UPDATE_POLL",
+        entity_type="POLL",
+        entity_id=poll_id,
+        details={"changes": list(patch.keys()), "old_title": existing.data["title"]},
+    )
 
-    return res.data[0]
+    return {"poll": result.data[0] if result.data else None}
 
 
-@router.delete("/admin/polls/{poll_id}", summary="Desactivar encuesta")
-async def delete_poll(
+@router.delete("/{poll_id}", summary="[ADMIN] Eliminar encuesta")
+async def admin_delete_poll(
     poll_id: str,
     admin: dict = Depends(require_admin_role),
 ):
     supabase = get_async_supabase_client()
-    try:
-        await (
-            supabase.table("polls")
-            .update({"is_active": False})
-            .eq("id", poll_id)
-            .execute()
-        )
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Error: {e}")
 
-    return {"success": True, "poll_id": poll_id}
+    existing = await (
+        supabase.table("polls")
+        .select("id, title")
+        .eq("id", poll_id)
+        .maybe_single()
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
+
+    await supabase.table("polls").delete().eq("id", poll_id).execute()
+
+    await audit_bus.alog_event(
+        actor_id=admin["user_id"],
+        action="OVERLORD_ACTION_DELETE_POLL",
+        entity_type="POLL",
+        entity_id=poll_id,
+        details={"title": existing.data["title"]},
+    )
+
+    return {"ok": True, "deleted_id": poll_id}

@@ -1,95 +1,71 @@
 /**
- * BEACON PROTOCOL — useBeaconPulse (Hook genérico de Efecto Kahoot)
- * ==================================================================
- * Conecta al WebSocket de realtime para cualquier "sala":
- *   - Entidad:   roomKey = "ENTITY_UUID"
- *   - VS Arena:  roomKey = "versus:UUID"
- *   - Evento:    roomKey = "event:UUID"
- *   - Encuesta:  roomKey = "poll:UUID"
+ * BEACON PROTOCOL — useBeaconPulse
+ * ==================================
+ * Hook genérico de tiempo real para canales de encuestas y otros eventos.
+ * Se conecta al WebSocket según el canal:
+ *   - "poll:{id}"  → ws://host/api/v1/realtime/poll-pulse/{id}
  *
- * Arquitectura:
- *   ws(s)://api/v1/realtime/pulse/{roomKey}  → solo lectura
- *   Reconexión automática cada 3 segundos.
- *   Falla silenciosa si Redis no está disponible.
- *
- * "El Latido de Beacon. La verdad a la velocidad de la luz."
+ * Uso:
+ *   useBeaconPulse(`poll:${poll.id}`, (data) => {
+ *     if (data.type === "POLL_PULSE") { ... }
+ *   });
  */
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
-// Convertir la API URL HTTP(S) → WS(S)
-const toWsUrl = (apiUrl: string): string =>
-  apiUrl.replace(/^https:\/\//, "wss://").replace(/^http:\/\//, "ws://");
+type PulseCallback = (data: Record<string, unknown>) => void;
 
-const WS_BASE = toWsUrl(
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-);
+const WS_BASE =
+  (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000")
+    .replace(/^http/, "ws") + "/api/v1/realtime";
 
-export type BeaconPulseHandler = (data: Record<string, unknown>) => void;
+function getWsUrl(channel: string): string | null {
+  if (channel.startsWith("poll:")) {
+    const pollId = channel.slice(5);
+    return `${WS_BASE}/poll-pulse/${pollId}`;
+  }
+  return null;
+}
 
-/**
- * Suscripción WebSocket a una sala de Beacon.
- *
- * @param roomKey  Identificador de la sala (ej: "versus:uuid", "event:uuid", "poll:uuid")
- * @param onMessage  Callback invocado por cada mensaje recibido
- */
-export function useBeaconPulse(
-  roomKey: string | null,
-  onMessage: BeaconPulseHandler
-): void {
-  // Mantener el callback actualizado sin reiniciar el efecto
-  const callbackRef = useRef<BeaconPulseHandler>(onMessage);
-  useEffect(() => {
-    callbackRef.current = onMessage;
-  });
+export function useBeaconPulse(channel: string, onMessage: PulseCallback) {
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onMessageRef = useRef<PulseCallback>(onMessage);
+  onMessageRef.current = onMessage;
 
-  useEffect(() => {
-    if (!roomKey) return;
+  const connect = useCallback(() => {
+    const url = getWsUrl(channel);
+    if (!url) return;
 
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-    let alive = true;
+    const ws = new WebSocket(url);
 
-    const connect = () => {
-      if (!alive) return;
-
-      const url = `${WS_BASE}/api/v1/realtime/pulse/${encodeURIComponent(roomKey)}`;
-
+    ws.onmessage = (event) => {
       try {
-        ws = new WebSocket(url);
+        const data = JSON.parse(event.data);
+        onMessageRef.current(data);
       } catch {
-        // WebSocket no soportado o URL inválida — falla silenciosa
-        return;
+        // ignore parse errors
       }
-
-      ws.onmessage = (evt: MessageEvent) => {
-        try {
-          const data = JSON.parse(evt.data) as Record<string, unknown>;
-          callbackRef.current(data);
-        } catch {
-          // Ignorar JSON inválido
-        }
-      };
-
-      ws.onclose = () => {
-        if (alive) {
-          reconnectTimeout = setTimeout(connect, 3000);
-        }
-      };
-
-      ws.onerror = () => {
-        // Silencioso — la reconexión se maneja en onclose
-      };
     };
 
+    ws.onclose = () => {
+      reconnectRef.current = setTimeout(connect, 3000);
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+
+    wsRef.current = ws;
+  }, [channel]);
+
+  useEffect(() => {
     connect();
-
     return () => {
-      alive = false;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      ws?.close();
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      wsRef.current?.close();
     };
-  }, [roomKey]);
+  }, [connect]);
 }

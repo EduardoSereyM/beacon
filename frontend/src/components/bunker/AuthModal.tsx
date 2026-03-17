@@ -242,9 +242,10 @@ function ForgotPasswordForm({ onBack, apiUrl }: { onBack: () => void; apiUrl: st
 interface AuthModalProps {
     isOpen: boolean;
     onClose: () => void;
+    sessionExpired?: boolean;
 }
 
-export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, sessionExpired = false }: AuthModalProps) {
     const { setAuth } = useAuthStore();
     const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
     const [isAnimating, setIsAnimating] = useState(false);
@@ -520,6 +521,14 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                 : "Recibirás un enlace en tu correo"}
                     </p>
                 </div>
+
+                {/* ─── Aviso de sesión expirada ─── */}
+                {sessionExpired && mode === "login" && (
+                    <div className="mx-8 mb-2 rounded-lg px-4 py-2 text-xs font-mono text-center"
+                        style={{ backgroundColor: "rgba(255, 170, 0, 0.08)", border: "1px solid rgba(255, 170, 0, 0.3)", color: "#FFAA00" }}>
+                        Tu sesión ha expirado. Inicia sesión nuevamente.
+                    </div>
+                )}
 
                 {/* ─── Toggle Login/Register (oculto en modo forgot) ─── */}
                 {!showAdminInterstitial && mode !== "forgot" && (
