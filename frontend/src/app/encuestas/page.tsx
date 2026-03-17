@@ -1,83 +1,106 @@
 /**
- * BEACON PROTOCOL — /encuestas (Encuestas Públicas)
- * ===================================================
- * Listado de encuestas activas con acceso directo por QR.
+ * BEACON PROTOCOL — /encuestas (Listado Público)
+ * ================================================
+ * Lista encuestas activas con imagen, título y QR compartible.
  */
 
-import type { Metadata } from "next";
-import Link from "next/link";
+"use client";
 
-export const metadata: Metadata = {
-    title: "Encuestas — Beacon Protocol",
-    description: "Encuestas de opinión ciudadana verificada. Tu voto pesa según tu nivel de integridad.",
-    openGraph: {
-        title: "Encuestas — Beacon Protocol",
-        description: "Opinión ciudadana verificada en tiempo real.",
-        type: "website",
-    },
-};
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import ShareQR from "@/components/shared/ShareQR";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+interface Poll {
+    id: string;
+    title: string;
+    description: string | null;
+    cover_image_url: string | null;
+    start_at: string | null;
+    end_at: string | null;
+}
 
 export default function EncuestasPage() {
+    const [polls, setPolls] = useState<Poll[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch(`${API_URL}/api/v1/encuestas?limit=50`)
+            .then((r) => r.json())
+            .then((d) => setPolls(d.polls || []))
+            .finally(() => setLoading(false));
+    }, []);
+
     return (
-        <div className="min-h-screen pt-20 pb-12 px-6">
-            <div className="max-w-4xl mx-auto text-center">
-                <div className="pt-16 pb-8">
-                    <p className="text-6xl mb-6">📊</p>
-                    <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4 text-foreground">
-                        Encuestas
+        <div className="min-h-screen pt-24 pb-12 px-6">
+            <div className="max-w-4xl mx-auto">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-extrabold tracking-tight text-foreground mb-2">
+                        📊 Encuestas
                     </h1>
-                    <p className="text-sm text-foreground-muted max-w-md mx-auto leading-relaxed">
-                        Encuestas de opinión con peso ponderado por integridad.
-                        Cada respuesta vale según tu rango verificado.
+                    <p className="text-sm text-foreground-muted">
+                        Opinión ciudadana ponderada por integridad. Tu voto vale según tu rango verificado.
                     </p>
                 </div>
 
-                <div
-                    className="rounded-xl p-10 mt-8"
-                    style={{
-                        background: "rgba(57,255,20,0.03)",
-                        border: "1px solid rgba(57,255,20,0.12)",
-                    }}
-                >
-                    <div
-                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6"
-                        style={{
-                            border: "1px solid rgba(57,255,20,0.3)",
-                            backgroundColor: "rgba(57,255,20,0.06)",
-                        }}
-                    >
-                        <div
-                            className="w-1.5 h-1.5 rounded-full animate-pulse"
-                            style={{ backgroundColor: "#39FF14" }}
-                        />
-                        <span
-                            className="text-[10px] tracking-[0.2em] uppercase font-mono"
-                            style={{ color: "#39FF14" }}
-                        >
-                            En Desarrollo
-                        </span>
+                {loading ? (
+                    <div className="text-center py-16">
+                        <p className="text-foreground-muted text-sm font-mono animate-pulse">Cargando encuestas...</p>
                     </div>
-
-                    <h2 className="text-lg font-bold text-foreground mb-3">
-                        Encuestas ciudadanas ponderadas
-                    </h2>
-                    <p className="text-xs text-foreground-muted font-mono max-w-sm mx-auto mb-6">
-                        Próximamente: comparte encuestas directamente con QR,
-                        con resultados ponderados por rango de integridad.
-                    </p>
-
-                    <Link
-                        href="/"
-                        className="inline-block text-[11px] font-mono uppercase tracking-wider px-5 py-2.5 rounded-lg transition-all hover:scale-105"
-                        style={{
-                            backgroundColor: "rgba(57,255,20,0.08)",
-                            border: "1px solid rgba(57,255,20,0.25)",
-                            color: "#39FF14",
-                        }}
+                ) : polls.length === 0 ? (
+                    <div
+                        className="rounded-xl p-12 text-center"
+                        style={{ background: "rgba(57,255,20,0.03)", border: "1px solid rgba(57,255,20,0.1)" }}
                     >
-                        Volver al Dashboard
-                    </Link>
-                </div>
+                        <p className="text-4xl mb-4">📊</p>
+                        <p className="text-sm text-foreground-muted">No hay encuestas activas en este momento.</p>
+                    </div>
+                ) : (
+                    <div className="grid gap-4">
+                        {polls.map((poll) => (
+                            <div
+                                key={poll.id}
+                                className="rounded-xl overflow-hidden"
+                                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+                            >
+                                <div className="flex">
+                                    {poll.cover_image_url && (
+                                        <div className="w-32 flex-shrink-0 relative min-h-[100px]">
+                                            <Image src={poll.cover_image_url} alt="" fill className="object-cover" />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 p-5">
+                                        <h2 className="font-bold text-base text-foreground mb-1">{poll.title}</h2>
+                                        {poll.description && (
+                                            <p className="text-xs text-foreground-muted mb-3">{poll.description}</p>
+                                        )}
+                                        {poll.end_at && (
+                                            <p className="text-[10px] text-foreground-muted font-mono mb-3">
+                                                Cierra: {new Date(poll.end_at).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })}
+                                            </p>
+                                        )}
+                                        <div className="flex items-center gap-3">
+                                            <Link
+                                                href={`/encuestas/${poll.id}`}
+                                                className="px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all hover:scale-105"
+                                                style={{ background: "linear-gradient(135deg, #D4AF37, #B8860B)", color: "#0A0A0A" }}
+                                            >
+                                                Participar →
+                                            </Link>
+                                            <ShareQR
+                                                url={`${typeof window !== "undefined" ? window.location.origin : "https://www.beaconchile.cl"}/encuestas/${poll.id}`}
+                                                title={poll.title}
+                                                label="Compartir"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

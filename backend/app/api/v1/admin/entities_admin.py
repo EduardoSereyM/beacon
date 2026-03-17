@@ -308,8 +308,8 @@ async def admin_upload_entity_photo(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error subiendo imagen al Storage: {e}")
 
-    # URL pública del objeto
-    public_url = await supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
+    # URL pública del objeto (get_public_url es síncrono en supabase-py v2)
+    public_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(filename)
 
     await audit_bus.alog_event(
         actor_id=admin["user_id"],
