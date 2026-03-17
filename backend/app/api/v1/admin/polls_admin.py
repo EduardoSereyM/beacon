@@ -22,6 +22,7 @@ from typing import Optional, List, Any
 logger = logging.getLogger("beacon.polls_admin")
 
 from app.core.database import get_async_supabase_client
+from app.core.config import settings
 from app.core.audit_logger import audit_bus
 from app.api.v1.admin.require_admin import require_admin_role
 
@@ -98,7 +99,8 @@ async def admin_upload_poll_image(
         logger.error(f"Storage upload error | bucket={POLLS_BUCKET} | path={filename} | err={e}")
         raise HTTPException(status_code=500, detail=f"Error subiendo imagen: {e}")
 
-    public_url = supabase.storage.from_(POLLS_BUCKET).get_public_url(filename)
+    # Construir URL pública directamente (evita ambigüedad async en supabase-py v2)
+    public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{POLLS_BUCKET}/{filename}"
     return {"url": public_url, "path": filename}
 
 
