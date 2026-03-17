@@ -92,7 +92,7 @@ async def admin_upload_poll_image(
         await supabase.storage.from_(POLLS_BUCKET).upload(
             path=filename,
             file=contents,
-            file_options={"content-type": file.content_type, "upsert": False},
+            file_options={"content-type": file.content_type, "upsert": "false"},
         )
     except Exception as e:
         logger.error(f"Storage upload error | bucket={POLLS_BUCKET} | path={filename} | err={e}")
