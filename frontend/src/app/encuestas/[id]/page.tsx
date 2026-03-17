@@ -12,6 +12,7 @@ import Image from "next/image";
 import QRCode from "react-qr-code";
 import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -487,6 +488,7 @@ function SingleQuestionVote({ poll, onVote, voting }: { poll: Poll; onVote: (v: 
 export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
   const { id } = use(params);
   const { token } = useAuthStore();
+  const { isVerified, isAdmin } = usePermissions();
 
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
@@ -708,8 +710,49 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
               </div>
             )}
 
+            {/* ── Panel resultados en vivo ── */}
+            {poll.total_votes > 0 && (
+              <>
+                <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "22px 0 18px" }} />
+
+                {/* Acceso VERIFIED / admin / ya votó */}
+                {(voted || !poll.is_open || isVerified || isAdmin) ? (
+                  <div>
+                    <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: poll.is_open ? "#39FF14" : "rgba(255,255,255,0.2)", display: "inline-block" }} />
+                      Resultados en vivo · {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"}
+                    </p>
+                    <PollResults poll={poll} userVote={voted ? userVote : null} />
+                  </div>
+                ) : (
+                  /* BASIC sin votar: teaser bloqueado */
+                  <div style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
+                    {/* Barras borrosas como preview */}
+                    <div style={{ filter: "blur(4px)", opacity: 0.4, pointerEvents: "none" }}>
+                      <PollResults poll={poll} userVote={null} />
+                    </div>
+                    {/* Overlay CTA */}
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                      background: "rgba(10,10,10,0.6)", backdropFilter: "blur(2px)",
+                      borderRadius: 14, padding: "16px 20px", textAlign: "center",
+                    }}>
+                      <p style={{ fontSize: 18, marginBottom: 8 }}>🔒</p>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: "#f5f5f5", marginBottom: 4 }}>
+                        Verifica tu identidad para ver resultados
+                      </p>
+                      <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)" }}>
+                        Los ciudadanos VERIFIED acceden a resultados en tiempo real.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Footer */}
-            <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.12)", textAlign: "center", marginTop: 22 }}>
+            <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.1)", textAlign: "center", marginTop: 22 }}>
               {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"} · BASIC 0.5× · VERIFIED 1.0× · BEACON Protocol
             </p>
           </div>

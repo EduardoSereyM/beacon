@@ -285,6 +285,116 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
   );
 }
 
+// ─── ResultsPanel: visualización de votos por encuesta ────────────────────────
+
+interface PollResultData {
+  total_votes: number;
+  poll_type: "multiple_choice" | "scale";
+  options: string[] | null;
+  results: { option?: string; count?: number; pct?: number; average?: number }[];
+  is_open: boolean;
+  title: string;
+}
+
+function ResultsPanel({ pollId }: { pollId: string }) {
+  const [data, setData] = useState<PollResultData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/v1/polls/${pollId}`)
+      .then((r) => r.json())
+      .then((d) => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [pollId]);
+
+  if (loading) return (
+    <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+      <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>Cargando resultados…</p>
+    </div>
+  );
+
+  if (!data) return (
+    <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+      <p style={{ fontSize: 10, fontFamily: "monospace", color: "#FF073A" }}>Sin datos de resultados.</p>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "16px 20px 18px", borderTop: "1px solid rgba(0,229,255,0.08)", background: "rgba(0,229,255,0.02)" }}>
+      {/* Header resultados */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <span style={{ fontSize: 10, fontFamily: "monospace", color: "#00E5FF", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          📊 Resultados en vivo
+        </span>
+        <span style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700, color: "#f5f5f5" }}>
+          {data.total_votes} {data.total_votes === 1 ? "voto" : "votos"}
+        </span>
+      </div>
+
+      {data.total_votes === 0 ? (
+        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>
+          Aún no hay votos registrados.
+        </p>
+      ) : data.poll_type === "scale" ? (
+        /* Scale: promedio grande */
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ textAlign: "center" }}>
+            <p style={{ fontSize: 40, fontFamily: "monospace", fontWeight: 900, color: "#00E5FF", lineHeight: 1 }}>
+              {data.results[0]?.average ?? "–"}
+            </p>
+            <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", marginTop: 4 }}>
+              promedio
+            </p>
+          </div>
+          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+          <div style={{ textAlign: "center" }}>
+            <p style={{ fontSize: 18, fontFamily: "monospace", fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>
+              {data.results[0]?.count ?? 0}
+            </p>
+            <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", marginTop: 4 }}>
+              respuestas
+            </p>
+          </div>
+        </div>
+      ) : (
+        /* Multiple choice: barras */
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {data.results.map((r) => {
+            const pct = r.pct ?? 0;
+            const isWinner = pct === Math.max(...data.results.map((x) => x.pct ?? 0));
+            return (
+              <div key={r.option}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: isWinner ? "#f5f5f5" : "rgba(255,255,255,0.5)", fontWeight: isWinner ? 600 : 400, display: "flex", alignItems: "center", gap: 6 }}>
+                    {isWinner && data.total_votes > 0 && <span style={{ fontSize: 9, color: "#39FF14" }}>▲</span>}
+                    {r.option}
+                  </span>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", color: isWinner ? "#39FF14" : "rgba(255,255,255,0.3)", fontWeight: isWinner ? 700 : 400 }}>
+                    {pct}% <span style={{ fontSize: 9, color: "rgba(255,255,255,0.2)" }}>({r.count})</span>
+                  </span>
+                </div>
+                <div style={{ height: 5, background: "rgba(255,255,255,0.04)", borderRadius: 4, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${pct}%`,
+                      background: isWinner
+                        ? "linear-gradient(90deg, #39FF14, #00E5FF)"
+                        : "rgba(255,255,255,0.15)",
+                      borderRadius: 4,
+                      transition: "width 0.8s ease",
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function AdminPollsPage() {
@@ -292,6 +402,7 @@ export default function AdminPollsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<PollItem | null>(null);
+  const [expandedResultId, setExpandedResultId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -701,8 +812,20 @@ export default function AdminPollsPage() {
                   </div>
                   <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                     <button
+                      onClick={() => setExpandedResultId(expandedResultId === p.id ? null : p.id)}
+                      style={{
+                        padding: "5px 12px", borderRadius: 6, fontSize: 10, fontFamily: "monospace",
+                        background: expandedResultId === p.id ? "rgba(0,229,255,0.15)" : "rgba(0,229,255,0.05)",
+                        color: "#00E5FF",
+                        border: `1px solid ${expandedResultId === p.id ? "rgba(0,229,255,0.4)" : "rgba(0,229,255,0.12)"}`,
+                        cursor: "pointer",
+                      }}
+                    >
+                      📊 {p.total_votes}
+                    </button>
+                    <button
                       onClick={() => openEdit(p)}
-                      style={{ padding: "5px 12px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: "rgba(0,229,255,0.07)", color: "#00E5FF", border: "1px solid rgba(0,229,255,0.15)", cursor: "pointer" }}
+                      style={{ padding: "5px 12px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer" }}
                     >
                       Editar
                     </button>
@@ -720,6 +843,8 @@ export default function AdminPollsPage() {
                     </button>
                   </div>
                 </div>
+                {/* Panel resultados expandible */}
+                {expandedResultId === p.id && <ResultsPanel pollId={p.id} />}
               </div>
             ))}
           </div>
