@@ -84,7 +84,7 @@ async def list_polls():
     try:
         result = await (
             supabase.table("polls")
-            .select("id, title, description, poll_type, options, scale_min, scale_max, starts_at, ends_at")
+            .select("id, title, description, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, questions")
             .eq("is_active", True)
             .lte("starts_at", now_iso)
             .gte("ends_at", now_iso)
@@ -119,7 +119,7 @@ async def get_poll(poll_id: str):
         res = await (
             supabase.table("polls")
             .select("*")
-            .eq("poll_id", poll_id)
+            .eq("id", poll_id)
             .single()
             .execute()
         )
