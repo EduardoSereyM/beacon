@@ -246,3 +246,11 @@ app.include_router(
     prefix=f"{settings.API_V1_PREFIX}",
     tags=["Encuestas"],
 )
+
+from app.api.v1.endpoints.encuestas import router as encuestas_router  # noqa: E402
+
+app.include_router(
+    encuestas_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Encuestas — Detalle"],
+)
