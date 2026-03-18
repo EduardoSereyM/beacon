@@ -900,92 +900,93 @@ export default function AdminPollsPage() {
           </div>
         ) : (
           <div>
-            {items.map((p) => (
+            {items.map((p) => {
+              const isExpired = new Date(p.ends_at) < new Date();
+              return (
               <div
                 key={p.id}
                 style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", opacity: p.is_active ? 1 : 0.5 }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                  <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1, minWidth: 0 }}>
-                    {/* Thumbnail */}
-                    {p.header_image && (
-                      <img
-                        src={p.header_image}
-                        alt=""
-                        style={{ width: 44, height: 32, borderRadius: 6, objectFit: "cover", flexShrink: 0 }}
-                      />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#f5f5f5" }}>{p.title}</span>
-                        {p.is_active ? (
-                          <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(57,255,20,0.1)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.2)", fontFamily: "monospace" }}>ACTIVA</span>
-                        ) : (
-                          <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "monospace" }}>INACTIVA</span>
-                        )}
-                        <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(0,229,255,0.07)", color: "#00E5FF", border: "1px solid rgba(0,229,255,0.12)", fontFamily: "monospace" }}>
-                          {p.questions?.length ?? 0} pregunta{(p.questions?.length ?? 0) !== 1 ? "s" : ""}
+                {/* Fila 1: thumbnail + info */}
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
+                  {p.header_image && (
+                    <img
+                      src={p.header_image}
+                      alt=""
+                      style={{ width: 44, height: 32, borderRadius: 6, objectFit: "cover", flexShrink: 0, marginTop: 2 }}
+                    />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#f5f5f5" }}>{p.title}</span>
+                      {p.is_active && !isExpired ? (
+                        <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(57,255,20,0.1)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.2)", fontFamily: "monospace" }}>ACTIVA</span>
+                      ) : isExpired ? (
+                        <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(255,100,0,0.1)", color: "#FF6400", border: "1px solid rgba(255,100,0,0.25)", fontFamily: "monospace" }}>EXPIRADA</span>
+                      ) : (
+                        <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "monospace" }}>INACTIVA</span>
+                      )}
+                      <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(0,229,255,0.07)", color: "#00E5FF", border: "1px solid rgba(0,229,255,0.12)", fontFamily: "monospace" }}>
+                        {p.questions?.length ?? 0} pregunta{(p.questions?.length ?? 0) !== 1 ? "s" : ""}
+                      </span>
+                      {p.category && p.category !== "general" && (
+                        <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(212,175,55,0.07)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.15)", fontFamily: "monospace", textTransform: "capitalize" }}>
+                          {POLL_CATEGORIES.find((c) => c.value === p.category)?.label ?? p.category}
                         </span>
-                        {p.category && p.category !== "general" && (
-                          <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(212,175,55,0.07)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.15)", fontFamily: "monospace", textTransform: "capitalize" }}>
-                            {POLL_CATEGORIES.find((c) => c.value === p.category)?.label ?? p.category}
-                          </span>
-                        )}
-                        {!p.requires_auth && (
-                          <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(57,255,20,0.07)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.15)", fontFamily: "monospace" }}>
-                            ⚡ Flash
-                          </span>
-                        )}
-                        {p.access_code && (
-                          <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(212,175,55,0.07)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.2)", fontFamily: "monospace" }}>
-                            🔒 {p.access_code}
-                          </span>
-                        )}
-                      </div>
-                      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "monospace" }}>
-                        {formatDate(p.starts_at)} → {formatDate(p.ends_at)}
-                        <span style={{ margin: "0 8px", color: "rgba(255,255,255,0.2)" }}>·</span>
-                        <span style={{ color: "#00E5FF" }}>{p.total_votes} votos</span>
-                      </p>
+                      )}
+                      {!p.requires_auth && (
+                        <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(57,255,20,0.07)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.15)", fontFamily: "monospace" }}>⚡ Flash</span>
+                      )}
+                      {p.access_code && (
+                        <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(212,175,55,0.07)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.2)", fontFamily: "monospace" }}>
+                          🔒 {p.access_code}
+                        </span>
+                      )}
                     </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                    <button
-                      onClick={() => setExpandedResultId(expandedResultId === p.id ? null : p.id)}
-                      style={{
-                        padding: "5px 12px", borderRadius: 6, fontSize: 10, fontFamily: "monospace",
-                        background: expandedResultId === p.id ? "rgba(0,229,255,0.15)" : "rgba(0,229,255,0.05)",
-                        color: "#00E5FF",
-                        border: `1px solid ${expandedResultId === p.id ? "rgba(0,229,255,0.4)" : "rgba(0,229,255,0.12)"}`,
-                        cursor: "pointer",
-                      }}
-                    >
-                      📊 {p.total_votes}
-                    </button>
-                    <button
-                      onClick={() => openEdit(p)}
-                      style={{ padding: "5px 12px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer" }}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleToggleActive(p)}
-                      style={{
-                        padding: "5px 12px", borderRadius: 6, fontSize: 10, fontFamily: "monospace",
-                        background: p.is_active ? "rgba(255,7,58,0.07)" : "rgba(57,255,20,0.07)",
-                        color: p.is_active ? "#FF073A" : "#39FF14",
-                        border: `1px solid ${p.is_active ? "rgba(255,7,58,0.15)" : "rgba(57,255,20,0.15)"}`,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {p.is_active ? "Desactivar" : "Activar"}
-                    </button>
+                    <p style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "monospace" }}>
+                      {formatDate(p.starts_at)} → {formatDate(p.ends_at)}
+                      <span style={{ margin: "0 6px", color: "rgba(255,255,255,0.2)" }}>·</span>
+                      <span style={{ color: isExpired ? "rgba(255,100,0,0.7)" : "#00E5FF" }}>{p.total_votes} votos</span>
+                    </p>
                   </div>
                 </div>
-                {/* Panel resultados expandible */}
+                {/* Fila 2: acciones (siempre en su propia fila → ok en mobile) */}
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => setExpandedResultId(expandedResultId === p.id ? null : p.id)}
+                    style={{
+                      padding: "5px 11px", borderRadius: 6, fontSize: 10, fontFamily: "monospace",
+                      background: expandedResultId === p.id ? "rgba(0,229,255,0.15)" : "rgba(0,229,255,0.05)",
+                      color: "#00E5FF",
+                      border: `1px solid ${expandedResultId === p.id ? "rgba(0,229,255,0.4)" : "rgba(0,229,255,0.12)"}`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    📊 {p.total_votes}
+                  </button>
+                  <button
+                    onClick={() => openEdit(p)}
+                    style={{ padding: "5px 11px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer" }}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleToggleActive(p)}
+                    style={{
+                      padding: "5px 11px", borderRadius: 6, fontSize: 10, fontFamily: "monospace",
+                      background: p.is_active ? "rgba(255,7,58,0.07)" : "rgba(57,255,20,0.07)",
+                      color: p.is_active ? "#FF073A" : "#39FF14",
+                      border: `1px solid ${p.is_active ? "rgba(255,7,58,0.15)" : "rgba(57,255,20,0.15)"}`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {p.is_active ? "Desactivar" : "Activar"}
+                  </button>
+                </div>
                 {expandedResultId === p.id && <ResultsPanel pollId={p.id} />}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
