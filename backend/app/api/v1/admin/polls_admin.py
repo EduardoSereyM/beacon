@@ -14,18 +14,17 @@ Endpoints:
 
 import logging
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any
 
-logger = logging.getLogger("beacon.polls_admin")
-
 from app.core.database import get_async_supabase_client
 from app.core.config import settings
 from app.core.audit_logger import audit_bus
 from app.api.v1.admin.require_admin import require_admin_role
+
+logger = logging.getLogger("beacon.polls_admin")
 
 router = APIRouter(prefix="/admin/polls", tags=["Admin — Polls"])
 
@@ -213,14 +212,22 @@ async def admin_update_poll(
         raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
 
     patch: dict[str, Any] = {}
-    if body.title is not None:           patch["title"] = body.title
-    if body.description is not None:     patch["description"] = body.description
-    if body.header_image is not None:    patch["header_image"] = body.header_image
-    if body.starts_at is not None:       patch["starts_at"] = body.starts_at
-    if body.ends_at is not None:         patch["ends_at"] = body.ends_at
-    if body.is_active is not None:       patch["is_active"] = body.is_active
-    if body.requires_auth is not None:   patch["requires_auth"] = body.requires_auth
-    if body.access_code is not None:     patch["access_code"] = body.access_code or None
+    if body.title is not None:
+        patch["title"] = body.title
+    if body.description is not None:
+        patch["description"] = body.description
+    if body.header_image is not None:
+        patch["header_image"] = body.header_image
+    if body.starts_at is not None:
+        patch["starts_at"] = body.starts_at
+    if body.ends_at is not None:
+        patch["ends_at"] = body.ends_at
+    if body.is_active is not None:
+        patch["is_active"] = body.is_active
+    if body.requires_auth is not None:
+        patch["requires_auth"] = body.requires_auth
+    if body.access_code is not None:
+        patch["access_code"] = body.access_code or None
     if body.category is not None:
         patch["category"] = body.category if body.category in VALID_CATEGORIES else "general"
     if body.questions is not None:

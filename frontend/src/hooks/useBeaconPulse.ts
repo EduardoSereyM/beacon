@@ -13,7 +13,7 @@
 
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
 type PulseCallback = (data: Record<string, unknown>) => void;
 
@@ -35,37 +35,38 @@ export function useBeaconPulse(channel: string, onMessage: PulseCallback) {
   const onMessageRef = useRef<PulseCallback>(onMessage);
   onMessageRef.current = onMessage;
 
-  const connect = useCallback(() => {
-    const url = getWsUrl(channel);
-    if (!url) return;
-
-    const ws = new WebSocket(url);
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        onMessageRef.current(data);
-      } catch {
-        // ignore parse errors
-      }
-    };
-
-    ws.onclose = () => {
-      reconnectRef.current = setTimeout(connect, 3000);
-    };
-
-    ws.onerror = () => {
-      ws.close();
-    };
-
-    wsRef.current = ws;
-  }, [channel]);
-
   useEffect(() => {
+    const connect = () => {
+      const url = getWsUrl(channel);
+      if (!url) return;
+
+      const ws = new WebSocket(url);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          onMessageRef.current(data);
+        } catch {
+          // ignore parse errors
+        }
+      };
+
+      ws.onclose = () => {
+        reconnectRef.current = setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+
+      wsRef.current = ws;
+    };
+
     connect();
+
     return () => {
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, [channel]);
 }

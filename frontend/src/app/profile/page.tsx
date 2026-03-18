@@ -226,6 +226,7 @@ export default function ProfilePage() {
                 localStorage.setItem("beacon_user", JSON.stringify(data));
                 
                 // Sync Zustand store
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 setAuth(storedToken, data as any);
             } catch {
                 localStorage.removeItem("beacon_token");
@@ -282,6 +283,7 @@ export default function ProfilePage() {
             };
             localStorage.setItem("beacon_user", JSON.stringify(updated));
             setUser(updated as UserProfile);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setAuth(token, updated as any);
 
             // Refrescar para asegurar sincronía de todos los componentes
@@ -314,6 +316,7 @@ export default function ProfilePage() {
         try {
             // 1) Guardar birth_year y gender en el perfil (si se proporcionó)
             if ((birthYear && birthYearValid) || gender) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const payload: any = {};
                 if (birthYear && birthYearValid) payload.birth_year = birthYearNum;
                 if (gender) payload.gender = gender;
@@ -350,6 +353,7 @@ export default function ProfilePage() {
                     const updated = { ...user, rank: data.new_rank, is_verified: true };
                     localStorage.setItem("beacon_user", JSON.stringify(updated));
                     setUser(updated as UserProfile);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     setAuth(token, updated as any);
                     setVerifyMsg({
                         type: "success",
