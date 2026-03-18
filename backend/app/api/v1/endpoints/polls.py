@@ -28,6 +28,7 @@ router = APIRouter()
 class PollVotePayload(BaseModel):
     option_value: str  # opción elegida ("Sí", "No") o valor numérico en scale ("4")
     anon_session_id: Optional[str] = None  # UUID del browser, solo para encuestas sin auth
+    access_code: Optional[str] = None      # código de encuesta privada
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,7 +118,7 @@ async def list_polls(category: Optional[str] = None):
 
 
 @router.get("/polls/{poll_id}", summary="Detalle encuesta con resultados")
-async def get_poll(poll_id: str):
+async def get_poll(poll_id: str, access_code: Optional[str] = None):
     supabase = get_async_supabase_client()
     try:
         res = await (
@@ -130,13 +131,43 @@ async def get_poll(poll_id: str):
     except Exception:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada")
 
+    poll = res.data
+    stored_code = poll.get("access_code")
+
+    # Si tiene código y no se proporcionó o es incorrecto → respuesta parcial
+    if stored_code:
+        if not access_code or access_code != stored_code:
+            return {
+                "id": poll["id"],
+                "title": poll["title"],
+                "description": poll.get("description"),
+                "header_image": poll.get("header_image"),
+                "is_open": _is_open(poll),
+                "is_private": True,
+                "requires_auth": poll.get("requires_auth", True),
+                "category": poll.get("category", "general"),
+                "total_votes": 0,
+                "results": [],
+                "questions": None,
+                "options": None,
+                "poll_type": poll.get("poll_type"),
+                "scale_min": poll.get("scale_min", 1),
+                "scale_max": poll.get("scale_max", 5),
+                "starts_at": poll.get("starts_at"),
+                "ends_at": poll.get("ends_at"),
+            }
+
     vote_res = await (
         supabase.table("poll_votes")
         .select("option_value")
         .eq("poll_id", poll_id)
         .execute()
     )
-    return _compute_results(res.data, vote_res.data or [])
+    result = _compute_results(poll, vote_res.data or [])
+    result["is_private"] = bool(stored_code)
+    # Nunca exponer el código al cliente
+    result.pop("access_code", None)
+    return result
 
 
 @router.post("/polls/{poll_id}/vote", summary="Votar en encuesta")
@@ -151,7 +182,7 @@ async def vote_poll(
     try:
         poll_res = await (
             supabase.table("polls")
-            .select("id, poll_type, options, scale_min, scale_max, starts_at, ends_at, is_active, requires_auth")
+            .select("id, poll_type, options, scale_min, scale_max, starts_at, ends_at, is_active, requires_auth, access_code")
             .eq("id", poll_id)
             .single()
             .execute()
@@ -164,6 +195,11 @@ async def vote_poll(
         raise HTTPException(status_code=409, detail="Esta encuesta no está activa")
     if not _is_open(poll):
         raise HTTPException(status_code=409, detail="Esta encuesta no está abierta para votar")
+
+    # Validar access_code si la encuesta es privada
+    stored_code = poll.get("access_code")
+    if stored_code and payload.access_code != stored_code:
+        raise HTTPException(status_code=403, detail="Código de acceso incorrecto")
 
     requires_auth = poll.get("requires_auth", True)
 

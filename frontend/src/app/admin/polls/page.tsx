@@ -34,6 +34,7 @@ interface PollItem {
   total_votes: number;
   category: string;
   requires_auth: boolean;
+  access_code: string | null;
 }
 
 const POLL_CATEGORIES: { value: string; label: string }[] = [
@@ -150,11 +151,11 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
       padding: "14px 16px",
     }}>
       {/* Header pregunta */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(0,229,255,0.6)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(0,229,255,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", paddingTop: 4 }}>
           Pregunta {index + 1}
         </span>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {/* Selector tipo */}
           {(["multiple_choice", "scale"] as const).map((t) => (
             <button
@@ -170,9 +171,10 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
                 background: question.type === t ? "rgba(0,229,255,0.1)" : "rgba(255,255,255,0.03)",
                 color: question.type === t ? "#00E5FF" : "rgba(255,255,255,0.4)",
                 cursor: "pointer",
+                whiteSpace: "nowrap",
               }}
             >
-              {t === "multiple_choice" ? "📝 Opción múltiple" : "📊 Escala"}
+              {t === "multiple_choice" ? "📝 Múltiple" : "📊 Escala"}
             </button>
           ))}
           {/* Eliminar (solo si hay más de 1) */}
@@ -430,6 +432,7 @@ export default function AdminPollsPage() {
   const [endsAt, setEndsAt] = useState("");
   const [category, setCategory] = useState("general");
   const [requiresAuth, setRequiresAuth] = useState(true);
+  const [accessCode, setAccessCode] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -452,7 +455,7 @@ export default function AdminPollsPage() {
   const resetForm = () => {
     setTitle(""); setDescription(""); setHeaderImage(null);
     setQuestions([EMPTY_QUESTION()]); setStartsAt(""); setEndsAt("");
-    setCategory("general"); setRequiresAuth(true);
+    setCategory("general"); setRequiresAuth(true); setAccessCode("");
     setEditItem(null); setFormError(null);
   };
 
@@ -471,6 +474,7 @@ export default function AdminPollsPage() {
     setEndsAt(toLocalDatetimeInput(p.ends_at));
     setCategory(p.category || "general");
     setRequiresAuth(p.requires_auth !== false);
+    setAccessCode("");
     setEditItem(p); setShowForm(true); setFormError(null);
   };
 
@@ -542,6 +546,7 @@ export default function AdminPollsPage() {
         ends_at: toISOString(endsAt),
         category,
         requires_auth: requiresAuth,
+        ...(accessCode.trim() ? { access_code: accessCode.trim() } : {}),
       };
 
       const url = editItem
@@ -784,6 +789,35 @@ export default function AdminPollsPage() {
                 </span>
               </div>
             </div>
+
+            {/* Código de acceso privado */}
+            <div>
+              <label style={labelStyle}>Código de acceso (opcional — deja vacío para encuesta pública)</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  style={{ ...inputStyle, flex: 1, fontFamily: "monospace", letterSpacing: "0.1em" }}
+                  value={accessCode}
+                  onChange={(e) => setAccessCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                  placeholder="ej: BEACON2026"
+                  maxLength={20}
+                />
+                <button
+                  type="button"
+                  onClick={() => setAccessCode(Math.random().toString(36).slice(2, 8).toUpperCase())}
+                  style={{ padding: "8px 12px", borderRadius: 8, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  🎲 Generar
+                </button>
+                {accessCode && (
+                  <button type="button" onClick={() => setAccessCode("")} style={{ padding: "8px 10px", borderRadius: 8, fontSize: 10, background: "rgba(255,7,58,0.06)", color: "#FF073A", border: "1px solid rgba(255,7,58,0.15)", cursor: "pointer" }}>✕</button>
+                )}
+              </div>
+              {accessCode && (
+                <p style={{ fontSize: 9, fontFamily: "monospace", color: "#D4AF37", marginTop: 4 }}>
+                  🔒 Encuesta privada — solo quienes tengan el código podrán participar
+                </p>
+              )}
+            </div>
           </div>
 
           {formError && (
@@ -865,6 +899,11 @@ export default function AdminPollsPage() {
                         {!p.requires_auth && (
                           <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(57,255,20,0.07)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.15)", fontFamily: "monospace" }}>
                             ⚡ Flash
+                          </span>
+                        )}
+                        {p.access_code && (
+                          <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(212,175,55,0.07)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.2)", fontFamily: "monospace" }}>
+                            🔒 {p.access_code}
                           </span>
                         )}
                       </div>

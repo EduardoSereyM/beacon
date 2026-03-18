@@ -25,6 +25,7 @@ const ADMIN_NAV = [
     { href: "/admin/dimensions", label: "Dimensiones", icon: "🎚️" },
     { href: "/admin/versus",     label: "VS Arena",    icon: "⚔️" },
     { href: "/admin/polls",      label: "Encuestas",   icon: "📊" },
+    { href: "/admin/analytics",  label: "Analytics",   icon: "📈" },
     { href: "/admin/events",     label: "Eventos",     icon: "📡" },
     { href: "/admin/audit",      label: "Audit Log",   icon: "📜" },
 ];

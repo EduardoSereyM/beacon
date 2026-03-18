@@ -52,6 +52,7 @@ interface Poll {
   questions: QuestionDef[] | null;
   category: string;
   requires_auth: boolean;
+  is_private?: boolean;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -515,6 +516,9 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
   const [userVote, setUserVote] = useState<string | null>(null);
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accessCode, setAccessCode] = useState("");
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [verifyingCode, setVerifyingCode] = useState(false);
 
   useBeaconPulse(`poll:${id}`, (data) => {
     if (data.type === "POLL_PULSE" && voted) {
@@ -522,11 +526,14 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
     }
   });
 
-  const fetchPoll = useCallback(async () => {
+  const fetchPoll = useCallback(async (code?: string) => {
     setLoading(true);
     setNotFound(false);
     try {
-      const res = await fetch(`${API_URL}/api/v1/polls/${id}`);
+      const url = code
+        ? `${API_URL}/api/v1/polls/${id}?access_code=${encodeURIComponent(code)}`
+        : `${API_URL}/api/v1/polls/${id}`;
+      const res = await fetch(url);
       if (res.status === 404) { setNotFound(true); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setPoll(await res.json());
@@ -534,7 +541,22 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
     finally { setLoading(false); }
   }, [id]);
 
+  async function handleVerifyCode() {
+    if (!accessCode.trim()) return;
+    setVerifyingCode(true); setAccessError(null);
+    await fetchPoll(accessCode.trim());
+    setVerifyingCode(false);
+    // Si tras el fetch poll.is_private sigue true, el código fue incorrecto
+  }
+
   useEffect(() => { fetchPoll(); }, [fetchPoll]);
+
+  // Detectar código incorrecto tras re-fetch
+  useEffect(() => {
+    if (poll?.is_private && !poll.questions && accessCode) {
+      setAccessError("Código incorrecto. Inténtalo de nuevo.");
+    }
+  }, [poll, accessCode]);
 
   async function doVote(optionValue: string) {
     const requiresAuth = poll?.requires_auth !== false;
@@ -545,6 +567,7 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
       if (token) headers["Authorization"] = `Bearer ${token}`;
       const body: Record<string, string> = { option_value: optionValue };
       if (!requiresAuth) body["anon_session_id"] = getOrCreateAnonSessionId();
+      if (poll?.is_private && accessCode) body["access_code"] = accessCode;
       const res = await fetch(`${API_URL}/api/v1/polls/${id}/vote`, {
         method: "POST",
         headers,
@@ -585,6 +608,49 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
       </div>
     </div>
   );
+
+  // Gate: encuesta privada sin código válido
+  if (poll.is_private && !poll.questions) {
+    return (
+      <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6 flex items-center justify-center">
+        <div style={{ maxWidth: 400, width: "100%" }}>
+          <div style={{ borderRadius: 24, overflow: "hidden", border: "1px solid rgba(212,175,55,0.25)", background: "rgba(14,14,14,0.98)", boxShadow: "0 24px 80px rgba(0,0,0,0.6)", padding: "36px 32px" }}>
+            <div style={{ textAlign: "center", marginBottom: 28 }}>
+              <p style={{ fontSize: 40, marginBottom: 12 }}>🔒</p>
+              <h1 style={{ fontSize: 18, fontWeight: 800, color: "#f5f5f5", marginBottom: 8 }}>{poll.title}</h1>
+              <p style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.35)" }}>
+                Esta encuesta es privada. Ingresa el código de acceso para participar.
+              </p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <input
+                type="text"
+                value={accessCode}
+                onChange={(e) => { setAccessCode(e.target.value.toUpperCase()); setAccessError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && handleVerifyCode()}
+                placeholder="CÓDIGO DE ACCESO"
+                style={{ width: "100%", padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${accessError ? "rgba(255,7,58,0.4)" : "rgba(212,175,55,0.25)"}`, color: "#f5f5f5", fontSize: 14, fontFamily: "monospace", letterSpacing: "0.15em", outline: "none", textAlign: "center", boxSizing: "border-box" }}
+                autoFocus
+              />
+              {accessError && (
+                <p style={{ fontSize: 11, fontFamily: "monospace", color: "#FF073A", textAlign: "center" }}>✗ {accessError}</p>
+              )}
+              <button
+                onClick={handleVerifyCode}
+                disabled={verifyingCode || !accessCode.trim()}
+                style={{ width: "100%", padding: "12px", borderRadius: 10, fontSize: 12, fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", background: "rgba(212,175,55,0.12)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.3)", cursor: verifyingCode ? "not-allowed" : "pointer", opacity: (!accessCode.trim() || verifyingCode) ? 0.5 : 1 }}
+              >
+                {verifyingCode ? "Verificando…" : "Ingresar →"}
+              </button>
+            </div>
+            <div style={{ marginTop: 20, textAlign: "center" }}>
+              <Link href="/encuestas" style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", textDecoration: "none" }}>← Volver a encuestas</Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const hasMultiQ = (poll.questions?.length ?? 0) > 1;
   const pageUrl = typeof window !== "undefined"
@@ -650,7 +716,7 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
             </div>
           ) : (
             /* Sin imagen: header con gradiente */
-            <div style={{ padding: "28px 28px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+            <div className="px-4 sm:px-7" style={{ paddingTop: 28, paddingBottom: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
               <div>
                 {poll.is_open ? (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontFamily: "monospace", color: "#39FF14" }}>
@@ -665,9 +731,9 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
             </div>
           )}
 
-          <div style={{ padding: "22px 28px 30px" }}>
+          <div className="px-4 sm:px-7" style={{ paddingTop: 22, paddingBottom: 30 }}>
             {/* Título */}
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: "#f5f5f5", marginBottom: 8, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
+            <h1 className="text-xl sm:text-2xl" style={{ fontWeight: 900, color: "#f5f5f5", marginBottom: 8, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
               {poll.title}
             </h1>
             {poll.description && (

@@ -14,8 +14,9 @@ Endpoints:
 
 import logging
 import uuid
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any
 
@@ -61,6 +62,7 @@ class PollCreateIn(BaseModel):
     questions: List[QuestionDef] = Field(..., min_length=1)
     category: str = "general"
     requires_auth: bool = True
+    access_code: Optional[str] = Field(None, min_length=4, max_length=20)
 
 
 class PollUpdateIn(BaseModel):
@@ -73,6 +75,7 @@ class PollUpdateIn(BaseModel):
     questions: Optional[List[QuestionDef]] = None
     category: Optional[str] = None
     requires_auth: Optional[bool] = None
+    access_code: Optional[str] = Field(None, min_length=4, max_length=20)
 
 
 # ── Upload imagen ──────────────────────────────────────
@@ -166,6 +169,7 @@ async def admin_create_poll(
         "questions": questions_json,
         "category": category,
         "requires_auth": body.requires_auth,
+        "access_code": body.access_code or None,
         # poll_type refleja el tipo de la primera pregunta (retrocompat.)
         "poll_type": body.questions[0].type,
         "options": body.questions[0].options if body.questions[0].type == "multiple_choice" else None,
@@ -216,6 +220,7 @@ async def admin_update_poll(
     if body.ends_at is not None:         patch["ends_at"] = body.ends_at
     if body.is_active is not None:       patch["is_active"] = body.is_active
     if body.requires_auth is not None:   patch["requires_auth"] = body.requires_auth
+    if body.access_code is not None:     patch["access_code"] = body.access_code or None
     if body.category is not None:
         patch["category"] = body.category if body.category in VALID_CATEGORIES else "general"
     if body.questions is not None:
@@ -265,3 +270,74 @@ async def admin_delete_poll(
     )
 
     return {"ok": True, "deleted_id": poll_id}
+
+
+# ── Analytics ──────────────────────────────────────────
+
+@router.get("/analytics/voters", summary="[ADMIN] Votos por usuario en período")
+async def admin_poll_voters_analytics(
+    from_date: Optional[str] = Query(None, description="ISO 8601 — fecha inicio"),
+    to_date: Optional[str] = Query(None, description="ISO 8601 — fecha fin"),
+    admin: dict = Depends(require_admin_role),
+):
+    """
+    Devuelve ranking de usuarios por cantidad de votos en encuestas,
+    filtrable por período. Incluye email, rank y última actividad.
+    """
+    supabase = get_async_supabase_client()
+
+    # 1. Traer votos (con filtro de fecha opcional)
+    query = supabase.table("poll_votes").select("user_id, poll_id, created_at")
+    if from_date:
+        query = query.gte("created_at", from_date)
+    if to_date:
+        query = query.lte("created_at", to_date)
+    votes_res = await query.order("created_at", desc=True).execute()
+    votes = votes_res.data or []
+
+    if not votes:
+        return {"items": [], "total": 0, "period": {"from": from_date, "to": to_date}}
+
+    # 2. Agregar por user_id
+    from collections import defaultdict
+    user_stats: dict[str, dict] = defaultdict(lambda: {"votes": 0, "polls": set(), "last_vote_at": None})
+    for v in votes:
+        uid = v.get("user_id")
+        if not uid:
+            continue
+        user_stats[uid]["votes"] += 1
+        user_stats[uid]["polls"].add(v["poll_id"])
+        ts = v.get("created_at")
+        if ts and (not user_stats[uid]["last_vote_at"] or ts > user_stats[uid]["last_vote_at"]):
+            user_stats[uid]["last_vote_at"] = ts
+
+    if not user_stats:
+        return {"items": [], "total": 0, "period": {"from": from_date, "to": to_date}}
+
+    # 3. Traer datos de usuarios
+    user_ids = list(user_stats.keys())
+    users_res = await (
+        supabase.table("users")
+        .select("id, email, first_name, last_name, rank, reputation_score")
+        .in_("id", user_ids)
+        .execute()
+    )
+    users_map = {u["id"]: u for u in (users_res.data or [])}
+
+    # 4. Construir respuesta ordenada por votos DESC
+    items = []
+    for uid, stats in sorted(user_stats.items(), key=lambda x: -x[1]["votes"]):
+        u = users_map.get(uid, {})
+        items.append({
+            "user_id": uid,
+            "email": u.get("email", "—"),
+            "first_name": u.get("first_name", ""),
+            "last_name": u.get("last_name", ""),
+            "rank": u.get("rank", "BASIC"),
+            "reputation_score": u.get("reputation_score", 0.5),
+            "votes_count": stats["votes"],
+            "polls_count": len(stats["polls"]),
+            "last_vote_at": stats["last_vote_at"],
+        })
+
+    return {"items": items, "total": len(items), "period": {"from": from_date, "to": to_date}}
