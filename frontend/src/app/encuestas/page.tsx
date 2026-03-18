@@ -7,10 +7,11 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuthStore } from "@/store";
+import usePermissions from "@/hooks/usePermissions";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -314,18 +315,23 @@ function PollCard({ poll }: { poll: PollItem }) {
 
 export default function EncuestasPage() {
   const { token } = useAuthStore();
+  const { isVerified } = usePermissions();
   const [items, setItems] = useState<PollItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchPolls = useCallback(async (cat: string) => {
+  const fetchPolls = useCallback(async (cat: string, search: string) => {
     setLoading(true);
     setError(null);
     try {
-      const url = cat
-        ? `${API_URL}/api/v1/polls?category=${encodeURIComponent(cat)}`
-        : `${API_URL}/api/v1/polls`;
+      const params = new URLSearchParams();
+      if (cat) params.set("category", cat);
+      if (search.trim()) params.set("search", search.trim());
+      const url = `${API_URL}/api/v1/polls${params.toString() ? "?" + params.toString() : ""}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -338,8 +344,15 @@ export default function EncuestasPage() {
   }, []);
 
   useEffect(() => {
-    fetchPolls(activeCategory);
+    fetchPolls(activeCategory, searchQuery);
   }, [fetchPolls, activeCategory]);
+
+  // Búsqueda con debounce 400ms
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => fetchPolls(activeCategory, val), 400);
+  };
 
   return (
     <div className="min-h-screen pt-20 pb-12 px-6">
@@ -358,29 +371,53 @@ export default function EncuestasPage() {
           <p className="text-sm text-foreground-muted max-w-sm mx-auto">
             Opina sobre los temas que definen el futuro del país. Tu voz, ponderada por tu nivel de integridad.
           </p>
-          {token && (
-            <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+            {token && (
               <Link
                 href="/encuestas/mis"
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 11,
-                  fontFamily: "monospace",
-                  color: "#00E5FF",
-                  padding: "5px 14px",
-                  borderRadius: 20,
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: 11, fontFamily: "monospace", color: "#00E5FF",
+                  padding: "5px 14px", borderRadius: 20,
                   border: "1px solid rgba(0,229,255,0.25)",
-                  background: "rgba(0,229,255,0.06)",
-                  textDecoration: "none",
-                  transition: "all 0.15s",
+                  background: "rgba(0,229,255,0.06)", textDecoration: "none",
                 }}
               >
                 🗂 Mis Encuestas
               </Link>
-            </div>
-          )}
+            )}
+            {isVerified && (
+              <button
+                onClick={() => setShowCreate(true)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: 11, fontFamily: "monospace", color: "#39FF14",
+                  padding: "5px 14px", borderRadius: 20,
+                  border: "1px solid rgba(57,255,20,0.25)",
+                  background: "rgba(57,255,20,0.06)", cursor: "pointer",
+                }}
+              >
+                + Crear Encuesta
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Búsqueda */}
+        <div style={{ marginBottom: 16 }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Buscar encuesta…"
+            style={{
+              width: "100%", padding: "9px 14px", borderRadius: 10,
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              color: "#f5f5f5", fontSize: 12, outline: "none",
+              fontFamily: "monospace", boxSizing: "border-box",
+            }}
+          />
         </div>
 
         {/* Filtro categorías */}
@@ -466,6 +503,246 @@ export default function EncuestasPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Modal crear encuesta */}
+      {showCreate && (
+        <CreatePollModal
+          token={token!}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => { setShowCreate(false); fetchPolls(activeCategory, searchQuery); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── CreatePollModal ──────────────────────────────────────────────────────────
+
+interface QuestionForm {
+  text: string;
+  type: "multiple_choice" | "scale";
+  options: string[];
+  scale_points: number;
+}
+
+function emptyQuestion(): QuestionForm {
+  return { text: "", type: "multiple_choice", options: ["", ""], scale_points: 5 };
+}
+
+function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: () => void }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("general");
+  const [endsInDays, setEndsInDays] = useState(7);
+  const [questions, setQuestions] = useState<QuestionForm[]>([emptyQuestion()]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const inputStyle = {
+    width: "100%", padding: "8px 11px", borderRadius: 7,
+    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
+    color: "#f5f5f5", fontSize: 12, outline: "none", boxSizing: "border-box" as const,
+  };
+  const labelStyle = {
+    fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" as const,
+    letterSpacing: "0.1em", display: "block", marginBottom: 5,
+  };
+
+  const updateQ = (i: number, patch: Partial<QuestionForm>) =>
+    setQuestions((qs) => qs.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
+
+  const handleSubmit = async () => {
+    if (!title.trim()) { setError("El título es obligatorio"); return; }
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.text.trim()) { setError(`Pregunta ${i + 1}: texto obligatorio`); return; }
+      if (q.type === "multiple_choice") {
+        const valid = q.options.filter((o) => o.trim());
+        if (valid.length < 2) { setError(`Pregunta ${i + 1}: mínimo 2 opciones`); return; }
+      }
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const body = {
+        title: title.trim(),
+        description: description.trim() || null,
+        category,
+        ends_in_days: endsInDays,
+        questions: questions.map((q) => ({
+          text: q.text.trim(),
+          type: q.type,
+          ...(q.type === "multiple_choice" ? { options: q.options.filter((o) => o.trim()) } : {}),
+          ...(q.type === "scale" ? { scale_points: q.scale_points } : {}),
+        })),
+      };
+      const res = await fetch(`${API_URL}/api/v1/polls`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.detail || "Error al crear");
+      }
+      onCreated();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        padding: "20px 16px", overflowY: "auto",
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{
+        width: "100%", maxWidth: 520,
+        background: "rgba(14,14,14,0.99)", border: "1px solid rgba(57,255,20,0.2)",
+        borderRadius: 16, padding: 24, marginTop: 20,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#39FF14" }}>Crear Encuesta</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 18, cursor: "pointer" }}>✕</button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Título */}
+          <div>
+            <label style={labelStyle}>Título *</label>
+            <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ej: ¿Apruebas la nueva ley X?" />
+          </div>
+
+          {/* Descripción */}
+          <div>
+            <label style={labelStyle}>Descripción (opcional)</label>
+            <input style={inputStyle} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Contexto breve" />
+          </div>
+
+          {/* Categoría + Duración */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={labelStyle}>Categoría</label>
+              <select style={{ ...inputStyle, cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
+                {CATEGORIES.slice(1).map((c) => (
+                  <option key={c.value} value={c.value} style={{ background: "#111" }}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Duración (días)</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[1, 3, 7, 14, 30].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setEndsInDays(d)}
+                    style={{
+                      padding: "4px 10px", borderRadius: 6, fontSize: 11, fontFamily: "monospace",
+                      border: `1px solid ${endsInDays === d ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
+                      background: endsInDays === d ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.03)",
+                      color: endsInDays === d ? "#39FF14" : "rgba(255,255,255,0.4)", cursor: "pointer",
+                    }}
+                  >
+                    {d}d
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Preguntas */}
+          <div>
+            <label style={labelStyle}>Preguntas (máx. 3) *</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {questions.map((q, i) => (
+                <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 9, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(57,255,20,0.6)", textTransform: "uppercase" }}>Pregunta {i + 1}</span>
+                    <div style={{ display: "flex", gap: 5 }}>
+                      {(["multiple_choice", "scale"] as const).map((t) => (
+                        <button key={t} type="button" onClick={() => updateQ(i, { type: t })}
+                          style={{ padding: "2px 8px", borderRadius: 5, fontSize: 9, fontFamily: "monospace", cursor: "pointer",
+                            border: `1px solid ${q.type === t ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
+                            background: q.type === t ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.02)",
+                            color: q.type === t ? "#39FF14" : "rgba(255,255,255,0.35)",
+                          }}>
+                          {t === "multiple_choice" ? "Opciones" : "Escala"}
+                        </button>
+                      ))}
+                      {questions.length > 1 && (
+                        <button type="button" onClick={() => setQuestions((qs) => qs.filter((_, idx) => idx !== i))}
+                          style={{ padding: "2px 7px", borderRadius: 5, fontSize: 10, background: "rgba(255,7,58,0.07)", color: "#FF073A", border: "1px solid rgba(255,7,58,0.15)", cursor: "pointer" }}>
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <input style={{ ...inputStyle, marginBottom: 8 }} value={q.text} onChange={(e) => updateQ(i, { text: e.target.value })} placeholder="Texto de la pregunta" />
+                  {q.type === "multiple_choice" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {q.options.map((opt, oi) => (
+                        <div key={oi} style={{ display: "flex", gap: 5 }}>
+                          <input style={{ ...inputStyle, flex: 1 }} value={opt} onChange={(e) => { const opts = [...q.options]; opts[oi] = e.target.value; updateQ(i, { options: opts }); }} placeholder={`Opción ${oi + 1}`} />
+                          {q.options.length > 2 && (
+                            <button type="button" onClick={() => updateQ(i, { options: q.options.filter((_, j) => j !== oi) })}
+                              style={{ padding: "0 8px", borderRadius: 5, background: "rgba(255,7,58,0.07)", color: "#FF073A", border: "1px solid rgba(255,7,58,0.15)", cursor: "pointer", fontSize: 11 }}>✕</button>
+                          )}
+                        </div>
+                      ))}
+                      {q.options.length < 6 && (
+                        <button type="button" onClick={() => updateQ(i, { options: [...q.options, ""] })}
+                          style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: 5, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }}>
+                          + Opción
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {q.type === "scale" && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {[2, 3, 4, 5, 7, 10].map((pts) => (
+                        <button key={pts} type="button" onClick={() => updateQ(i, { scale_points: pts })}
+                          style={{ width: 34, height: 34, borderRadius: 7, fontSize: 12, fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
+                            border: `1px solid ${q.scale_points === pts ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
+                            background: q.scale_points === pts ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.02)",
+                            color: q.scale_points === pts ? "#39FF14" : "rgba(255,255,255,0.4)",
+                          }}>
+                          {pts}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {questions.length < 3 && (
+                <button type="button" onClick={() => setQuestions((qs) => [...qs, emptyQuestion()])}
+                  style={{ alignSelf: "flex-start", padding: "6px 14px", borderRadius: 7, fontSize: 11, fontFamily: "monospace", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }}>
+                  + Agregar pregunta ({questions.length}/3)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {error && <p style={{ fontSize: 11, color: "#FF073A", fontFamily: "monospace", marginTop: 14 }}>✗ {error}</p>}
+
+        <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 8, fontSize: 11, background: "transparent", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer" }}>
+            Cancelar
+          </button>
+          <button onClick={handleSubmit} disabled={saving}
+            style={{ padding: "8px 20px", borderRadius: 8, fontSize: 11, fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", background: "rgba(57,255,20,0.1)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.25)", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
+            {saving ? "Creando…" : "Publicar Encuesta"}
+          </button>
+        </div>
       </div>
     </div>
   );

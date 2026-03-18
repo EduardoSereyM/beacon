@@ -9,6 +9,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import QRCode from "react-qr-code";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -418,6 +419,7 @@ export default function AdminPollsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<PollItem | null>(null);
   const [expandedResultId, setExpandedResultId] = useState<string | null>(null);
+  const [qrPollId, setQrPollId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -850,6 +852,28 @@ export default function AdminPollsPage() {
                   <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", marginTop: 6 }}>
                     Comparte este código con quienes quieras que participen
                   </p>
+                  {/* QR solo en modo edición (cuando ya hay poll_id) */}
+                  {editItem && (
+                    <div style={{ marginTop: 14 }}>
+                      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(212,175,55,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>QR de acceso</p>
+                      <div style={{ background: "#fff", padding: 10, borderRadius: 8, display: "inline-block" }}>
+                        <QRCode
+                          value={`https://www.beaconchile.cl/encuestas/${editItem.id}?code=${accessCode}`}
+                          size={120}
+                        />
+                      </div>
+                      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", marginTop: 6, wordBreak: "break-all" }}>
+                        beaconchile.cl/encuestas/{editItem.id}?code={accessCode}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(`https://www.beaconchile.cl/encuestas/${editItem.id}?code=${accessCode}`)}
+                        style={{ marginTop: 6, padding: "4px 10px", borderRadius: 5, fontSize: 9, fontFamily: "monospace", background: "rgba(212,175,55,0.08)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.2)", cursor: "pointer" }}
+                      >
+                        📋 Copiar link
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -964,6 +988,14 @@ export default function AdminPollsPage() {
                   >
                     📊 {p.total_votes}
                   </button>
+                  {p.access_code && (
+                    <button
+                      onClick={() => setQrPollId(qrPollId === p.id ? null : p.id)}
+                      style={{ padding: "5px 11px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: qrPollId === p.id ? "rgba(212,175,55,0.15)" : "rgba(212,175,55,0.05)", color: "#D4AF37", border: `1px solid ${qrPollId === p.id ? "rgba(212,175,55,0.4)" : "rgba(212,175,55,0.2)"}`, cursor: "pointer" }}
+                    >
+                      🔗 QR
+                    </button>
+                  )}
                   <button
                     onClick={() => openEdit(p)}
                     style={{ padding: "5px 11px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer" }}
@@ -984,6 +1016,27 @@ export default function AdminPollsPage() {
                   </button>
                 </div>
                 {expandedResultId === p.id && <ResultsPanel pollId={p.id} />}
+                {qrPollId === p.id && p.access_code && (
+                  <div style={{ padding: "14px 20px", borderTop: "1px solid rgba(212,175,55,0.08)", background: "rgba(212,175,55,0.02)" }}>
+                    <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(212,175,55,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>QR de acceso privado</p>
+                    <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+                      <div style={{ background: "#fff", padding: 10, borderRadius: 8, display: "inline-block" }}>
+                        <QRCode value={`https://www.beaconchile.cl/encuestas/${p.id}?code=${p.access_code}`} size={120} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 160 }}>
+                        <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", wordBreak: "break-all", marginBottom: 8 }}>
+                          beaconchile.cl/encuestas/{p.id}?code={p.access_code}
+                        </p>
+                        <button
+                          onClick={() => navigator.clipboard?.writeText(`https://www.beaconchile.cl/encuestas/${p.id}?code=${p.access_code}`)}
+                          style={{ padding: "5px 11px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: "rgba(212,175,55,0.08)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.2)", cursor: "pointer" }}
+                        >
+                          📋 Copiar link
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               );
             })}

@@ -6,7 +6,6 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.core.database import get_supabase_client
-from app.services.auth_service import hash_password
 
 async def create_user(supabase, email, password, first_name, last_name, role):
     print(f"\n--- Creando/Actualizando: {email} ({role}) ---")
