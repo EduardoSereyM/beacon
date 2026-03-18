@@ -89,6 +89,7 @@ async def list_polls(category: Optional[str] = None):
             supabase.table("polls")
             .select("id, title, description, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, questions, category, requires_auth")
             .eq("is_active", True)
+            .is_("access_code", "null")   # solo encuestas públicas
             .lte("starts_at", now_iso)
             .gte("ends_at", now_iso)
             .order("starts_at", desc=True)
@@ -114,6 +115,43 @@ async def list_polls(category: Optional[str] = None):
         except Exception:
             enriched.append(_compute_results(p, []))
 
+    return {"items": enriched, "total": len(enriched)}
+
+
+@router.get("/polls/my", summary="Encuestas donde el usuario ya participó (incluye privadas)")
+async def my_polls(current_user: dict = Depends(get_current_user)):
+    """Devuelve encuestas donde el usuario autenticado ya votó."""
+    supabase = get_async_supabase_client()
+    user_id = current_user["id"]
+
+    # Obtener poll_ids donde votó este usuario
+    votes_res = await (
+        supabase.table("poll_votes")
+        .select("poll_id")
+        .eq("user_id", user_id)
+        .execute()
+    )
+    poll_ids = list({v["poll_id"] for v in (votes_res.data or [])})
+    if not poll_ids:
+        return {"items": [], "total": 0}
+
+    result = await (
+        supabase.table("polls")
+        .select("id, title, description, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, category, requires_auth, is_active")
+        .in_("id", poll_ids)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    items = result.data or []
+    enriched = []
+    for p in items:
+        try:
+            vote_res = await (
+                supabase.table("poll_votes").select("option_value").eq("poll_id", p["id"]).execute()
+            )
+            enriched.append(_compute_results(p, vote_res.data or []))
+        except Exception:
+            enriched.append(_compute_results(p, []))
     return {"items": enriched, "total": len(enriched)}
 
 
