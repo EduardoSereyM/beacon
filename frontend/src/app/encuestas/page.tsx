@@ -458,7 +458,7 @@ export default function EncuestasPage() {
           <div style={{ textAlign: "center", padding: "48px 0" }}>
             <p style={{ fontSize: 13, color: "#ff5050", marginBottom: 12 }}>{error}</p>
             <button
-              onClick={() => fetchPolls(activeCategory)}
+              onClick={() => fetchPolls(activeCategory, searchQuery)}
               style={{
                 fontSize: 11,
                 padding: "8px 16px",

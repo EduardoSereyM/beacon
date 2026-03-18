@@ -294,39 +294,6 @@ async def publish_event_pulse(
         return False
 
 
-async def publish_poll_pulse(
-    poll_id: str,
-    results: list,
-    total_votes: int,
-) -> bool:
-    """
-    Publica un pulso de encuesta al canal Redis de la encuesta.
-    Canal: beacon:pulse:poll:{poll_id}
-    """
-    r = await _get_redis_connection()
-    if not r:
-        return False
-
-    channel = f"beacon:pulse:poll:{poll_id}"
-    payload = {
-        "type": "POLL_PULSE",
-        "poll_id": poll_id,
-        "results": results,
-        "total_votes": total_votes,
-        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
-    }
-
-    try:
-        await r.publish(channel, json.dumps(payload))
-        logger.info("Poll Pulse | poll=%s | total=%d", poll_id, total_votes)
-        await r.aclose()
-        return True
-    except Exception as e:
-        logger.error("Failed to publish poll pulse: %s", e)
-        await r.aclose()
-        return False
-
-
 # ══════════════════════════════════════════════
 # WEBSOCKET ENDPOINT
 # ══════════════════════════════════════════════

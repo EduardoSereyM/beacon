@@ -411,9 +411,6 @@ async def get_me(current_user: dict = Depends(get_current_user)):
             try:
                 # Ojo: se llama via loop de asyncio en background o await 
                 # Como get_me y Depends manejan loop, lo lanzamos
-                supabase = get_async_supabase_client()
-                # Lo lanzamos sin wait pero es mejor awaited asi es sincrono 
-                # Sin embargo, FastAPI maneja await 
                 pass
             except Exception:
                 pass
