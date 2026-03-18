@@ -24,6 +24,14 @@ export default function NavbarClient() {
     const { user, isAuthenticated, isBasic, isAdmin, logout } = usePermissions();
     const rank = user.rank;
 
+    // Limpiar banner de sesión expirada cuando el usuario se autentica
+    useEffect(() => {
+        if (isAuthenticated) {
+            setSessionExpiredMsg(false);
+            setIsModalOpen(false);
+        }
+    }, [isAuthenticated]);
+
     // Eventos custom desde otros componentes
     useEffect(() => {
         const openAuth = () => setIsModalOpen(true);
