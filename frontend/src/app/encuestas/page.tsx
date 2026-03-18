@@ -28,7 +28,21 @@ interface PollItem {
   ends_at: string;
   total_votes: number;
   is_open: boolean;
+  category: string;
+  requires_auth: boolean;
 }
+
+const CATEGORIES: { value: string; label: string }[] = [
+  { value: "",             label: "Todas" },
+  { value: "politica",     label: "Política" },
+  { value: "economia",     label: "Economía" },
+  { value: "salud",        label: "Salud" },
+  { value: "educacion",    label: "Educación" },
+  { value: "espectaculos", label: "Espectáculos" },
+  { value: "deporte",      label: "Deporte" },
+  { value: "cultura",      label: "Cultura" },
+  { value: "general",      label: "General" },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -301,12 +315,16 @@ export default function EncuestasPage() {
   const [items, setItems] = useState<PollItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState("");
 
-  const fetchPolls = useCallback(async () => {
+  const fetchPolls = useCallback(async (cat: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/v1/polls`);
+      const url = cat
+        ? `${API_URL}/api/v1/polls?category=${encodeURIComponent(cat)}`
+        : `${API_URL}/api/v1/polls`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setItems(data.items || []);
@@ -318,8 +336,8 @@ export default function EncuestasPage() {
   }, []);
 
   useEffect(() => {
-    fetchPolls();
-  }, [fetchPolls]);
+    fetchPolls(activeCategory);
+  }, [fetchPolls, activeCategory]);
 
   return (
     <div className="min-h-screen pt-20 pb-12 px-6">
@@ -340,6 +358,30 @@ export default function EncuestasPage() {
           </p>
         </div>
 
+        {/* Filtro categorías */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginBottom: 28 }}>
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.value}
+              onClick={() => setActiveCategory(c.value)}
+              style={{
+                padding: "5px 14px",
+                borderRadius: 20,
+                fontSize: 10,
+                fontFamily: "monospace",
+                letterSpacing: "0.05em",
+                border: `1px solid ${activeCategory === c.value ? "rgba(0,229,255,0.4)" : "rgba(255,255,255,0.1)"}`,
+                background: activeCategory === c.value ? "rgba(0,229,255,0.1)" : "transparent",
+                color: activeCategory === c.value ? "#00E5FF" : "rgba(255,255,255,0.4)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+
         {/* Loading */}
         {loading && (
           <div style={{ textAlign: "center", padding: "48px 0" }}>
@@ -354,7 +396,7 @@ export default function EncuestasPage() {
           <div style={{ textAlign: "center", padding: "48px 0" }}>
             <p style={{ fontSize: 13, color: "#ff5050", marginBottom: 12 }}>{error}</p>
             <button
-              onClick={fetchPolls}
+              onClick={() => fetchPolls(activeCategory)}
               style={{
                 fontSize: 11,
                 padding: "8px 16px",

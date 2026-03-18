@@ -32,8 +32,13 @@ POLLS_BUCKET = "encuestas"  # bucket público para imágenes de encuestas
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 
+VALID_CATEGORIES = {
+    "general", "politica", "economia", "salud",
+    "educacion", "espectaculos", "deporte", "cultura",
+}
 
-# ── Schemas ────────────────────────────────────────────────────
+
+# ── Schemas ────────────────────────────────────────────
 
 class QuestionDef(BaseModel):
     """Definición de una pregunta dentro del JSONB questions[]."""
@@ -54,6 +59,8 @@ class PollCreateIn(BaseModel):
     ends_at: str            # ISO 8601
     is_active: bool = True
     questions: List[QuestionDef] = Field(..., min_length=1)
+    category: str = "general"
+    requires_auth: bool = True
 
 
 class PollUpdateIn(BaseModel):
@@ -64,9 +71,11 @@ class PollUpdateIn(BaseModel):
     ends_at: Optional[str] = None
     is_active: Optional[bool] = None
     questions: Optional[List[QuestionDef]] = None
+    category: Optional[str] = None
+    requires_auth: Optional[bool] = None
 
 
-# ── Upload imagen ──────────────────────────────────────────────
+# ── Upload imagen ──────────────────────────────────────
 
 @router.post("/upload-image", summary="[ADMIN] Subir imagen de cabecera")
 async def admin_upload_poll_image(
@@ -104,7 +113,7 @@ async def admin_upload_poll_image(
     return {"url": public_url, "path": filename}
 
 
-# ── CRUD ───────────────────────────────────────────────────────
+# ── CRUD ───────────────────────────────────────────────
 
 @router.get("", summary="[ADMIN] Lista todas las encuestas")
 async def admin_list_polls(admin: dict = Depends(require_admin_role)):
@@ -123,6 +132,9 @@ async def admin_create_poll(
     body: PollCreateIn,
     admin: dict = Depends(require_admin_role),
 ):
+    # Validar categoría
+    category = body.category if body.category in VALID_CATEGORIES else "general"
+
     # Validar preguntas
     for q in body.questions:
         if q.type == "multiple_choice" and (not q.options or len(q.options) < 2):
@@ -152,6 +164,8 @@ async def admin_create_poll(
         "is_active": body.is_active,
         "created_by": admin["user_id"],
         "questions": questions_json,
+        "category": category,
+        "requires_auth": body.requires_auth,
         # poll_type refleja el tipo de la primera pregunta (retrocompat.)
         "poll_type": body.questions[0].type,
         "options": body.questions[0].options if body.questions[0].type == "multiple_choice" else None,
@@ -170,7 +184,7 @@ async def admin_create_poll(
         action="OVERLORD_ACTION_CREATE_POLL",
         entity_type="POLL",
         entity_id=poll["id"],
-        details={"title": body.title, "questions": len(body.questions)},
+        details={"title": body.title, "questions": len(body.questions), "category": category},
     )
 
     return {"poll": poll}
@@ -195,12 +209,15 @@ async def admin_update_poll(
         raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
 
     patch: dict[str, Any] = {}
-    if body.title is not None:      patch["title"] = body.title
-    if body.description is not None: patch["description"] = body.description
-    if body.header_image is not None: patch["header_image"] = body.header_image
-    if body.starts_at is not None:   patch["starts_at"] = body.starts_at
-    if body.ends_at is not None:     patch["ends_at"] = body.ends_at
-    if body.is_active is not None:   patch["is_active"] = body.is_active
+    if body.title is not None:           patch["title"] = body.title
+    if body.description is not None:     patch["description"] = body.description
+    if body.header_image is not None:    patch["header_image"] = body.header_image
+    if body.starts_at is not None:       patch["starts_at"] = body.starts_at
+    if body.ends_at is not None:         patch["ends_at"] = body.ends_at
+    if body.is_active is not None:       patch["is_active"] = body.is_active
+    if body.requires_auth is not None:   patch["requires_auth"] = body.requires_auth
+    if body.category is not None:
+        patch["category"] = body.category if body.category in VALID_CATEGORIES else "general"
     if body.questions is not None:
         patch["questions"] = [q.model_dump() for q in body.questions]
 

@@ -5,13 +5,14 @@ Endpoints públicos para encuestas ciudadanas.
 
 GET  /polls              → lista encuestas activas
 GET  /polls/{id}         → detalle + resultados parciales
-POST /polls/{id}/vote    → emitir voto (JWT, 1 por usuario por encuesta)
+POST /polls/{id}/vote    → emitir voto (JWT requerido o anónimo si requires_auth=False)
 """
 
 import asyncio
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
+from typing import Optional
 import logging
 
 from app.core.database import get_async_supabase_client
@@ -26,6 +27,7 @@ router = APIRouter()
 
 class PollVotePayload(BaseModel):
     option_value: str  # opción elegida ("Sí", "No") o valor numérico en scale ("4")
+    anon_session_id: Optional[str] = None  # UUID del browser, solo para encuestas sin auth
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -77,20 +79,22 @@ def _compute_results(poll: dict, votes: list) -> dict:
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/polls", summary="Listar encuestas activas")
-async def list_polls():
+async def list_polls(category: Optional[str] = None):
     supabase = get_async_supabase_client()
     now_iso = datetime.now(timezone.utc).isoformat()
 
     try:
-        result = await (
+        query = (
             supabase.table("polls")
-            .select("id, title, description, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, questions")
+            .select("id, title, description, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, questions, category, requires_auth")
             .eq("is_active", True)
             .lte("starts_at", now_iso)
             .gte("ends_at", now_iso)
             .order("starts_at", desc=True)
-            .execute()
         )
+        if category:
+            query = query.eq("category", category)
+        result = await query.execute()
     except Exception as e:
         logger.error(f"Error listando polls: {e}")
         raise HTTPException(status_code=503, detail="Error al obtener encuestas")
@@ -139,16 +143,15 @@ async def get_poll(poll_id: str):
 async def vote_poll(
     poll_id: str,
     payload: PollVotePayload,
-    current_user: dict = Depends(get_current_user),
+    authorization: Optional[str] = Header(None),
 ):
     supabase = get_async_supabase_client()
-    user_id = current_user["id"]
 
     # Verificar encuesta
     try:
         poll_res = await (
             supabase.table("polls")
-            .select("id, poll_type, options, scale_min, scale_max, starts_at, ends_at, is_active")
+            .select("id, poll_type, options, scale_min, scale_max, starts_at, ends_at, is_active, requires_auth")
             .eq("id", poll_id)
             .single()
             .execute()
@@ -161,6 +164,30 @@ async def vote_poll(
         raise HTTPException(status_code=409, detail="Esta encuesta no está activa")
     if not _is_open(poll):
         raise HTTPException(status_code=409, detail="Esta encuesta no está abierta para votar")
+
+    requires_auth = poll.get("requires_auth", True)
+
+    # Resolver identidad del votante
+    user_id: Optional[str] = None
+    anon_id: Optional[str] = None
+
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+        try:
+            user_res = await supabase.auth.get_user(token)
+            if user_res and user_res.user:
+                user_id = user_res.user.id
+        except Exception:
+            pass
+
+    if requires_auth and not user_id:
+        raise HTTPException(status_code=401, detail="Debes iniciar sesión para votar en esta encuesta")
+
+    if not user_id:
+        # Encuesta anónima: usar anon_session_id del payload
+        anon_id = payload.anon_session_id
+        if not anon_id:
+            raise HTTPException(status_code=400, detail="Se requiere anon_session_id para votar en esta encuesta")
 
     # Validar opción
     if poll["poll_type"] == "multiple_choice":
@@ -178,22 +205,34 @@ async def vote_poll(
                 detail=f"Valor fuera de rango [{poll['scale_min']}-{poll['scale_max']}]"
             )
 
-    # 1 voto por usuario
-    existing = await (
-        supabase.table("poll_votes")
-        .select("id")
-        .eq("poll_id", poll_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
+    # Anti-brigada: 1 voto por usuario/sesión por encuesta
+    if user_id:
+        existing = await (
+            supabase.table("poll_votes")
+            .select("id")
+            .eq("poll_id", poll_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+    else:
+        existing = await (
+            supabase.table("poll_votes")
+            .select("id")
+            .eq("poll_id", poll_id)
+            .eq("anon_session_id", anon_id)
+            .execute()
+        )
     if existing.data:
         raise HTTPException(status_code=409, detail="Ya votaste en esta encuesta")
 
-    await (
-        supabase.table("poll_votes")
-        .insert({"poll_id": poll_id, "user_id": user_id, "option_value": payload.option_value})
-        .execute()
-    )
+    # Insertar voto
+    vote_row: dict = {"poll_id": poll_id, "option_value": payload.option_value}
+    if user_id:
+        vote_row["user_id"] = user_id
+    else:
+        vote_row["anon_session_id"] = anon_id
+
+    await supabase.table("poll_votes").insert(vote_row).execute()
 
     # Publicar pulso en tiempo real (Efecto Kahoot)
     try:
@@ -212,5 +251,5 @@ async def vote_poll(
     except Exception as e:
         logger.warning(f"Pulse Poll falló (no crítico): {e}")
 
-    logger.info(f"Poll voto | poll={poll_id} | user={user_id} | value={payload.option_value}")
+    logger.info(f"Poll voto | poll={poll_id} | user={user_id or 'anon'} | value={payload.option_value}")
     return {"success": True, "option_value": payload.option_value}

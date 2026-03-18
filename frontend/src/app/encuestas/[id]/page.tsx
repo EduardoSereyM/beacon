@@ -50,6 +50,24 @@ interface Poll {
   total_votes: number;
   results: PollResult[];
   questions: QuestionDef[] | null;
+  category: string;
+  requires_auth: boolean;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  politica: "Política", economia: "Economía", salud: "Salud",
+  educacion: "Educación", espectaculos: "Espectáculos", deporte: "Deporte",
+  cultura: "Cultura", general: "General",
+};
+
+function getOrCreateAnonSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem("beacon_anon_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("beacon_anon_id", id);
+  }
+  return id;
 }
 
 interface EncuestaPageProps {
@@ -519,13 +537,18 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
   useEffect(() => { fetchPoll(); }, [fetchPoll]);
 
   async function doVote(optionValue: string) {
-    if (!token) { setError("Debes iniciar sesión para votar."); return; }
+    const requiresAuth = poll?.requires_auth !== false;
+    if (requiresAuth && !token) { setError("Debes iniciar sesión para votar."); return; }
     setVoting(true); setError(null);
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const body: Record<string, string> = { option_value: optionValue };
+      if (!requiresAuth) body["anon_session_id"] = getOrCreateAnonSessionId();
       const res = await fetch(`${API_URL}/api/v1/polls/${id}/vote`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ option_value: optionValue }),
+        headers,
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Error al votar");
@@ -595,7 +618,8 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
               {/* Header overlay: badges + QR + share */}
               <div className="absolute inset-x-0 bottom-0 p-5" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  {/* Status */}
+                  {/* Status + badges */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {poll.is_open ? (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontFamily: "monospace", color: "#39FF14", background: "rgba(0,0,0,0.7)", padding: "3px 12px", borderRadius: 20, border: "1px solid rgba(57,255,20,0.35)", backdropFilter: "blur(8px)" }}>
                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#39FF14", display: "inline-block", animation: "pulse 2s infinite" }} />
@@ -606,6 +630,17 @@ export default function EncuestaDetailPage({ params }: EncuestaPageProps) {
                       CERRADA
                     </span>
                   )}
+                  {poll.category && poll.category !== "general" && (
+                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "#D4AF37", background: "rgba(0,0,0,0.7)", padding: "3px 12px", borderRadius: 20, border: "1px solid rgba(212,175,55,0.3)" }}>
+                      {CATEGORY_LABELS[poll.category] ?? poll.category}
+                    </span>
+                  )}
+                  {poll.requires_auth === false && (
+                    <span style={{ fontSize: 10, fontFamily: "monospace", color: "#39FF14", background: "rgba(0,0,0,0.7)", padding: "3px 12px", borderRadius: 20, border: "1px solid rgba(57,255,20,0.3)" }}>
+                      ⚡ Flash
+                    </span>
+                  )}
+                  </div>
                 </div>
                 {/* QR pequeño */}
                 <div style={{ padding: 6, background: "#fff", borderRadius: 10, display: "inline-flex", lineHeight: 0, boxShadow: "0 2px 16px rgba(0,0,0,0.5)", flexShrink: 0 }}>

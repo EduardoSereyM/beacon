@@ -32,7 +32,20 @@ interface PollItem {
   is_active: boolean;
   created_at: string;
   total_votes: number;
+  category: string;
+  requires_auth: boolean;
 }
+
+const POLL_CATEGORIES: { value: string; label: string }[] = [
+  { value: "general",      label: "General" },
+  { value: "politica",     label: "Política" },
+  { value: "economia",     label: "Economía" },
+  { value: "salud",        label: "Salud" },
+  { value: "educacion",    label: "Educación" },
+  { value: "espectaculos", label: "Espectáculos" },
+  { value: "deporte",      label: "Deporte" },
+  { value: "cultura",      label: "Cultura" },
+];
 
 const EMPTY_QUESTION = (): PollQuestion => ({
   text: "",
@@ -415,6 +428,8 @@ export default function AdminPollsPage() {
   const [questions, setQuestions] = useState<PollQuestion[]>([EMPTY_QUESTION()]);
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
+  const [category, setCategory] = useState("general");
+  const [requiresAuth, setRequiresAuth] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -437,6 +452,7 @@ export default function AdminPollsPage() {
   const resetForm = () => {
     setTitle(""); setDescription(""); setHeaderImage(null);
     setQuestions([EMPTY_QUESTION()]); setStartsAt(""); setEndsAt("");
+    setCategory("general"); setRequiresAuth(true);
     setEditItem(null); setFormError(null);
   };
 
@@ -453,6 +469,8 @@ export default function AdminPollsPage() {
     );
     setStartsAt(toLocalDatetimeInput(p.starts_at));
     setEndsAt(toLocalDatetimeInput(p.ends_at));
+    setCategory(p.category || "general");
+    setRequiresAuth(p.requires_auth !== false);
     setEditItem(p); setShowForm(true); setFormError(null);
   };
 
@@ -522,6 +540,8 @@ export default function AdminPollsPage() {
         questions: cleanQuestions,
         starts_at: toISOString(startsAt),
         ends_at: toISOString(endsAt),
+        category,
+        requires_auth: requiresAuth,
       };
 
       const url = editItem
@@ -719,7 +739,7 @@ export default function AdminPollsPage() {
             </div>
 
             {/* Fechas */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
               <div>
                 <label style={labelStyle}>Fecha de inicio *</label>
                 <input type="datetime-local" style={inputStyle} value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
@@ -727,6 +747,41 @@ export default function AdminPollsPage() {
               <div>
                 <label style={labelStyle}>Fecha de cierre *</label>
                 <input type="datetime-local" style={inputStyle} value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Categoría + Modo acceso */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Categoría</label>
+                <select
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  {POLL_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value} style={{ background: "#111" }}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Modo de acceso</label>
+                <button
+                  type="button"
+                  onClick={() => setRequiresAuth(!requiresAuth)}
+                  style={{
+                    width: "100%", padding: "8px 12px", borderRadius: 8, fontSize: 11, fontFamily: "monospace",
+                    background: requiresAuth ? "rgba(0,229,255,0.06)" : "rgba(57,255,20,0.06)",
+                    color: requiresAuth ? "#00E5FF" : "#39FF14",
+                    border: `1px solid ${requiresAuth ? "rgba(0,229,255,0.2)" : "rgba(57,255,20,0.2)"}`,
+                    cursor: "pointer", textAlign: "left",
+                  }}
+                >
+                  {requiresAuth ? "🔐 Requiere login" : "⚡ Flash — Sin login"}
+                </button>
+                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "monospace", display: "block", marginTop: 4 }}>
+                  {requiresAuth ? "Solo usuarios registrados pueden votar" : "Cualquier persona puede votar (ideal para RRSS)"}
+                </span>
               </div>
             </div>
           </div>
@@ -802,6 +857,16 @@ export default function AdminPollsPage() {
                         <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(0,229,255,0.07)", color: "#00E5FF", border: "1px solid rgba(0,229,255,0.12)", fontFamily: "monospace" }}>
                           {p.questions?.length ?? 0} pregunta{(p.questions?.length ?? 0) !== 1 ? "s" : ""}
                         </span>
+                        {p.category && p.category !== "general" && (
+                          <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(212,175,55,0.07)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.15)", fontFamily: "monospace", textTransform: "capitalize" }}>
+                            {POLL_CATEGORIES.find((c) => c.value === p.category)?.label ?? p.category}
+                          </span>
+                        )}
+                        {!p.requires_auth && (
+                          <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(57,255,20,0.07)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.15)", fontFamily: "monospace" }}>
+                            ⚡ Flash
+                          </span>
+                        )}
                       </div>
                       <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "monospace" }}>
                         {formatDate(p.starts_at)} → {formatDate(p.ends_at)}
