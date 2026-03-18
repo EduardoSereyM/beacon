@@ -433,6 +433,22 @@ export default function AdminPollsPage() {
   const [category, setCategory] = useState("general");
   const [requiresAuth, setRequiresAuth] = useState(true);
   const [accessCode, setAccessCode] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
+
+  function generateCode(): string {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin O,0,I,1 para evitar confusión
+    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  }
+
+  function togglePrivate() {
+    if (!isPrivate) {
+      setAccessCode(generateCode());
+      setIsPrivate(true);
+    } else {
+      setAccessCode("");
+      setIsPrivate(false);
+    }
+  }
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -455,7 +471,7 @@ export default function AdminPollsPage() {
   const resetForm = () => {
     setTitle(""); setDescription(""); setHeaderImage(null);
     setQuestions([EMPTY_QUESTION()]); setStartsAt(""); setEndsAt("");
-    setCategory("general"); setRequiresAuth(true); setAccessCode("");
+    setCategory("general"); setRequiresAuth(true); setAccessCode(""); setIsPrivate(false);
     setEditItem(null); setFormError(null);
   };
 
@@ -474,7 +490,9 @@ export default function AdminPollsPage() {
     setEndsAt(toLocalDatetimeInput(p.ends_at));
     setCategory(p.category || "general");
     setRequiresAuth(p.requires_auth !== false);
-    setAccessCode("");
+    const existingCode = p.access_code || "";
+    setAccessCode(existingCode);
+    setIsPrivate(!!existingCode);
     setEditItem(p); setShowForm(true); setFormError(null);
   };
 
@@ -790,32 +808,49 @@ export default function AdminPollsPage() {
               </div>
             </div>
 
-            {/* Código de acceso privado */}
+            {/* Privacidad con código auto-generado */}
             <div>
-              <label style={labelStyle}>Código de acceso (opcional — deja vacío para encuesta pública)</label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  style={{ ...inputStyle, flex: 1, fontFamily: "monospace", letterSpacing: "0.1em" }}
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-                  placeholder="ej: BEACON2026"
-                  maxLength={20}
-                />
-                <button
-                  type="button"
-                  onClick={() => setAccessCode(Math.random().toString(36).slice(2, 8).toUpperCase())}
-                  style={{ padding: "8px 12px", borderRadius: 8, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", whiteSpace: "nowrap" }}
-                >
-                  🎲 Generar
-                </button>
-                {accessCode && (
-                  <button type="button" onClick={() => setAccessCode("")} style={{ padding: "8px 10px", borderRadius: 8, fontSize: 10, background: "rgba(255,7,58,0.06)", color: "#FF073A", border: "1px solid rgba(255,7,58,0.15)", cursor: "pointer" }}>✕</button>
-                )}
-              </div>
-              {accessCode && (
-                <p style={{ fontSize: 9, fontFamily: "monospace", color: "#D4AF37", marginTop: 4 }}>
-                  🔒 Encuesta privada — solo quienes tengan el código podrán participar
-                </p>
+              <label style={labelStyle}>Privacidad</label>
+              <button
+                type="button"
+                onClick={togglePrivate}
+                style={{
+                  width: "100%", padding: "9px 14px", borderRadius: 8, fontSize: 11, fontFamily: "monospace",
+                  background: isPrivate ? "rgba(212,175,55,0.08)" : "rgba(255,255,255,0.04)",
+                  color: isPrivate ? "#D4AF37" : "rgba(255,255,255,0.4)",
+                  border: `1px solid ${isPrivate ? "rgba(212,175,55,0.25)" : "rgba(255,255,255,0.09)"}`,
+                  cursor: "pointer", textAlign: "left",
+                }}
+              >
+                {isPrivate ? "🔒 Encuesta privada — activada" : "🌐 Pública — clic para hacer privada"}
+              </button>
+
+              {isPrivate && accessCode && (
+                <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 8, background: "rgba(212,175,55,0.05)", border: "1px solid rgba(212,175,55,0.2)" }}>
+                  <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(212,175,55,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Código de acceso</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 22, fontWeight: 800, fontFamily: "monospace", letterSpacing: "0.2em", color: "#D4AF37", flex: 1 }}>
+                      {accessCode}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(accessCode)}
+                      style={{ padding: "5px 12px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: "rgba(212,175,55,0.1)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.2)", cursor: "pointer" }}
+                    >
+                      Copiar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAccessCode(generateCode())}
+                      style={{ padding: "5px 12px", borderRadius: 6, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.09)", cursor: "pointer" }}
+                    >
+                      🔄 Nuevo
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", marginTop: 6 }}>
+                    Comparte este código con quienes quieras que participen
+                  </p>
+                </div>
               )}
             </div>
           </div>
