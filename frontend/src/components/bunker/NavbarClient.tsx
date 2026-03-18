@@ -39,6 +39,14 @@ export default function NavbarClient() {
         };
     }, []);
 
+    // Limpiar banner de sesión expirada cuando el usuario se autentica
+    useEffect(() => {
+        if (isAuthenticated) {
+            setSessionExpiredMsg(false);
+            setIsModalOpen(false);
+        }
+    }, [isAuthenticated]);
+
     return (
         <>
             {/* ═══ Navbar Glassmorphism ═══ */}

@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useAuthStore } from "@/store";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -312,6 +313,7 @@ function PollCard({ poll }: { poll: PollItem }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function EncuestasPage() {
+  const { token } = useAuthStore();
   const [items, setItems] = useState<PollItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -356,6 +358,29 @@ export default function EncuestasPage() {
           <p className="text-sm text-foreground-muted max-w-sm mx-auto">
             Opina sobre los temas que definen el futuro del país. Tu voz, ponderada por tu nivel de integridad.
           </p>
+          {token && (
+            <div style={{ marginTop: 12 }}>
+              <Link
+                href="/encuestas/mis"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                  color: "#00E5FF",
+                  padding: "5px 14px",
+                  borderRadius: 20,
+                  border: "1px solid rgba(0,229,255,0.25)",
+                  background: "rgba(0,229,255,0.06)",
+                  textDecoration: "none",
+                  transition: "all 0.15s",
+                }}
+              >
+                🗂 Mis Encuestas
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Filtro categorías */}
