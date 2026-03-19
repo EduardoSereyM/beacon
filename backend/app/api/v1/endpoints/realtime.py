@@ -231,12 +231,9 @@ async def publish_versus_pulse(
     """
     Publica un pulso VS al canal Redis del enfrentamiento.
     Canal: beacon:pulse:versus:{versus_id}
+    Fallback: broadcast directo vía manager si Redis no disponible.
     """
-    r = await _get_redis_connection()
-    if not r:
-        return False
-
-    channel = f"beacon:pulse:versus:{versus_id}"
+    channel_key = f"versus:{versus_id}"
     payload = {
         "type": "VERSUS_PULSE",
         "versus_id": versus_id,
@@ -248,15 +245,21 @@ async def publish_versus_pulse(
         "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
     }
 
+    r = await _get_redis_connection()
+    if not r:
+        await manager.broadcast_to_entity(channel_key, payload)
+        return True
+
+    channel = f"beacon:pulse:versus:{versus_id}"
     try:
         await r.publish(channel, json.dumps(payload))
         logger.info("VS Pulse | versus=%s | total=%d", versus_id, total_votes)
-        await r.aclose()
         return True
     except Exception as e:
         logger.error("Failed to publish versus pulse: %s", e)
-        await r.aclose()
         return False
+    finally:
+        await r.aclose()
 
 
 async def publish_event_pulse(
@@ -268,12 +271,9 @@ async def publish_event_pulse(
     """
     Publica un pulso de evento al canal Redis del evento.
     Canal: beacon:pulse:event:{event_id}
+    Fallback: broadcast directo vía manager si Redis no disponible.
     """
-    r = await _get_redis_connection()
-    if not r:
-        return False
-
-    channel = f"beacon:pulse:event:{event_id}"
+    channel_key = f"event:{event_id}"
     payload = {
         "type": "EVENT_PULSE",
         "event_id": event_id,
@@ -283,15 +283,21 @@ async def publish_event_pulse(
         "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
     }
 
+    r = await _get_redis_connection()
+    if not r:
+        await manager.broadcast_to_entity(channel_key, payload)
+        return True
+
+    channel = f"beacon:pulse:event:{event_id}"
     try:
         await r.publish(channel, json.dumps(payload))
         logger.info("Event Pulse | event=%s | entity=%s | avg=%s", event_id, entity_id, new_avg)
-        await r.aclose()
         return True
     except Exception as e:
         logger.error("Failed to publish event pulse: %s", e)
-        await r.aclose()
         return False
+    finally:
+        await r.aclose()
 
 
 # ══════════════════════════════════════════════
@@ -308,34 +314,40 @@ async def publish_poll_pulse(
 ) -> bool:
     """
     Publica un pulso de encuesta al canal Redis del poll.
-    Reutiliza el mismo connection manager con clave "poll:{poll_id}".
-    Devuelve True si se publicó, False si Redis no disponible.
+    Canal: beacon:pulse:poll:{poll_id}
+    Fallback: broadcast directo vía manager si Redis no disponible.
     """
-    r = await _get_redis_connection()
-    if not r:
-        # Sin Redis: broadcast directo vía manager (en memoria)
-        payload = {
-            "type": "POLL_PULSE",
-            "poll_id": poll_id,
-            "results": results,
-            "total_votes": total_votes,
-        }
-        await manager.broadcast_to_entity(f"poll:{poll_id}", payload)
-        return True
-
-    channel = f"beacon:pulse:poll:{poll_id}"
+    channel_key = f"poll:{poll_id}"
     payload = {
         "type": "POLL_PULSE",
         "poll_id": poll_id,
         "results": results,
         "total_votes": total_votes,
+        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
     }
+
+    r = await _get_redis_connection()
+    if not r:
+        await manager.broadcast_to_entity(channel_key, payload)
+        return True
+
+    channel = f"beacon:pulse:poll:{poll_id}"
     try:
         await r.publish(channel, json.dumps(payload))
+        logger.info("Poll Pulse | poll=%s | total=%d", poll_id, total_votes)
         return True
     except Exception as e:
         logger.warning("publish_poll_pulse error: %s", e)
         return False
+    finally:
+        await r.aclose()
+
+
+# ══════════════════════════════════════════════
+# WEBSOCKET ENDPOINTS
+# ══════════════════════════════════════════════
+# Solo lectura. El cliente se conecta y escucha.
+# No puede enviar datos.
 
 
 @router.websocket("/poll-pulse/{poll_id}")
@@ -384,6 +396,108 @@ async def poll_pulse_ws(websocket: WebSocket, poll_id: str) -> None:
         logger.info("WS poll disconnected | poll=%s", poll_id)
     except Exception as e:
         logger.warning("WS poll error | poll=%s | err=%s", poll_id, e)
+    finally:
+        manager.disconnect(websocket, channel_key)
+        subscriber_task.cancel()
+
+
+@router.websocket("/versus-pulse/{versus_id}")
+async def versus_pulse_ws(websocket: WebSocket, versus_id: str) -> None:
+    """
+    WebSocket de solo lectura para recibir actualizaciones en tiempo real
+    de un enfrentamiento VS específico (Efecto Kahoot).
+
+    Conexión: ws://host/api/v1/realtime/versus-pulse/{versus_id}
+    """
+    if len(versus_id) < 3:
+        await websocket.close(code=4001, reason="Invalid versus_id")
+        return
+
+    channel_key = f"versus:{versus_id}"
+    await manager.connect(websocket, channel_key)
+
+    import asyncio
+
+    async def versus_redis_subscriber() -> None:
+        r = await _get_redis_connection()
+        if not r:
+            return
+        pubsub = r.pubsub()
+        channel = f"beacon:pulse:versus:{versus_id}"
+        await pubsub.subscribe(channel)
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    try:
+                        data = json.loads(message["data"])
+                        await manager.broadcast_to_entity(channel_key, data)
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.warning("versus redis_subscriber error: %s", e)
+        finally:
+            await pubsub.unsubscribe(channel)
+
+    subscriber_task = asyncio.create_task(versus_redis_subscriber())
+
+    try:
+        while True:
+            _ = await websocket.receive_text()
+    except WebSocketDisconnect:
+        logger.info("WS versus disconnected | versus=%s", versus_id)
+    except Exception as e:
+        logger.warning("WS versus error | versus=%s | err=%s", versus_id, e)
+    finally:
+        manager.disconnect(websocket, channel_key)
+        subscriber_task.cancel()
+
+
+@router.websocket("/event-pulse/{event_id}")
+async def event_pulse_ws(websocket: WebSocket, event_id: str) -> None:
+    """
+    WebSocket de solo lectura para recibir actualizaciones en tiempo real
+    de un evento específico (Efecto Kahoot).
+
+    Conexión: ws://host/api/v1/realtime/event-pulse/{event_id}
+    """
+    if len(event_id) < 3:
+        await websocket.close(code=4001, reason="Invalid event_id")
+        return
+
+    channel_key = f"event:{event_id}"
+    await manager.connect(websocket, channel_key)
+
+    import asyncio
+
+    async def event_redis_subscriber() -> None:
+        r = await _get_redis_connection()
+        if not r:
+            return
+        pubsub = r.pubsub()
+        channel = f"beacon:pulse:event:{event_id}"
+        await pubsub.subscribe(channel)
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    try:
+                        data = json.loads(message["data"])
+                        await manager.broadcast_to_entity(channel_key, data)
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.warning("event redis_subscriber error: %s", e)
+        finally:
+            await pubsub.unsubscribe(channel)
+
+    subscriber_task = asyncio.create_task(event_redis_subscriber())
+
+    try:
+        while True:
+            _ = await websocket.receive_text()
+    except WebSocketDisconnect:
+        logger.info("WS event disconnected | event=%s", event_id)
+    except Exception as e:
+        logger.warning("WS event error | event=%s | err=%s", event_id, e)
     finally:
         manager.disconnect(websocket, channel_key)
         subscriber_task.cancel()

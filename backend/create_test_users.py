@@ -31,11 +31,12 @@ async def create_user(supabase, email, password, first_name, last_name, role):
             "id": user_id,
             "first_name": first_name,
             "last_name": last_name,
-            "rut_hash": None, # Se omite por ahora, no es obligatorio
+            "rut_hash": None,
+            "rank": "VERIFIED" if role == "admin" else "BASIC",
             "reputation_score": 5.0 if role == "admin" else 1.0,
             "is_rut_verified": True,
             "is_shadow_banned": False,
-            "role": role
+            "role": role,
         }
         try:
             supabase.table("users").insert(new_user).execute()
