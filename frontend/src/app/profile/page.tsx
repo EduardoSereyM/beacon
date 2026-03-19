@@ -226,7 +226,7 @@ export default function ProfilePage() {
                 localStorage.setItem("beacon_user", JSON.stringify(data));
                 
                 // Sync Zustand store
-                setAuth(storedToken, data as BeaconUser);
+                setAuth(storedToken, data as unknown as BeaconUser);
             } catch {
                 localStorage.removeItem("beacon_token");
                 localStorage.removeItem("beacon_user");
@@ -282,7 +282,7 @@ export default function ProfilePage() {
             };
             localStorage.setItem("beacon_user", JSON.stringify(updated));
             setUser(updated as UserProfile);
-            setAuth(token, updated as BeaconUser);
+            setAuth(token, updated as unknown as BeaconUser);
 
             // Refrescar para asegurar sincronía de todos los componentes
             setTimeout(() => window.location.reload(), 1200);
@@ -350,7 +350,7 @@ export default function ProfilePage() {
                     const updated = { ...user, rank: data.new_rank, is_verified: true };
                     localStorage.setItem("beacon_user", JSON.stringify(updated));
                     setUser(updated as UserProfile);
-                    setAuth(token, updated as BeaconUser);
+                    setAuth(token, updated as unknown as BeaconUser);
                     setVerifyMsg({
                         type: "success",
                         text: data.new_rank === "VERIFIED"
