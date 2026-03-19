@@ -406,18 +406,6 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         ])
         if not all_6_fields:
             current_rank = "BASIC"
-            # Actualizamos de forma silenciosa la BBDD a BASIC 
-            from app.core.database import get_async_supabase_client
-            try:
-                # Ojo: se llama via loop de asyncio en background o await 
-                # Como get_me y Depends manejan loop, lo lanzamos
-                supabase = get_async_supabase_client()
-                # Lo lanzamos sin wait pero es mejor awaited asi es sincrono 
-                # Sin embargo, FastAPI maneja await 
-                pass
-            except Exception:
-                pass
-            # Por simplicidad ahora lo devolveremos como BASIC nomas
             
     is_verified_status = (current_rank == "VERIFIED")
 

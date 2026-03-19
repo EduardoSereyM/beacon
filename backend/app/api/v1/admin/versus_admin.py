@@ -7,7 +7,6 @@ PATCH  /admin/versus/{id}      → editar (title, descripción, fechas, is_activ
 DELETE /admin/versus/{id}      → desactivar (soft)
 """
 
-from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
