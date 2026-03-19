@@ -20,7 +20,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store";
+import { useAuthStore, BeaconUser } from "@/store";
 
 // ═══════════════════════════════════════════
 //  DATOS GEOGRÁFICOS (País → Región → Comuna)
@@ -226,7 +226,7 @@ export default function ProfilePage() {
                 localStorage.setItem("beacon_user", JSON.stringify(data));
                 
                 // Sync Zustand store
-                setAuth(storedToken, data as any);
+                setAuth(storedToken, data as BeaconUser);
             } catch {
                 localStorage.removeItem("beacon_token");
                 localStorage.removeItem("beacon_user");
@@ -282,7 +282,7 @@ export default function ProfilePage() {
             };
             localStorage.setItem("beacon_user", JSON.stringify(updated));
             setUser(updated as UserProfile);
-            setAuth(token, updated as any);
+            setAuth(token, updated as BeaconUser);
 
             // Refrescar para asegurar sincronía de todos los componentes
             setTimeout(() => window.location.reload(), 1200);
@@ -314,7 +314,7 @@ export default function ProfilePage() {
         try {
             // 1) Guardar birth_year y gender en el perfil (si se proporcionó)
             if ((birthYear && birthYearValid) || gender) {
-                const payload: any = {};
+                const payload: Record<string, string | number> = {};
                 if (birthYear && birthYearValid) payload.birth_year = birthYearNum;
                 if (gender) payload.gender = gender;
 
@@ -350,7 +350,7 @@ export default function ProfilePage() {
                     const updated = { ...user, rank: data.new_rank, is_verified: true };
                     localStorage.setItem("beacon_user", JSON.stringify(updated));
                     setUser(updated as UserProfile);
-                    setAuth(token, updated as any);
+                    setAuth(token, updated as BeaconUser);
                     setVerifyMsg({
                         type: "success",
                         text: data.new_rank === "VERIFIED"

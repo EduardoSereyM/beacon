@@ -143,6 +143,7 @@ export default function usePermissions(): PermissionsResult {
 
     const [hydrated, setHydrated] = useState(false);
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setHydrated(true);
         // Verificar expiración del JWT al montar
         const token = localStorage.getItem("beacon_token");
