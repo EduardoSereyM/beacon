@@ -235,15 +235,11 @@ function MiPollCard({ poll }: { poll: PollItem }) {
 export default function MisEncuestasPage() {
   const { token } = useAuthStore();
   const [items, setItems] = useState<PollItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!token);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
     fetch(`${API_URL}/api/v1/polls/my`, {
       headers: { Authorization: `Bearer ${token}` },
     })

@@ -300,6 +300,13 @@ async def publish_event_pulse(
         await r.aclose()
 
 
+# ══════════════════════════════════════════════
+# WEBSOCKET ENDPOINT
+# ══════════════════════════════════════════════
+# Solo lectura. El cliente se conecta y escucha.
+# No puede enviar datos.
+
+
 async def publish_poll_pulse(
     poll_id: str,
     results: list,

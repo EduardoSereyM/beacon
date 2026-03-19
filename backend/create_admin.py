@@ -58,25 +58,22 @@ async def main():
                 "id": user_id,
                 "email": email,
                 "first_name": full_name,
-                "rank": "DIAMOND",
+                "rank": "VERIFIED",
                 "integrity_score": 1.0,
                 "reputation_score": 5.0,
-                "verification_level": 3,
-                "is_verified": True,
-                "is_rut_verified": False,
+                "is_rut_verified": True,
                 "is_active": True,
                 "is_shadow_banned": False,
                 "created_at": datetime.utcnow().isoformat(),
                 "role": "admin",
             }
             supabase.table("users").insert(new_user).execute()
-            print("✅ Registro creado en public.users con rango DIAMOND y rol ADMIN.")
+            print("✅ Registro creado en public.users con rango VERIFIED y rol ADMIN.")
         else:
             print("Actualizando registro en public.users...")
             supabase.table("users").update({
                 "role": "admin",
-                "rank": "DIAMOND",
-                "is_verified": True
+                "rank": "VERIFIED",
             }).eq("id", user_id).execute()
             print("✅ Registro en public.users actualizado a rol ADMIN.")
 

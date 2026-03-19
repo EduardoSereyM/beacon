@@ -3,16 +3,18 @@ BEACON PROTOCOL — Polls Router (Encuestas)
 ==========================================
 Endpoints públicos para encuestas ciudadanas.
 
-GET  /polls              → lista encuestas activas
+GET  /polls              → lista encuestas activas (filtros: category, search)
+GET  /polls/my           → encuestas donde el usuario ya participó
 GET  /polls/{id}         → detalle + resultados parciales
+POST /polls              → crear encuesta (solo VERIFIED, máx 3 preguntas)
 POST /polls/{id}/vote    → emitir voto (JWT requerido o anónimo si requires_auth=False)
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import logging
 
 from app.core.database import get_async_supabase_client
@@ -29,6 +31,24 @@ class PollVotePayload(BaseModel):
     option_value: str  # opción elegida ("Sí", "No") o valor numérico en scale ("4")
     anon_session_id: Optional[str] = None  # UUID del browser, solo para encuestas sin auth
     access_code: Optional[str] = None      # código de encuesta privada
+
+
+class UserQuestionIn(BaseModel):
+    text: str
+    type: str               # "multiple_choice" | "scale"
+    options: Optional[List[str]] = None
+    scale_points: Optional[int] = None  # 2–10
+
+
+VALID_CATEGORIES = {"general", "politica", "economia", "salud", "educacion", "espectaculos", "deporte", "cultura"}
+
+
+class UserPollCreateIn(BaseModel):
+    title: str
+    description: Optional[str] = None
+    category: str = "general"
+    ends_in_days: int = 7     # 1–30
+    questions: List[UserQuestionIn]  # máx 3
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -80,7 +100,7 @@ def _compute_results(poll: dict, votes: list) -> dict:
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/polls", summary="Listar encuestas activas")
-async def list_polls(category: Optional[str] = None):
+async def list_polls(category: Optional[str] = None, search: Optional[str] = None):
     supabase = get_async_supabase_client()
     now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -96,6 +116,8 @@ async def list_polls(category: Optional[str] = None):
         )
         if category:
             query = query.eq("category", category)
+        if search:
+            query = query.ilike("title", f"%{search}%")
         result = await query.execute()
     except Exception as e:
         logger.error(f"Error listando polls: {e}")
@@ -153,6 +175,86 @@ async def my_polls(current_user: dict = Depends(get_current_user)):
         except Exception:
             enriched.append(_compute_results(p, []))
     return {"items": enriched, "total": len(enriched)}
+
+
+@router.post("/polls", summary="Crear encuesta (solo VERIFIED, máx 3 preguntas)")
+async def create_user_poll(
+    payload: UserPollCreateIn,
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user.get("rank") != "VERIFIED":
+        raise HTTPException(status_code=403, detail="Solo usuarios VERIFIED pueden crear encuestas")
+    if not payload.title.strip():
+        raise HTTPException(status_code=400, detail="El título es obligatorio")
+    if len(payload.questions) == 0:
+        raise HTTPException(status_code=400, detail="Se requiere al menos 1 pregunta")
+    if len(payload.questions) > 3:
+        raise HTTPException(status_code=400, detail="Máximo 3 preguntas permitidas")
+    if not 1 <= payload.ends_in_days <= 30:
+        raise HTTPException(status_code=400, detail="La duración debe ser entre 1 y 30 días")
+    if payload.category not in VALID_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Categoría inválida: {payload.category}")
+
+    # Validar cada pregunta
+    questions_clean = []
+    for i, q in enumerate(payload.questions):
+        if not q.text.strip():
+            raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: texto obligatorio")
+        if q.type == "multiple_choice":
+            opts = [o.strip() for o in (q.options or []) if o.strip()]
+            if len(opts) < 2:
+                raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: mínimo 2 opciones")
+            questions_clean.append({"text": q.text.strip(), "type": "multiple_choice", "options": opts, "order_index": i})
+        elif q.type == "scale":
+            sp = q.scale_points or 5
+            if not 2 <= sp <= 10:
+                raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: escala debe ser 2–10 puntos")
+            questions_clean.append({"text": q.text.strip(), "type": "scale", "scale_min": 1, "scale_max": sp, "order_index": i})
+        else:
+            raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: tipo inválido (multiple_choice | scale)")
+
+    now = datetime.now(timezone.utc)
+    # Determinar poll_type y options desde la primera pregunta (retrocompatibilidad)
+    first_q = questions_clean[0]
+    if first_q["type"] == "multiple_choice":
+        poll_type = "multiple_choice"
+        options = first_q["options"]
+        scale_min, scale_max = 1, 5
+    else:
+        poll_type = "scale"
+        options = None
+        scale_min = first_q.get("scale_min", 1)
+        scale_max = first_q.get("scale_max", 5)
+
+    supabase = get_async_supabase_client()
+    row = {
+        "title": payload.title.strip(),
+        "description": payload.description,
+        "category": payload.category,
+        "poll_type": poll_type,
+        "options": options,
+        "scale_min": scale_min,
+        "scale_max": scale_max,
+        "questions": questions_clean,
+        "is_active": True,
+        "requires_auth": True,
+        "starts_at": now.isoformat(),
+        "ends_at": (now + timedelta(days=payload.ends_in_days)).isoformat(),
+        "created_by": current_user["id"],
+    }
+
+    try:
+        res = await supabase.table("polls").insert(row).execute()
+    except Exception as e:
+        logger.error(f"Error creando poll por VERIFIED: {e}")
+        raise HTTPException(status_code=500, detail="Error al crear encuesta")
+
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Error al crear encuesta")
+
+    poll_id = res.data[0]["id"]
+    logger.info(f"Poll VERIFIED creado | user={current_user['id']} | poll={poll_id} | title={payload.title}")
+    return {"success": True, "poll_id": poll_id}
 
 
 @router.get("/polls/{poll_id}", summary="Detalle encuesta con resultados")
