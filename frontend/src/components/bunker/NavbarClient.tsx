@@ -27,7 +27,9 @@ export default function NavbarClient() {
     // Limpiar banner de sesión expirada cuando el usuario se autentica
     useEffect(() => {
         if (isAuthenticated) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSessionExpiredMsg(false);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsModalOpen(false);
         }
     }, [isAuthenticated]);
@@ -46,14 +48,6 @@ export default function NavbarClient() {
             window.removeEventListener("beacon:session-expired", onExpired);
         };
     }, []);
-
-    // Limpiar banner de sesión expirada cuando el usuario se autentica
-    useEffect(() => {
-        if (isAuthenticated) {
-            setSessionExpiredMsg(false);
-            setIsModalOpen(false);
-        }
-    }, [isAuthenticated]);
 
     return (
         <>

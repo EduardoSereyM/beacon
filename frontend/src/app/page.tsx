@@ -12,7 +12,7 @@ import type { Metadata } from "next";
 import EntityCard from "@/components/status/EntityCard";
 import HomeHeroClient from "@/components/home/HomeHeroClient";
 
-export const revalidate = 60;
+export const revalidate = 10;
 
 export const metadata: Metadata = {
   title: "Beacon Protocol — Motor de Integridad Digital",
@@ -119,7 +119,7 @@ interface HomePoll {
 
 async function fetchActivePolls(): Promise<HomePoll[]> {
   try {
-    const res = await fetch(`${API_URL}/api/v1/polls`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_URL}/api/v1/polls`, { next: { revalidate: 10 } });
     if (!res.ok) return [];
     const data = await res.json();
     return (data.items || []).slice(0, 3);

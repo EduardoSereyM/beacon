@@ -13,7 +13,7 @@ GET    /admin/events/{id}/participants       → listar participantes con scores
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 import logging
 
 from app.core.database import get_async_supabase_client
