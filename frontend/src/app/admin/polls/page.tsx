@@ -18,9 +18,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 interface PollQuestion {
   text: string;
   type: "multiple_choice" | "scale";
-  allow_multiple?: boolean;   // solo multiple_choice: true = checkboxes, false = radio
+  allow_multiple?: boolean;      // solo multiple_choice: true = checkboxes, false = radio
   options?: string[];
   scale_points?: number;
+  scale_min_label?: string;      // ej: "Muy confusa"
+  scale_max_label?: string;      // ej: "Muy clara"
 }
 
 interface PollItem {
@@ -63,6 +65,8 @@ const EMPTY_SCALE_QUESTION = (): PollQuestion => ({
   type: "scale",
   options: undefined,
   scale_points: 5,
+  scale_min_label: "",
+  scale_max_label: "",
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -159,52 +163,82 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
           Pregunta {index + 1}
         </span>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          {/* Selector tipo */}
-          {(["multiple_choice", "scale"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => handleTypeChange(t)}
-              style={{
-                padding: "3px 10px",
-                borderRadius: 5,
-                fontSize: 10,
-                fontFamily: "monospace",
-                border: `1px solid ${question.type === t ? "#00E5FF" : "rgba(255,255,255,0.1)"}`,
-                background: question.type === t ? "rgba(0,229,255,0.1)" : "rgba(255,255,255,0.03)",
-                color: question.type === t ? "#00E5FF" : "rgba(255,255,255,0.4)",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {t === "multiple_choice" ? "📝 Opciones" : "📊 Escala"}
-            </button>
-          ))}
+          {/* Selector de tipo: 3 opciones siempre visibles — activa destacada */}
+          {(() => {
+            type ModeKey = "unica" | "multiple" | "scale";
+            const activeMode: ModeKey =
+              question.type === "scale"
+                ? "scale"
+                : question.allow_multiple
+                ? "multiple"
+                : "unica";
 
-          {/* Toggle selección única / múltiple — solo visible en multiple_choice */}
-          {question.type === "multiple_choice" && (
-            <button
-              type="button"
-              onClick={() => onChange({ ...question, allow_multiple: !question.allow_multiple })}
-              title={question.allow_multiple ? "Ahora: selección múltiple — clic para cambiar a única" : "Ahora: selección única — clic para cambiar a múltiple"}
-              style={{
-                padding: "3px 10px",
-                borderRadius: 5,
-                fontSize: 10,
-                fontFamily: "monospace",
-                border: `1px solid ${question.allow_multiple ? "rgba(212,175,55,0.5)" : "rgba(255,255,255,0.12)"}`,
-                background: question.allow_multiple ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.03)",
-                color: question.allow_multiple ? "#D4AF37" : "rgba(255,255,255,0.4)",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
+            const modes: { key: ModeKey; label: string; title: string }[] = [
+              { key: "unica",    label: "◉ Única",    title: "Selección única (radio)" },
+              { key: "multiple", label: "☑ Múltiple", title: "Selección múltiple (checkboxes)" },
+              { key: "scale",    label: "📊 Escala",  title: "Escala numérica (1–N)" },
+            ];
+
+            const handleMode = (k: ModeKey) => {
+              if (k === "scale") {
+                onChange({ ...question, type: "scale", scale_points: question.scale_points ?? 5, options: undefined, allow_multiple: false });
+              } else {
+                onChange({
+                  ...question,
+                  type: "multiple_choice",
+                  allow_multiple: k === "multiple",
+                  options: question.options?.length ? question.options : ["", ""],
+                  scale_points: undefined,
+                });
+              }
+            };
+
+            const colors: Record<ModeKey, { border: string; bg: string; color: string }> = {
+              unica:    { border: "#00E5FF",           bg: "rgba(0,229,255,0.1)",    color: "#00E5FF" },
+              multiple: { border: "rgba(212,175,55,0.7)", bg: "rgba(212,175,55,0.12)", color: "#D4AF37" },
+              scale:    { border: "rgba(100,200,100,0.7)", bg: "rgba(100,200,100,0.1)", color: "#7fff7f" },
+            };
+
+            return (
+              <div style={{
                 display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
-            >
-              {question.allow_multiple ? "☑ Múltiple" : "◉ Única"}
-            </button>
-          )}
+                gap: 0,
+                borderRadius: 6,
+                overflow: "hidden",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}>
+                {modes.map((m, i) => {
+                  const isActive = activeMode === m.key;
+                  const c = colors[m.key];
+                  return (
+                    <button
+                      key={m.key}
+                      type="button"
+                      title={m.title}
+                      onClick={() => handleMode(m.key)}
+                      style={{
+                        padding: "4px 11px",
+                        fontSize: 10,
+                        fontFamily: "monospace",
+                        border: "none",
+                        borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.1)" : "none",
+                        background: isActive ? c.bg : "rgba(255,255,255,0.02)",
+                        color: isActive ? c.color : "rgba(255,255,255,0.35)",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        fontWeight: isActive ? 700 : 400,
+                        transition: "all 0.15s",
+                        outline: isActive ? `1px solid ${c.border}` : "none",
+                        outlineOffset: -1,
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {/* Eliminar (solo si hay más de 1) */}
           {total > 1 && (
@@ -242,8 +276,8 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
             <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Opciones (mín. 2)
             </span>
-            <span style={{ fontSize: 9, fontFamily: "monospace", color: question.allow_multiple ? "#D4AF37" : "rgba(255,255,255,0.25)" }}>
-              {question.allow_multiple ? "☑ El votante puede elegir varias" : "◉ El votante elige una sola"}
+            <span style={{ fontSize: 10, fontFamily: "monospace", color: question.allow_multiple ? "#D4AF37" : "rgba(255,255,255,0.3)" }}>
+              {question.allow_multiple ? "☑ Múltiple — el votante elige varias" : "◉ Única — el votante elige una sola"}
             </span>
           </div>
           {(question.options || []).map((opt, i) => (
@@ -328,6 +362,31 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
           <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", fontFamily: "monospace", marginTop: 6 }}>
             Escala de 1 a {question.scale_points ?? 5} puntos
           </p>
+          {/* Etiquetas semánticas de extremos */}
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+                1 = Etiqueta mínimo
+              </label>
+              <input
+                style={{ ...inputStyle }}
+                value={question.scale_min_label ?? ""}
+                onChange={(e) => onChange({ ...question, scale_min_label: e.target.value })}
+                placeholder="ej: Muy confusa"
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+                {question.scale_points ?? 5} = Etiqueta máximo
+              </label>
+              <input
+                style={{ ...inputStyle }}
+                value={question.scale_max_label ?? ""}
+                onChange={(e) => onChange({ ...question, scale_max_label: e.target.value })}
+                placeholder="ej: Muy clara"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

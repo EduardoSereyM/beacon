@@ -34,6 +34,8 @@ interface QuestionDef {
   options: string[] | null;
   scale_min?: number;
   scale_max?: number;
+  scale_min_label?: string;   // ej: "Muy confusa"
+  scale_max_label?: string;   // ej: "Muy clara"
   order_index?: number;
 }
 
@@ -53,6 +55,8 @@ interface Poll {
   options: string[] | null;
   scale_min: number;
   scale_max: number;
+  scale_min_label?: string;   // etiqueta semántica del extremo inferior
+  scale_max_label?: string;   // etiqueta semántica del extremo superior
   starts_at: string;
   ends_at: string;
   is_open: boolean;
@@ -464,9 +468,13 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
                     );
                   })}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>{q.scale_min ?? 1} — Mín</span>
-                  <span style={{ fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>Máx — {q.scale_max ?? 5}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                  <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.35)" }}>
+                    {q.scale_min ?? 1} {q.scale_min_label ? `— ${q.scale_min_label}` : ""}
+                  </span>
+                  <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.35)" }}>
+                    {q.scale_max_label ? `${q.scale_max_label} —` : ""} {q.scale_max ?? 5}
+                  </span>
                 </div>
               </div>
             )}
@@ -533,8 +541,12 @@ function SingleQuestionVote({ poll, onVote, voting }: { poll: Poll; onVote: (v: 
         })}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-        <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>{poll.scale_min ?? 1} — Mínimo</span>
-        <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>Máximo — {poll.scale_max ?? 5}</span>
+        <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.4)" }}>
+          {poll.scale_min ?? 1}{poll.scale_min_label ? ` — ${poll.scale_min_label}` : " — Mínimo"}
+        </span>
+        <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.4)" }}>
+          {poll.scale_max_label ? `${poll.scale_max_label} — ` : "Máximo — "}{poll.scale_max ?? 5}
+        </span>
       </div>
       <button onClick={() => onVote(String(scaleVal))} disabled={voting}
         style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 13, fontFamily: "monospace", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", border: "none", background: voting ? "rgba(57,255,20,0.3)" : "linear-gradient(135deg, #39FF14 0%, #00E5FF 100%)", color: "#0A0A0A", cursor: voting ? "wait" : "pointer", transition: "all 0.2s", boxShadow: !voting ? "0 4px 24px rgba(57,255,20,0.25)" : "none" }}>

@@ -49,6 +49,8 @@ class QuestionDef(BaseModel):
     allow_multiple: bool = False          # True = checkboxes, False = radio (solo multiple_choice)
     scale_min: Optional[int] = Field(None, ge=1, le=9)
     scale_max: Optional[int] = Field(None, ge=2, le=10)
+    scale_min_label: Optional[str] = Field(None, max_length=80)  # ej: "Muy confusa"
+    scale_max_label: Optional[str] = Field(None, max_length=80)  # ej: "Muy clara"
     order_index: int = 0
 
 

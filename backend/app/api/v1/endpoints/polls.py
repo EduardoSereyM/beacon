@@ -39,6 +39,8 @@ class UserQuestionIn(BaseModel):
     options: Optional[List[str]] = None
     scale_points: Optional[int] = None  # 2–10
     allow_multiple: bool = False     # True = checkboxes, False = radio (solo multiple_choice)
+    scale_min_label: Optional[str] = None  # ej: "Muy confusa"
+    scale_max_label: Optional[str] = None  # ej: "Muy clara"
 
 
 VALID_CATEGORIES = {"general", "politica", "economia", "salud", "educacion", "espectaculos", "deporte", "cultura"}
@@ -213,7 +215,7 @@ async def create_user_poll(
             sp = q.scale_points or 5
             if not 2 <= sp <= 10:
                 raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: escala debe ser 2–10 puntos")
-            questions_clean.append({"text": q.text.strip(), "type": "scale", "scale_min": 1, "scale_max": sp, "order_index": i})
+            questions_clean.append({"text": q.text.strip(), "type": "scale", "scale_min": 1, "scale_max": sp, "scale_min_label": q.scale_min_label or None, "scale_max_label": q.scale_max_label or None, "order_index": i})
         else:
             raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: tipo inválido (multiple_choice | scale)")
 
