@@ -85,13 +85,16 @@ function formatRutMask(raw: string): string {
     return `${formatted}-${dv}`;
 }
 
-/** Valida un RUT chileno con Módulo 11 */
+/** Valida un RUT chileno con Módulo 11 — estándar SII (ciclo 2→7) */
 function validateRutMod11(rut: string): boolean {
     const clean = cleanRut(rut);
     if (clean.length < 2) return false;
 
     const body = clean.slice(0, -1);
     const dv = clean.slice(-1);
+
+    if (body.length < 7) return false;             // mínimo 7 dígitos en el cuerpo
+    if (!/^[\dK]$/.test(dv)) return false;         // DV solo puede ser dígito o K
 
     let sum = 0;
     let multiplier = 2;

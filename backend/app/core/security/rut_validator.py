@@ -31,44 +31,57 @@ def format_rut(rut: str) -> str:
 
 def validate_rut(rut: str) -> bool:
     """
-    Algoritmo Módulo 11 para validación de RUT chileno.
-    
+    Algoritmo Módulo 11 para validación de RUT chileno — estándar SII.
+
     El dígito verificador se calcula multiplicando cada dígito del cuerpo
-    (de derecha a izquierda) por los factores [2,3,4,5,6,7] cíclicamente,
+    (de derecha a izquierda) por los factores [2,3,4,5,6,7] ciclando,
     sumando los productos y aplicando: 11 - (suma % 11).
+
+    Guards aplicados (alineados con ENGINEERING_STANDARDSv2 §26):
+      - Cuerpo mínimo de 7 dígitos (RUT real más bajo: ~1.000.000-x)
+      - DV debe ser dígito o 'K' — caracteres inválidos rechazan sin strip silencioso
+      - Cuerpo debe ser todo numérico
 
     Args:
         rut: RUT en cualquier formato (con o sin puntos/guiones)
-    
+
     Returns:
         True si el dígito verificador es correcto
 
     Ejemplos:
-        validate_rut("12345678-5") → True/False (según DV real)
+        validate_rut("76354771-K") → True
+        validate_rut("12345678-5") → True
         validate_rut("11.111.111-1") → True
+        validate_rut("76354771-A") → False  (DV inválido — rechazado explícitamente)
+        validate_rut("1-9")        → False  (cuerpo demasiado corto)
     """
-    rut = format_rut(rut)
-    if len(rut) < 2:
+    # Separar cuerpo y DV ANTES de strip, para detectar DV inválidos
+    rut_stripped = rut.upper().replace(".", "").replace("-", "").strip()
+    if len(rut_stripped) < 2:
         return False
 
-    cuerpo, dv = rut[:-1], rut[-1]
+    cuerpo_raw = rut_stripped[:-1]
+    dv = rut_stripped[-1]
 
-    try:
-        reverso = map(int, reversed(cuerpo))
-        factores = [2, 3, 4, 5, 6, 7]
-        s = sum(d * factores[i % 6] for i, d in enumerate(reverso))
-        v = 11 - (s % 11)
-
-        if v == 11:
-            res = '0'
-        elif v == 10:
-            res = 'K'
-        else:
-            res = str(v)
-
-        return res == dv
-    except ValueError:
+    if not cuerpo_raw.isdigit():          # cuerpo debe ser todo numérico
         return False
+    if len(cuerpo_raw) < 7:              # RUT mínimo real: 7 dígitos en el cuerpo
+        return False
+    if dv not in "0123456789K":          # DV solo puede ser dígito o K — sin strip silencioso
+        return False
+
+    factores = [2, 3, 4, 5, 6, 7]
+    s = sum(int(d) * factores[i % 6] for i, d in enumerate(reversed(cuerpo_raw)))
+    v = 11 - (s % 11)
+
+    if v == 11:
+        res = '0'
+    elif v == 10:
+        res = 'K'
+    else:
+        res = str(v)
+
+    return res == dv
 
 
 def hash_rut(rut: str, salt: str | None = None) -> str:

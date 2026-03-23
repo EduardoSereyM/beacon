@@ -80,6 +80,8 @@ function validateRutMod11(rut: string): boolean {
     if (clean.length < 2) return false;
     const body = clean.slice(0, -1);
     const dv = clean.slice(-1);
+    if (body.length < 7) return false;             // mínimo 7 dígitos en el cuerpo
+    if (!/^[\dK]$/.test(dv)) return false;         // DV solo puede ser dígito o K
     let sum = 0;
     let multiplier = 2;
     for (let i = body.length - 1; i >= 0; i--) {
