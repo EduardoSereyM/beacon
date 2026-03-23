@@ -117,10 +117,10 @@ export default function RootLayout({
         {/* ═══ Footer ═══ */}
         <footer className="border-t border-beacon-border px-6 py-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <p className="text-[10px] text-foreground-muted font-mono">
+            <p className="text-xs text-foreground-muted font-mono">
               BEACON PROTOCOL v1.0 — &quot;Lo que no es íntegro, no existe.&quot;
             </p>
-            <p className="text-[10px] text-foreground-muted">
+            <p className="text-xs text-foreground-muted">
               Desarrollo ESM; 2026
             </p>
           </div>
