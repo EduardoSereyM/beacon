@@ -18,6 +18,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 interface PollQuestion {
   text: string;
   type: "multiple_choice" | "scale";
+  allow_multiple?: boolean;   // solo multiple_choice: true = checkboxes, false = radio
   options?: string[];
   scale_points?: number;
 }
@@ -52,6 +53,7 @@ const POLL_CATEGORIES: { value: string; label: string }[] = [
 const EMPTY_QUESTION = (): PollQuestion => ({
   text: "",
   type: "multiple_choice",
+  allow_multiple: false,
   options: ["", ""],
   scale_points: undefined,
 });
@@ -156,7 +158,7 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
         <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(0,229,255,0.6)", textTransform: "uppercase", letterSpacing: "0.1em", paddingTop: 4 }}>
           Pregunta {index + 1}
         </span>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           {/* Selector tipo */}
           {(["multiple_choice", "scale"] as const).map((t) => (
             <button
@@ -175,9 +177,35 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
                 whiteSpace: "nowrap",
               }}
             >
-              {t === "multiple_choice" ? "📝 Múltiple" : "📊 Escala"}
+              {t === "multiple_choice" ? "📝 Opciones" : "📊 Escala"}
             </button>
           ))}
+
+          {/* Toggle selección única / múltiple — solo visible en multiple_choice */}
+          {question.type === "multiple_choice" && (
+            <button
+              type="button"
+              onClick={() => onChange({ ...question, allow_multiple: !question.allow_multiple })}
+              title={question.allow_multiple ? "Ahora: selección múltiple — clic para cambiar a única" : "Ahora: selección única — clic para cambiar a múltiple"}
+              style={{
+                padding: "3px 10px",
+                borderRadius: 5,
+                fontSize: 10,
+                fontFamily: "monospace",
+                border: `1px solid ${question.allow_multiple ? "rgba(212,175,55,0.5)" : "rgba(255,255,255,0.12)"}`,
+                background: question.allow_multiple ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.03)",
+                color: question.allow_multiple ? "#D4AF37" : "rgba(255,255,255,0.4)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              {question.allow_multiple ? "☑ Múltiple" : "◉ Única"}
+            </button>
+          )}
+
           {/* Eliminar (solo si hay más de 1) */}
           {total > 1 && (
             <button
@@ -210,9 +238,14 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
       {/* Opciones múltiples */}
       {question.type === "multiple_choice" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            Opciones (mín. 2)
-          </span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Opciones (mín. 2)
+            </span>
+            <span style={{ fontSize: 9, fontFamily: "monospace", color: question.allow_multiple ? "#D4AF37" : "rgba(255,255,255,0.25)" }}>
+              {question.allow_multiple ? "☑ El votante puede elegir varias" : "◉ El votante elige una sola"}
+            </span>
+          </div>
           {(question.options || []).map((opt, i) => (
             <div key={i} style={{ display: "flex", gap: 6 }}>
               <input

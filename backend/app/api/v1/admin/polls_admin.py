@@ -46,6 +46,7 @@ class QuestionDef(BaseModel):
     text: str = Field(..., min_length=1, max_length=500)
     type: str = Field(..., pattern="^(multiple_choice|scale)$")
     options: Optional[List[str]] = None   # solo multiple_choice
+    allow_multiple: bool = False          # True = checkboxes, False = radio (solo multiple_choice)
     scale_min: Optional[int] = Field(None, ge=1, le=9)
     scale_max: Optional[int] = Field(None, ge=2, le=10)
     order_index: int = 0

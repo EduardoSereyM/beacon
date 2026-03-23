@@ -30,6 +30,7 @@ interface QuestionDef {
   id: string;
   text: string;
   type: "multiple_choice" | "scale";
+  allow_multiple?: boolean;   // true = checkboxes, false/undefined = radio
   options: string[] | null;
   scale_min?: number;
   scale_max?: number;
@@ -352,17 +353,38 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
   onSubmit: (answers: Record<string, string>) => void;
   submitting: boolean;
 }) {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  // answers: para radio → string, para multi-select → string[] (se join con "||" al enviar)
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [localError, setLocalError] = useState<string | null>(null);
   const sorted = [...questions].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
   const total = sorted.length;
-  const answered = sorted.filter((q) => answers[q.id]).length;
+  const answered = sorted.filter((q) => {
+    const a = answers[q.id];
+    return Array.isArray(a) ? a.length > 0 : !!a;
+  }).length;
+
+  function toggleMulti(qid: string, opt: string) {
+    setAnswers((prev) => {
+      const cur = (prev[qid] as string[]) || [];
+      const next = cur.includes(opt) ? cur.filter((o) => o !== opt) : [...cur, opt];
+      return { ...prev, [qid]: next };
+    });
+  }
 
   function handleSubmit() {
-    const missing = sorted.find((q) => !answers[q.id]);
+    const missing = sorted.find((q) => {
+      const a = answers[q.id];
+      return Array.isArray(a) ? a.length === 0 : !a;
+    });
     if (missing) { setLocalError(`Responde: "${missing.text}"`); return; }
     setLocalError(null);
-    onSubmit(answers);
+    // Serializar multi-select como "opt1||opt2"
+    const serialized: Record<string, string> = {};
+    for (const q of sorted) {
+      const a = answers[q.id];
+      serialized[q.id] = Array.isArray(a) ? a.join("||") : (a as string);
+    }
+    onSubmit(serialized);
   }
 
   return (
@@ -395,22 +417,39 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
               <p style={{ fontSize: 13, fontWeight: 600, color: "#f5f5f5", lineHeight: 1.5 }}>{q.text}</p>
             </div>
 
-            {q.type === "multiple_choice" && q.options && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 30 }}>
-                {q.options.map((opt) => {
-                  const sel = answers[q.id] === opt;
-                  return (
-                    <button key={opt} onClick={() => setAnswers((p) => ({ ...p, [q.id]: opt }))}
-                      style={{ textAlign: "left", padding: "10px 14px", borderRadius: 10, fontSize: 12, border: `1px solid ${sel ? "rgba(212,175,55,0.6)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(212,175,55,0.12)" : "rgba(255,255,255,0.02)", color: sel ? "#D4AF37" : "#e0e0e0", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8, fontWeight: sel ? 600 : 400 }}>
-                      <span style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${sel ? "#D4AF37" : "rgba(255,255,255,0.2)"}`, background: sel ? "#D4AF37" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 8, color: "#000" }}>
-                        {sel && "✓"}
-                      </span>
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {q.type === "multiple_choice" && q.options && (() => {
+              const isMulti = !!q.allow_multiple;
+              const multiSel = (answers[q.id] as string[]) || [];
+              const singleSel = answers[q.id] as string;
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 30 }}>
+                  {isMulti && (
+                    <p style={{ fontSize: 9, fontFamily: "monospace", color: "#D4AF37", marginBottom: 2, letterSpacing: "0.08em" }}>
+                      ☑ Puedes elegir varias opciones
+                    </p>
+                  )}
+                  {q.options.map((opt) => {
+                    const sel = isMulti ? multiSel.includes(opt) : singleSel === opt;
+                    const accent = isMulti ? "#D4AF37" : "#D4AF37";
+                    return (
+                      <button key={opt}
+                        onClick={() => isMulti
+                          ? toggleMulti(q.id, opt)
+                          : setAnswers((p) => ({ ...p, [q.id]: opt }))
+                        }
+                        style={{ textAlign: "left", padding: "10px 14px", borderRadius: 10, fontSize: 12, border: `1px solid ${sel ? "rgba(212,175,55,0.6)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(212,175,55,0.12)" : "rgba(255,255,255,0.02)", color: sel ? accent : "#e0e0e0", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8, fontWeight: sel ? 600 : 400 }}
+                      >
+                        {/* Radio para única, checkbox para múltiple */}
+                        <span style={{ width: 16, height: 16, borderRadius: isMulti ? 4 : "50%", border: `1.5px solid ${sel ? accent : "rgba(255,255,255,0.2)"}`, background: sel ? accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 8, color: "#000", transition: "all 0.15s" }}>
+                          {sel && "✓"}
+                        </span>
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {q.type === "scale" && (
               <div style={{ paddingLeft: 30 }}>

@@ -35,9 +35,10 @@ class PollVotePayload(BaseModel):
 
 class UserQuestionIn(BaseModel):
     text: str
-    type: str               # "multiple_choice" | "scale"
+    type: str                        # "multiple_choice" | "scale"
     options: Optional[List[str]] = None
     scale_points: Optional[int] = None  # 2–10
+    allow_multiple: bool = False     # True = checkboxes, False = radio (solo multiple_choice)
 
 
 VALID_CATEGORIES = {"general", "politica", "economia", "salud", "educacion", "espectaculos", "deporte", "cultura"}
@@ -71,10 +72,13 @@ def _compute_results(poll: dict, votes: list) -> dict:
     if poll_type == "multiple_choice":
         options = poll.get("options") or []
         counts = {opt: 0 for opt in options}
+        # Soporta selección única ("Sí") y múltiple ("Sí||No") con separador ||
         for v in votes:
-            val = v.get("option_value", "")
-            if val in counts:
-                counts[val] += 1
+            raw = v.get("option_value", "")
+            selected = [s.strip() for s in raw.split("||") if s.strip()]
+            for sel in selected:
+                if sel in counts:
+                    counts[sel] += 1
         results = [
             {"option": opt, "count": cnt, "pct": round(cnt / total * 100, 1) if total else 0}
             for opt, cnt in counts.items()
@@ -204,7 +208,7 @@ async def create_user_poll(
             opts = [o.strip() for o in (q.options or []) if o.strip()]
             if len(opts) < 2:
                 raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: mínimo 2 opciones")
-            questions_clean.append({"text": q.text.strip(), "type": "multiple_choice", "options": opts, "order_index": i})
+            questions_clean.append({"text": q.text.strip(), "type": "multiple_choice", "options": opts, "allow_multiple": q.allow_multiple, "order_index": i})
         elif q.type == "scale":
             sp = q.scale_points or 5
             if not 2 <= sp <= 10:
