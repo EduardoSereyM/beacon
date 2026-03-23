@@ -170,13 +170,13 @@ function ForgotPasswordForm({ onBack, apiUrl }: { onBack: () => void; apiUrl: st
 
     return (
         <div className="px-8 pb-8 space-y-4">
-            <p className="text-[10px] text-gray-500 font-mono leading-relaxed">
+            <p className="text-xs text-foreground-muted font-mono leading-relaxed">
                 Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                         Email *
                     </label>
                     <input
@@ -194,7 +194,7 @@ function ForgotPasswordForm({ onBack, apiUrl }: { onBack: () => void; apiUrl: st
 
                 {msg && (
                     <div
-                        className="text-[10px] font-mono px-3 py-2 rounded-lg"
+                        className="text-xs font-mono px-3 py-2 rounded-lg"
                         style={{
                             color: msg.type === "success" ? GREEN : RED,
                             backgroundColor: msg.type === "success" ? `${GREEN}10` : `${RED}10`,
@@ -220,7 +220,7 @@ function ForgotPasswordForm({ onBack, apiUrl }: { onBack: () => void; apiUrl: st
                     {loading ? "Enviando..." : "Enviar Enlace de Recuperación"}
                 </button>
 
-                <p className="text-center text-[9px] font-mono">
+                <p className="text-center text-xs font-mono">
                     <button
                         type="button"
                         onClick={onBack}
@@ -513,7 +513,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                     <h2 className="text-lg font-bold text-white tracking-wide mt-2">
                         {mode === "login" ? "Acceso" : mode === "register" ? "Registro Ciudadano" : "Recuperar Acceso"}
                     </h2>
-                    <p className="text-[10px] text-gray-500 mt-1 font-mono uppercase tracking-widest">
+                    <p className="text-xs text-foreground-muted mt-1 font-mono uppercase tracking-widest">
                         {mode === "login"
                             ? "Identifícate para entrar"
                             : mode === "register"
@@ -538,7 +538,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                                 <button
                                     key={m}
                                     onClick={() => { setMode(m); setError(""); setSuccess(""); }}
-                                    className="flex-1 py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-300"
+                                    className="flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300"
                                     style={{
                                         backgroundColor: mode === m ? `${CYAN}15` : "transparent",
                                         color: mode === m ? CYAN : "#666",
@@ -567,7 +567,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                         {/* ─── Nombre (solo registro) ─── */}
                         {mode === "register" && (
                             <div>
-                                <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                                     Nombre Completo *
                                 </label>
                                 <input
@@ -586,7 +586,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
 
                         {/* ─── Email ─── */}
                         <div>
-                            <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                                 Email *
                             </label>
                             <input
@@ -604,7 +604,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
 
                         {/* ─── Contraseña con toggle ojo ─── */}
                         <div>
-                            <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                            <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                                 Contraseña *
                             </label>
                             <div className="relative">
@@ -652,7 +652,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                                     {/* Aviso visible cuando hay requisitos sin cumplir y el usuario ya escribió algo */}
                                     {password.length > 0 && !Object.values(pwdValidations).every(Boolean) && (
                                         <p
-                                            className="mt-2 text-[10px] font-mono px-2.5 py-1.5 rounded-lg"
+                                            className="mt-2 text-xs font-mono px-2.5 py-1.5 rounded-lg"
                                             style={{
                                                 backgroundColor: `${RED}10`,
                                                 color: RED,
@@ -669,7 +669,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                         {/* ─── Confirmar Contraseña (solo registro) ─── */}
                         {mode === "register" && (
                             <div>
-                                <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                                     Confirmar Contraseña *
                                 </label>
                                 <div className="relative">
@@ -701,7 +701,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                                     </button>
                                 </div>
                                 {confirmPassword.length > 0 && confirmPassword !== password && (
-                                    <p className="text-[9px] font-mono mt-1" style={{ color: RED }}>
+                                    <p className="text-xs font-mono mt-1" style={{ color: RED }}>
                                         Las contraseñas no coinciden
                                     </p>
                                 )}
@@ -715,7 +715,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
 
                                 {/* País */}
                                 <div>
-                                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                                         País *
                                     </label>
                                     <select
@@ -738,7 +738,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                                 <div className="grid grid-cols-2 gap-3">
                                     {/* Región (dependiente de País) */}
                                     <div>
-                                        <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                                             Región *
                                         </label>
                                         <select
@@ -761,7 +761,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
 
                                     {/* Comuna (dependiente de Región) */}
                                     <div>
-                                        <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                        <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                                             Comuna *
                                         </label>
                                         <select
@@ -785,7 +785,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
 
                                 {/* ─── Rango Etario ─── */}
                                 <div>
-                                    <label className="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
                                         Rango Etario *
                                     </label>
                                     <select
@@ -813,7 +813,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                         {/* ─── Error / Success ─── */}
                         {error && (
                             <div
-                                className="text-[10px] font-mono px-3 py-2 rounded-lg"
+                                className="text-xs font-mono px-3 py-2 rounded-lg"
                                 style={{
                                     backgroundColor: `${RED}10`,
                                     color: RED,
@@ -825,7 +825,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                         )}
                         {success && (
                             <div
-                                className="text-[10px] font-mono px-3 py-2 rounded-lg"
+                                className="text-xs font-mono px-3 py-2 rounded-lg"
                                 style={{
                                     backgroundColor: `${GOLD}15`,
                                     color: GOLD,
@@ -861,7 +861,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                         </button>
 
                         {/* Footer hint */}
-                        <p className="text-center text-[9px] text-gray-600 font-mono">
+                        <p className="text-center text-xs text-foreground-muted font-mono">
                             {mode === "login" ? (
                                 <>
                                     ¿No tienes cuenta? Cambia a «Registrarse» arriba.
@@ -905,7 +905,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                                 <div className="relative z-10 flex items-center justify-between">
                                     <div className="text-left">
                                         <h3 className="text-sm font-bold tracking-wider uppercase mb-1" style={{ color: GOLD }}>Modo Admin</h3>
-                                        <p className="text-[10px] text-gray-400 font-mono">Sovereign Dashboard · Gestión Total</p>
+                                        <p className="text-xs text-foreground-muted font-mono">Sovereign Dashboard · Gestión Total</p>
                                     </div>
                                     <span className="text-2xl filter grayscale group-hover:grayscale-0 transition-all duration-300">🛡️</span>
                                 </div>
@@ -924,7 +924,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                                 <div className="relative z-10 flex items-center justify-between">
                                     <div className="text-left">
                                         <h3 className="text-sm font-bold tracking-wider uppercase mb-1" style={{ color: CYAN }}>Modo Pruebas</h3>
-                                        <p className="text-[10px] text-gray-400 font-mono">Vista de Ciudadano · Diamond Rank</p>
+                                        <p className="text-xs text-foreground-muted font-mono">Vista de Ciudadano · Diamond Rank</p>
                                     </div>
                                     <span className="text-2xl filter grayscale group-hover:grayscale-0 transition-all duration-300">💎</span>
                                 </div>
@@ -936,7 +936,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                 {/* ─── Close button ─── */}
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-gray-600 hover:text-white transition-colors"
+                    className="absolute top-4 right-4 text-foreground-muted hover:text-white transition-colors"
                     aria-label="Cerrar"
                 >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

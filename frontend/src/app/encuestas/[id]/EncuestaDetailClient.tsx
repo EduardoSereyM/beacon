@@ -14,6 +14,14 @@ import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 import usePermissions from "@/hooks/usePermissions";
 
+// ─── Logos de redes sociales ──────────────────────────────────────────────────
+import logoWhatsapp from "@/asset/logos/whatsapp.png";
+import logoX from "@/asset/logos/x.png";
+import logoTelegram from "@/asset/logos/telegrama.png";
+import logoFacebook from "@/asset/logos/facebook.png";
+import logoInstagram from "@/asset/logos/instagram.png";
+import logoTiktok from "@/asset/logos/tik-tok.png";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -99,42 +107,42 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
     {
       id: "whatsapp",
       label: "WhatsApp",
-      icon: "💬",
+      logo: logoWhatsapp,
       color: "#25D366",
       href: `https://wa.me/?text=${text}%20${encUrl}`,
     },
     {
       id: "twitter",
       label: "X",
-      icon: "𝕏",
-      color: "#fff",
+      logo: logoX,
+      color: "#ffffff",
       href: `https://twitter.com/intent/tweet?text=${text}&url=${encUrl}`,
     },
     {
       id: "telegram",
       label: "Telegram",
-      icon: "✈️",
+      logo: logoTelegram,
       color: "#229ED9",
       href: `https://t.me/share/url?url=${encUrl}&text=${text}`,
     },
     {
       id: "facebook",
       label: "Facebook",
-      icon: "f",
+      logo: logoFacebook,
       color: "#1877F2",
       href: `https://www.facebook.com/sharer/sharer.php?u=${encUrl}`,
     },
     {
       id: "instagram",
       label: "Instagram",
-      icon: "📸",
+      logo: logoInstagram,
       color: "#E1306C",
       href: null, // no direct share — solo copy
     },
     {
       id: "tiktok",
       label: "TikTok",
-      icon: "♪",
+      logo: logoTiktok,
       color: "#EE1D52",
       href: null, // no direct share — solo copy
     },
@@ -151,9 +159,9 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
     <div>
       <p
         style={{
-          fontSize: 9,
+          fontSize: 11,
           fontFamily: "monospace",
-          color: "rgba(255,255,255,0.3)",
+          color: "rgba(255,255,255,0.55)",
           textTransform: "uppercase",
           letterSpacing: "0.1em",
           marginBottom: 10,
@@ -179,9 +187,6 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
                 borderRadius: 10,
                 background: `${n.color}18`,
                 border: `1px solid ${n.color}40`,
-                color: n.color,
-                fontSize: n.id === "twitter" ? 14 : 16,
-                fontWeight: 800,
                 textDecoration: "none",
                 transition: "transform 0.15s, background 0.15s",
                 cursor: "pointer",
@@ -195,7 +200,7 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
                 (e.currentTarget as HTMLAnchorElement).style.transform = "scale(1)";
               }}
             >
-              {n.icon}
+              <Image src={n.logo} alt={n.label} width={20} height={20} style={{ objectFit: "contain" }} />
             </a>
           ) : (
             /* Instagram / TikTok → copiar link con tooltip */
@@ -212,8 +217,6 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
                 borderRadius: 10,
                 background: `${n.color}18`,
                 border: `1px solid ${n.color}40`,
-                color: n.color,
-                fontSize: 16,
                 cursor: "pointer",
                 transition: "transform 0.15s",
               }}
@@ -224,7 +227,7 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
                 (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
               }}
             >
-              {n.icon}
+              <Image src={n.logo} alt={n.label} width={20} height={20} style={{ objectFit: "contain" }} />
             </button>
           )
         )}
