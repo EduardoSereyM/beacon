@@ -32,10 +32,16 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
     # entity_reviews: solo COUNT via PostgREST (count="exact" + limit 0).
     # users: columnas mínimas para métricas (rank, is_shadow_banned).
     # entities: columnas mínimas para top-5 y desgloses por categoría.
+    # polls/versus/events: conteos totales y activos.
     (
         entities_all,
         users_all,
         votes_count_result,
+        polls_all,
+        versus_all,
+        events_all,
+        poll_votes_result,
+        versus_votes_result,
     ) = await asyncio.gather(
         supabase.table("entities").select(
             "id, first_name, last_name, category, is_active, reputation_score, total_reviews, photo_path"
@@ -46,11 +52,31 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
         supabase.table("entity_reviews").select(
             "*", count="exact"
         ).limit(0).execute(),
+        supabase.table("polls").select(
+            "id, is_active"
+        ).execute(),
+        supabase.table("versus").select(
+            "id, is_active"
+        ).execute(),
+        supabase.table("events").select(
+            "id, is_active"
+        ).execute(),
+        supabase.table("poll_votes").select(
+            "*", count="exact"
+        ).limit(0).execute(),
+        supabase.table("versus_votes").select(
+            "*", count="exact"
+        ).limit(0).execute(),
     )
 
-    entities    = entities_all.data or []
-    users       = users_all.data    or []
-    total_votes = votes_count_result.count or 0
+    entities         = entities_all.data  or []
+    users            = users_all.data     or []
+    total_votes      = votes_count_result.count or 0
+    polls            = polls_all.data     or []
+    versus_list      = versus_all.data    or []
+    events_list      = events_all.data    or []
+    total_poll_votes    = poll_votes_result.count    or 0
+    total_versus_votes  = versus_votes_result.count  or 0
 
     # ── Audit logs: columnas reales del audit_logger ─────────────────────────
     # Columnas: actor_id, action, entity_type, entity_id, details, created_at
@@ -121,6 +147,11 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
             "_raw":       log,   # debug: el frontend puede ignorarlo
         })
 
+    # ── Métricas de contenido ────────────────────────────────────────────────
+    active_polls   = sum(1 for p in polls       if p.get("is_active"))
+    active_versus  = sum(1 for v in versus_list  if v.get("is_active"))
+    active_events  = sum(1 for e in events_list  if e.get("is_active"))
+
     return {
         # KPIs principales
         "total_entities":    len(entities),
@@ -129,6 +160,20 @@ async def admin_get_stats(admin: dict = Depends(require_admin_role)):
         "total_users":       len(users),
         "total_votes":       total_votes,
         "shadow_banned":     shadow_banned,
+
+        # Encuestas
+        "total_polls":       len(polls),
+        "active_polls":      active_polls,
+        "total_poll_votes":  total_poll_votes,
+
+        # Versus
+        "total_versus":      len(versus_list),
+        "active_versus":     active_versus,
+        "total_versus_votes": total_versus_votes,
+
+        # Eventos
+        "total_events":      len(events_list),
+        "active_events":     active_events,
 
         # Desgloses
         "by_category": categories,

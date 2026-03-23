@@ -47,6 +47,18 @@ interface Stats {
     total_users: number;
     total_votes: number;
     shadow_banned: number;
+    // Encuestas
+    total_polls: number;
+    active_polls: number;
+    total_poll_votes: number;
+    // Versus
+    total_versus: number;
+    active_versus: number;
+    total_versus_votes: number;
+    // Eventos
+    total_events: number;
+    active_events: number;
+    // Desgloses
     by_category: Record<string, number>;
     by_rank: Record<string, number>;
     top_by_score: TopEntity[];
@@ -184,13 +196,13 @@ export default function AdminDashboard() {
                 <div className="text-left sm:text-right">
                     <button
                         onClick={fetchStats}
-                        className="text-[9px] px-3 py-2.5 rounded-lg uppercase tracking-wider font-mono transition-all"
+                        className="text-xs px-3 py-2.5 rounded-lg uppercase tracking-wider font-mono transition-all"
                         style={{ background: "rgba(212,175,55,0.08)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.15)" }}
                     >
                         ↻ Actualizar
                     </button>
                     {lastUpdated && (
-                        <p className="text-[9px] text-foreground-muted mt-2 font-mono">
+                        <p className="text-[10px] text-foreground-muted mt-2 font-mono">
                             Última sync: {lastUpdated.toLocaleTimeString("es-CL")}
                         </p>
                     )}
@@ -228,6 +240,84 @@ export default function AdminDashboard() {
                         )}
                     </div>
                 ))}
+            </div>
+
+            {/* ── KPIs de Contenido: Encuestas · Versus · Eventos ───── */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+                {/* Encuestas */}
+                <div className="rounded-xl p-5" style={{ background: "rgba(17,17,17,0.8)", border: "1px solid rgba(212,175,55,0.12)" }}>
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-[10px] uppercase tracking-wider font-mono" style={{ color: "#D4AF37" }}>
+                            📊 Encuestas
+                        </h2>
+                        <Link href="/admin/polls" className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded transition-all hover:opacity-80"
+                            style={{ color: "#D4AF37", background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.2)" }}>
+                            Gestionar →
+                        </Link>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        {[
+                            { label: "Total",    value: s.total_polls,      color: "#D4AF37" },
+                            { label: "Activas",  value: s.active_polls,     color: "#39FF14" },
+                            { label: "Votos",    value: s.total_poll_votes,  color: "#00E5FF" },
+                        ].map(({ label, value, color }) => (
+                            <div key={label} className="text-center py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)" }}>
+                                <p className="text-lg font-mono font-bold" style={{ color }}>{(value ?? 0).toLocaleString("es-CL")}</p>
+                                <p className="text-[9px] text-foreground-muted uppercase tracking-wider mt-0.5">{label}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Versus */}
+                <div className="rounded-xl p-5" style={{ background: "rgba(17,17,17,0.8)", border: "1px solid rgba(138,43,226,0.15)" }}>
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-[10px] uppercase tracking-wider font-mono" style={{ color: "#B388FF" }}>
+                            ⚔️ Versus
+                        </h2>
+                        <Link href="/admin/versus" className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded transition-all hover:opacity-80"
+                            style={{ color: "#B388FF", background: "rgba(138,43,226,0.1)", border: "1px solid rgba(138,43,226,0.25)" }}>
+                            Gestionar →
+                        </Link>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        {[
+                            { label: "Total",    value: s.total_versus,       color: "#B388FF" },
+                            { label: "Activos",  value: s.active_versus,      color: "#39FF14" },
+                            { label: "Votos",    value: s.total_versus_votes,  color: "#00E5FF" },
+                        ].map(({ label, value, color }) => (
+                            <div key={label} className="text-center py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)" }}>
+                                <p className="text-lg font-mono font-bold" style={{ color }}>{(value ?? 0).toLocaleString("es-CL")}</p>
+                                <p className="text-[9px] text-foreground-muted uppercase tracking-wider mt-0.5">{label}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Eventos */}
+                <div className="rounded-xl p-5" style={{ background: "rgba(17,17,17,0.8)", border: "1px solid rgba(0,229,255,0.1)" }}>
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-[10px] uppercase tracking-wider font-mono" style={{ color: "#00E5FF" }}>
+                            📡 Eventos
+                        </h2>
+                        <Link href="/admin/events" className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded transition-all hover:opacity-80"
+                            style={{ color: "#00E5FF", background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.2)" }}>
+                            Gestionar →
+                        </Link>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        {[
+                            { label: "Total",    value: s.total_events,   color: "#00E5FF" },
+                            { label: "Activos",  value: s.active_events,  color: "#39FF14" },
+                        ].map(({ label, value, color }) => (
+                            <div key={label} className="text-center py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.03)" }}>
+                                <p className="text-lg font-mono font-bold" style={{ color }}>{(value ?? 0).toLocaleString("es-CL")}</p>
+                                <p className="text-[9px] text-foreground-muted uppercase tracking-wider mt-0.5">{label}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* ── Fila central: Categorías + Rangos ──────────────────── */}
