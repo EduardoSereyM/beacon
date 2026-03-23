@@ -101,12 +101,12 @@ export default function VerdictButton({
         return (
             <div className="relative">
                 <button disabled className="w-full py-4 px-6 rounded-xl text-sm font-medium cursor-not-allowed transition-all displaced-box"
-                    style={{ border: "1px solid rgba(255,255,255,0.03)", color: "rgba(136,136,136,0.5)" }}>
+                    style={{ border: "1px solid rgba(255,255,255,0.12)", color: "rgba(136,136,136,0.6)" }}>
                     <div className="flex items-center justify-center gap-3">
                         <span className="text-lg">🔒</span>
                         <div className="text-left">
                             <p className="text-xs font-semibold displaced-text">Tu voz no tiene peso aquí.</p>
-                            <p className="text-[9px] displaced-text mt-0.5">Alíneate con el búnker para votar.</p>
+                            <p className="text-[11px] displaced-text mt-0.5">Alíneate con el búnker para votar.</p>
                         </div>
                     </div>
                 </button>
@@ -117,7 +117,7 @@ export default function VerdictButton({
     // ─── Feedback de voto emitido ───
     const feedbackBlock = voteMessage ? (
         <div
-            className="mt-3 px-3 py-2 rounded-lg text-[10px] font-mono text-center"
+            className="mt-3 px-3 py-2 rounded-lg text-xs font-mono text-center"
             style={{
                 backgroundColor: voteStatus === "voted" ? "rgba(57,255,20,0.08)" : "rgba(255,7,58,0.08)",
                 color: voteStatus === "voted" ? "#39FF14" : "#FF073A",
@@ -187,7 +187,7 @@ export default function VerdictButton({
                     <div>
                         <p>{voteStatus === "loading" ? "Enviando..." : voteStatus === "voted" ? "Veredicto Certificado Registrado" : "Emitir Veredicto Certificado"}</p>
                         {voteStatus === "idle" && (
-                            <p className="text-[9px] font-normal mt-0.5 tracking-wider" style={{ color: `${accentColor}99` }}>
+                            <p className="text-[11px] font-normal mt-0.5 tracking-wider" style={{ color: `${accentColor}bb` }}>
                                 Identidad verificada · Peso 1.0x
                             </p>
                         )}

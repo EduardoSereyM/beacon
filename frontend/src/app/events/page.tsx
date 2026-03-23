@@ -63,7 +63,7 @@ function formatDate(iso: string): string {
 }
 
 function scoreColor(score: number | null): string {
-  if (!score) return "rgba(255,255,255,0.25)";
+  if (!score) return "rgba(255,255,255,0.45)";
   if (score >= 4.5) return "#39FF14";
   if (score >= 3.5) return "#D4AF37";
   if (score >= 2.5) return "#FF8C00";
@@ -97,7 +97,7 @@ function StarRating({
             onClick={() => !disabled && onChange?.(star)}
             style={{
               fontSize: size,
-              color: filled ? "#D4AF37" : "rgba(255,255,255,0.15)",
+              color: filled ? "#D4AF37" : "rgba(255,255,255,0.3)",
               cursor: disabled ? "default" : "pointer",
               transition: "color 0.1s",
               lineHeight: 1,
@@ -231,7 +231,7 @@ function ParticipantCard({
         <p style={{ fontSize: 13, fontWeight: 600, color: "#f5f5f5", margin: 0 }}>
           {participant.first_name} {participant.last_name}
         </p>
-        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2, textTransform: "capitalize" }}>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 2, textTransform: "capitalize" }}>
           {CATEGORY_LABELS[participant.category] || participant.category}
         </p>
 
@@ -265,7 +265,7 @@ function ParticipantCard({
               </span>
             )}
             {!token && (
-              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
                 Inicia sesión para votar
               </p>
             )}
@@ -303,7 +303,7 @@ function ParticipantCard({
         >
           {avgScore !== null ? avgScore.toFixed(1) : "—"}
         </p>
-        <p style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginTop: 3 }}>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 3 }}>
           {voteCount} {voteCount === 1 ? "voto" : "votos"}
         </p>
       </div>
@@ -386,7 +386,7 @@ function EventCard({ event, token }: { event: EventItem; token: string | null })
                 EN VIVO
               </span>
             ) : (
-              <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
+              <span style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}>
                 CERRADO
               </span>
             )}
@@ -395,11 +395,11 @@ function EventCard({ event, token }: { event: EventItem; token: string | null })
 
         <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
           {event.location && (
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
               📍 {event.location}
             </span>
           )}
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontFamily: "monospace" }}>
             {formatDate(event.starts_at)} → {formatDate(event.ends_at)}
           </span>
           <span style={{ fontSize: 11, color: "#00E5FF", fontFamily: "monospace" }}>
@@ -501,7 +501,7 @@ export default function EventsPage() {
 
         {loading && (
           <div style={{ textAlign: "center", padding: "48px 0" }}>
-            <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
+            <p style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}>
               Cargando eventos…
             </p>
           </div>
@@ -541,7 +541,7 @@ export default function EventsPage() {
             <p style={{ fontSize: 14, fontWeight: 700, color: "#f5f5f5", marginBottom: 6 }}>
               Sin eventos activos
             </p>
-            <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
+            <p style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}>
               El Protocolo monitorea los próximos eventos. Vuelve pronto.
             </p>
           </div>

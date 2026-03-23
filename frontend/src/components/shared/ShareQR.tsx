@@ -135,8 +135,8 @@ export default function ShareQR({
 
                         {/* URL truncada */}
                         <p
-                            className="text-[9px] font-mono text-center break-all px-2"
-                            style={{ color: "#00E5FF", opacity: 0.7 }}
+                            className="text-[10px] font-mono text-center break-all px-2"
+                            style={{ color: "#00E5FF", opacity: 0.8 }}
                         >
                             {shareUrl}
                         </p>

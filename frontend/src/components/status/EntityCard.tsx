@@ -164,14 +164,14 @@ export default function EntityCard({ entity }: EntityCardProps) {
                         </div>
 
                         {/* Cargo */}
-                        <p className="text-[10px] text-foreground-muted truncate mt-0.5">
+                        <p className="text-xs text-foreground-muted truncate mt-0.5">
                             {subtitle}
                         </p>
 
                         {/* Badges: solo categoría + partido (sin rank de usuario) */}
                         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                             <span
-                                className="text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-medium"
+                                className="text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider font-medium"
                                 style={{
                                     backgroundColor: `${typeConfig.color}15`,
                                     color: typeConfig.color,
@@ -181,7 +181,7 @@ export default function EntityCard({ entity }: EntityCardProps) {
                             </span>
                             {entity.party && (
                                 <span
-                                    className="text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider"
+                                    className="text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider"
                                     style={{
                                         backgroundColor: "rgba(138,43,226,0.12)",
                                         color: "#B388FF",
@@ -202,7 +202,7 @@ export default function EntityCard({ entity }: EntityCardProps) {
                         >
                             {entity.reputation_score.toFixed(2)}
                         </span>
-                        <p className="text-[9px] text-foreground-muted font-mono mt-0.5">
+                        <p className="text-[10px] text-foreground-muted font-mono mt-0.5">
                             {entity.total_reviews.toLocaleString()} votos
                         </p>
                     </div>
@@ -214,7 +214,7 @@ export default function EntityCard({ entity }: EntityCardProps) {
                         {entity.service_tags.map((tag) => (
                             <span
                                 key={tag}
-                                className="text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider"
+                                className="text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider"
                                 style={{
                                     backgroundColor: "rgba(0, 229, 255, 0.08)",
                                     color: "#00E5FF",
@@ -231,11 +231,11 @@ export default function EntityCard({ entity }: EntityCardProps) {
             {/* ─── Barra de Integridad ─── */}
             <div className="px-4 pb-3">
                 <div className="flex items-center justify-between mb-1">
-                    <span className="text-[9px] text-foreground-muted uppercase tracking-wider">
+                    <span className="text-[10px] text-foreground-muted uppercase tracking-wider">
                         Integrity Index
                     </span>
                     <span
-                        className="text-[10px] font-mono score-display font-semibold"
+                        className="text-xs font-mono score-display font-semibold"
                         style={{ color: "#39FF14" }}
                     >
                         {entity.integrity_index}%

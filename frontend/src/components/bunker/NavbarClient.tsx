@@ -76,7 +76,7 @@ export default function NavbarClient() {
                             >
                                 Beacon Protocol
                             </h1>
-                            <p className="text-[7.5px] sm:text-[9px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden sm:block mt-0.5" style={{ lineHeight: "1" }}>
+                            <p className="text-[10px] sm:text-[10px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden sm:block mt-0.5" style={{ lineHeight: "1" }}>
                                 Motor de Integridad
                             </p>
                         </div>
@@ -84,25 +84,25 @@ export default function NavbarClient() {
 
                     {/* ─── Navigation Links (Desktop lg+) ─── */}
                     <div className="hidden lg:flex xl:items-center gap-3 xl:gap-5 ml-auto">
-                        <Link href="/entities" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/entities" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Entidades
                         </Link>
-                        <Link href="/politicos" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/politicos" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Políticos
                         </Link>
-                        <Link href="/empresas" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/empresas" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Empresas
                         </Link>
-                        <Link href="/personajes" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/personajes" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Personajes
                         </Link>
-                        <Link href="/events" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/events" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Eventos
                         </Link>
-                        <Link href="/encuestas" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/encuestas" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Encuestas
                         </Link>
-                        <Link href="/versus" className="text-[10px] lg:text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                        <Link href="/versus" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
                             Versus
                         </Link>
                     </div>
@@ -119,7 +119,7 @@ export default function NavbarClient() {
                                 {isAdmin && (
                                     <Link
                                         href="/admin"
-                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
                                         style={{
                                             background: "rgba(212,175,55,0.12)",
                                             border: "1px solid rgba(212,175,55,0.35)",
@@ -134,7 +134,7 @@ export default function NavbarClient() {
                                 {isBasic && (
                                     <button
                                         onClick={() => setIsVerifyOpen(true)}
-                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
+                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
                                         style={{
                                             background: "rgba(255,140,0,0.12)",
                                             border: "1px solid rgba(255,140,0,0.35)",
@@ -151,7 +151,7 @@ export default function NavbarClient() {
                                         {user.email || user.full_name}
                                     </span>
                                     <span
-                                        className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                                        className="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider"
                                         style={{
                                             backgroundColor: rank === "VERIFIED"
                                                 ? "rgba(77,255,131,0.12)"
@@ -165,13 +165,13 @@ export default function NavbarClient() {
                                 </div>
                                 <a
                                     href="/profile"
-                                    className="text-[10px] text-foreground hover:text-white transition-colors font-mono"
+                                    className="text-xs text-foreground hover:text-white transition-colors font-mono"
                                 >
                                     Mi Perfil
                                 </a>
                                 <button
                                     onClick={logout}
-                                    className="text-[10px] text-foreground hover:text-white transition-colors font-mono"
+                                    className="text-xs text-foreground hover:text-white transition-colors font-mono"
                                 >
                                     Salir
                                 </button>
@@ -179,7 +179,7 @@ export default function NavbarClient() {
                         ) : (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="hidden xl:block px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 hover:bg-[#D4AF37]/10"
+                                className="hidden xl:block px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 hover:bg-[#D4AF37]/10"
                                 style={{
                                     background: "rgba(212,175,55,0.05)",
                                     color: "#D4AF37",
@@ -196,7 +196,7 @@ export default function NavbarClient() {
                     <div className="flex lg:hidden items-center gap-3 ml-auto">
                         {isAuthenticated ? (
                             <span
-                                className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                                className="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider"
                                 style={{
                                     backgroundColor: rank === "VERIFIED"
                                         ? "rgba(77,255,131,0.12)"
@@ -210,7 +210,7 @@ export default function NavbarClient() {
                         ) : (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-[#D4AF37]/10 flex-shrink-0 whitespace-nowrap"
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:bg-[#D4AF37]/10 flex-shrink-0 whitespace-nowrap"
                                 style={{
                                     background: "rgba(212,175,55,0.05)",
                                     color: "#D4AF37",

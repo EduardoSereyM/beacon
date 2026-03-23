@@ -298,7 +298,7 @@ function VersusCard({
             </span>
           ) : (
             <span
-              style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}
+              style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}
             >
               Cerrado · {formatDate(vs.ends_at)}
             </span>
@@ -306,7 +306,7 @@ function VersusCard({
           {vs.affects_reputation && (
             <span
               style={{
-                fontSize: 9,
+                fontSize: 11,
                 fontFamily: "monospace",
                 textTransform: "uppercase",
                 letterSpacing: "0.1em",
@@ -405,12 +405,12 @@ function VersusCard({
             display: "flex",
             justifyContent: "space-between",
             marginTop: 6,
-            fontSize: 10,
+            fontSize: 12,
             fontFamily: "monospace",
           }}
         >
           <span style={{ color: "#D4AF37" }}>{pctA}%</span>
-          <span style={{ color: "rgba(255,255,255,0.3)" }}>{totalVotes} votos</span>
+          <span style={{ color: "rgba(255,255,255,0.5)" }}>{totalVotes} votos</span>
           <span style={{ color: "#8A2BE2" }}>{pctB}%</span>
         </div>
       </div>
@@ -504,9 +504,9 @@ export default function VersusPage() {
           <div style={{ textAlign: "center", padding: "48px 0" }}>
             <p
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 fontFamily: "monospace",
-                color: "rgba(255,255,255,0.3)",
+                color: "rgba(255,255,255,0.5)",
                 animation: "pulse 2s infinite",
               }}
             >
@@ -550,7 +550,7 @@ export default function VersusPage() {
             <p style={{ fontSize: 14, fontWeight: 700, color: "#f5f5f5", marginBottom: 6 }}>
               Sin enfrentamientos activos
             </p>
-            <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
+            <p style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}>
               El Protocolo prepara nuevos duelos. Vuelve pronto.
             </p>
           </div>

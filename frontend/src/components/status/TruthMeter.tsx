@@ -100,7 +100,7 @@ export default function TruthMeter({ value, size = 200 }: TruthMeterProps) {
                         {clampedValue}
                     </span>
                     <span
-                        className="text-[10px] font-mono uppercase tracking-wider mt-0.5"
+                        className="text-xs font-mono uppercase tracking-wider mt-0.5"
                         style={{ color: `${meterColor}99` }}
                     >
                         %
@@ -111,12 +111,12 @@ export default function TruthMeter({ value, size = 200 }: TruthMeterProps) {
             {/* Etiqueta de auditoría */}
             <div className="text-center">
                 <p
-                    className="text-[9px] tracking-[0.25em] uppercase font-bold"
+                    className="text-[11px] tracking-[0.25em] uppercase font-bold"
                     style={{ color: meterColor }}
                 >
                     Auditado por Beacon Protocol
                 </p>
-                <p className="text-[8px] text-foreground-muted mt-0.5 font-mono tracking-wider">
+                <p className="text-[10px] text-foreground-muted mt-0.5 font-mono tracking-wider">
                     INTEGRITY INDEX · FORENSIC VALIDATED
                 </p>
             </div>
