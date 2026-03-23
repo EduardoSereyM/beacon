@@ -88,13 +88,13 @@ export default function NavbarClient() {
 
                         {/* ─── Navigation Links (Desktop lg+) ─── */}
                         <div className="hidden lg:flex items-center gap-3 xl:gap-5">
-                            <Link href="/entities" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Entidades</Link>
-                            <Link href="/politicos" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Políticos</Link>
-                            <Link href="/empresas" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Empresas</Link>
-                            <Link href="/personajes" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Personajes</Link>
-                            <Link href="/events" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Eventos</Link>
-                            <Link href="/encuestas" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Encuestas</Link>
+                            <Link href="/encuestas" className="text-xs font-bold uppercase tracking-wider transition-colors px-2.5 py-1 rounded-lg" style={{ color: "#D4AF37", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)" }}>Encuestas</Link>
                             <Link href="/versus" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Versus</Link>
+                            <Link href="/events" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Eventos</Link>
+                            <Link href="/personajes" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Personajes</Link>
+                            <Link href="/empresas" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Empresas</Link>
+                            <Link href="/politicos" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Políticos</Link>
+                            <Link href="/entities" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Entidades</Link>
                         </div>
 
                         {/* ─── Hamburger Button (Mobile < lg) ─── */}
@@ -255,13 +255,13 @@ export default function NavbarClient() {
                     <div className="w-full h-px bg-white/10 my-6 flex-shrink-0" />
 
                     <div className="flex flex-col gap-6 text-center mb-auto">
-                        <Link href="/entities" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Entidades</Link>
-                        <Link href="/politicos" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Políticos</Link>
-                        <Link href="/empresas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Empresas</Link>
-                        <Link href="/personajes" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Personajes</Link>
+                        <Link href="/encuestas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-widest" style={{ color: "#D4AF37" }}>Encuestas</Link>
+                        <Link href="/versus" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Versus</Link>
                         <Link href="/events" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Eventos</Link>
-                        <Link href="/encuestas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Encuestas</Link>
-                        <Link href="/versus" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-widest" style={{ color: "#D4AF37" }}>VS</Link>
+                        <Link href="/personajes" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Personajes</Link>
+                        <Link href="/empresas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Empresas</Link>
+                        <Link href="/politicos" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Políticos</Link>
+                        <Link href="/entities" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Entidades</Link>
                     </div>
                 </div>
             )}
