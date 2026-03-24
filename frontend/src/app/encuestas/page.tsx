@@ -524,10 +524,12 @@ interface QuestionForm {
   type: "multiple_choice" | "scale";
   options: string[];
   scale_points: number;
+  scale_min_label: string;
+  scale_max_label: string;
 }
 
 function emptyQuestion(): QuestionForm {
-  return { text: "", type: "multiple_choice", options: ["", ""], scale_points: 5 };
+  return { text: "", type: "multiple_choice", options: ["", ""], scale_points: 5, scale_min_label: "", scale_max_label: "" };
 }
 
 function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: () => void }) {
@@ -574,7 +576,11 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
           text: q.text.trim(),
           type: q.type,
           ...(q.type === "multiple_choice" ? { options: q.options.filter((o) => o.trim()) } : {}),
-          ...(q.type === "scale" ? { scale_points: q.scale_points } : {}),
+          ...(q.type === "scale" ? {
+            scale_points:    q.scale_points,
+            scale_min_label: q.scale_min_label.trim() || undefined,
+            scale_max_label: q.scale_max_label.trim() || undefined,
+          } : {}),
         })),
       };
       const res = await fetch(`${API_URL}/api/v1/polls`, {
@@ -640,7 +646,7 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
             <div>
               <label style={labelStyle}>Duración (días)</label>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {[1, 3, 7, 14, 30].map((d) => (
+                {[1, 3, 7, 14].map((d) => (
                   <button
                     key={d}
                     type="button"
@@ -661,7 +667,7 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
 
           {/* Preguntas */}
           <div>
-            <label style={labelStyle}>Preguntas (máx. 3) *</label>
+            <label style={labelStyle}>Preguntas (máx. 2) *</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {questions.map((q, i) => (
                 <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 9, padding: "12px 14px" }}>
@@ -707,25 +713,56 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
                     </div>
                   )}
                   {q.type === "scale" && (
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {[2, 3, 4, 5, 7, 10].map((pts) => (
-                        <button key={pts} type="button" onClick={() => updateQ(i, { scale_points: pts })}
-                          style={{ width: 34, height: 34, borderRadius: 7, fontSize: 12, fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
-                            border: `1px solid ${q.scale_points === pts ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
-                            background: q.scale_points === pts ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.02)",
-                            color: q.scale_points === pts ? "#39FF14" : "rgba(255,255,255,0.4)",
-                          }}>
-                          {pts}
-                        </button>
-                      ))}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {/* Selector de puntos */}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {[2, 3, 4, 5, 7, 10].map((pts) => (
+                          <button key={pts} type="button" onClick={() => updateQ(i, { scale_points: pts })}
+                            style={{ width: 34, height: 34, borderRadius: 7, fontSize: 12, fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
+                              border: `1px solid ${q.scale_points === pts ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
+                              background: q.scale_points === pts ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.02)",
+                              color: q.scale_points === pts ? "#39FF14" : "rgba(255,255,255,0.4)",
+                            }}>
+                            {pts}
+                          </button>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", marginTop: -4 }}>
+                        Escala de 1 a {q.scale_points} puntos
+                      </p>
+                      {/* Etiquetas semánticas */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <div>
+                          <label style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 4 }}>
+                            1 = etiqueta mínimo
+                          </label>
+                          <input
+                            style={{ ...inputStyle, fontSize: 11 }}
+                            value={q.scale_min_label}
+                            onChange={(e) => updateQ(i, { scale_min_label: e.target.value })}
+                            placeholder="ej: Muy confusa"
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 4 }}>
+                            {q.scale_points} = etiqueta máximo
+                          </label>
+                          <input
+                            style={{ ...inputStyle, fontSize: 11 }}
+                            value={q.scale_max_label}
+                            onChange={(e) => updateQ(i, { scale_max_label: e.target.value })}
+                            placeholder="ej: Muy clara"
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
               ))}
-              {questions.length < 3 && (
+              {questions.length < 2 && (
                 <button type="button" onClick={() => setQuestions((qs) => [...qs, emptyQuestion()])}
                   style={{ alignSelf: "flex-start", padding: "6px 14px", borderRadius: 7, fontSize: 11, fontFamily: "monospace", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }}>
-                  + Agregar pregunta ({questions.length}/3)
+                  + Agregar pregunta ({questions.length}/2)
                 </button>
               )}
             </div>

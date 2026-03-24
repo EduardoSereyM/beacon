@@ -213,10 +213,10 @@ async def create_user_poll(
         raise HTTPException(status_code=400, detail="El título es obligatorio")
     if len(payload.questions) == 0:
         raise HTTPException(status_code=400, detail="Se requiere al menos 1 pregunta")
-    if len(payload.questions) > 3:
-        raise HTTPException(status_code=400, detail="Máximo 3 preguntas permitidas")
-    if not 1 <= payload.ends_in_days <= 30:
-        raise HTTPException(status_code=400, detail="La duración debe ser entre 1 y 30 días")
+    if len(payload.questions) > 2:
+        raise HTTPException(status_code=400, detail="Máximo 2 preguntas permitidas")
+    if not 1 <= payload.ends_in_days <= 14:
+        raise HTTPException(status_code=400, detail="La duración debe ser entre 1 y 14 días")
     if payload.category not in VALID_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Categoría inválida: {payload.category}")
 
