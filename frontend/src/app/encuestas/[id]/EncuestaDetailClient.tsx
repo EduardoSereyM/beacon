@@ -438,7 +438,7 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <span style={{
                 fontSize: 9, fontFamily: "monospace", fontWeight: 700,
-                color: answers[q.id] ? "rgba(212,175,55,0.7)" : "rgba(255,255,255,0.2)",
+                color: answers[q.id] ? "#D4AF37" : "rgba(255,255,255,0.55)",
                 letterSpacing: "0.12em", flexShrink: 0,
                 transition: "color 0.2s",
               }}>
@@ -446,7 +446,7 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
               </span>
               <div style={{
                 flex: 1, height: 1,
-                background: answers[q.id] ? "rgba(212,175,55,0.2)" : "rgba(255,255,255,0.05)",
+                background: answers[q.id] ? "rgba(212,175,55,0.35)" : "rgba(255,255,255,0.12)",
                 transition: "background 0.2s",
               }} />
             </div>
