@@ -427,22 +427,41 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
         </span>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 20 }}>
+      <div style={{ display: "flex", flexDirection: "column", marginBottom: 20 }}>
         {sorted.map((q, idx) => (
-          <div key={q.id} style={{ borderRadius: 14, padding: "18px 20px", background: "rgba(255,255,255,0.025)", border: `1px solid ${answers[q.id] ? "rgba(212,175,55,0.2)" : "rgba(255,255,255,0.06)"}`, transition: "border-color 0.2s" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", paddingTop: 1, minWidth: 20 }}>
+          <div key={q.id} style={{
+            paddingTop: idx === 0 ? 0 : 22,
+            paddingBottom: 22,
+            borderBottom: idx < sorted.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
+          }}>
+            {/* ── Número + línea ── */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{
+                fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                color: answers[q.id] ? "rgba(212,175,55,0.7)" : "rgba(255,255,255,0.2)",
+                letterSpacing: "0.12em", flexShrink: 0,
+                transition: "color 0.2s",
+              }}>
                 {String(idx + 1).padStart(2, "0")}
               </span>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "#f5f5f5", lineHeight: 1.5 }}>{q.text}</p>
+              <div style={{
+                flex: 1, height: 1,
+                background: answers[q.id] ? "rgba(212,175,55,0.2)" : "rgba(255,255,255,0.05)",
+                transition: "background 0.2s",
+              }} />
             </div>
+
+            {/* ── Texto pregunta full-width ── */}
+            <p style={{ fontSize: 14, fontWeight: 600, color: "#f5f5f5", lineHeight: 1.55, marginBottom: 16 }}>
+              {q.text}
+            </p>
 
             {q.type === "multiple_choice" && q.options && (() => {
               const isMulti = !!q.allow_multiple;
               const multiSel = (answers[q.id] as string[]) || [];
               const singleSel = answers[q.id] as string;
               return (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 30 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {isMulti && (
                     <p style={{ fontSize: 9, fontFamily: "monospace", color: "#D4AF37", marginBottom: 2, letterSpacing: "0.08em" }}>
                       ☑ Puedes elegir varias opciones
@@ -450,17 +469,15 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
                   )}
                   {q.options.map((opt) => {
                     const sel = isMulti ? multiSel.includes(opt) : singleSel === opt;
-                    const accent = isMulti ? "#D4AF37" : "#D4AF37";
                     return (
                       <button key={opt}
                         onClick={() => isMulti
                           ? toggleMulti(q.id, opt)
                           : setAnswers((p) => ({ ...p, [q.id]: opt }))
                         }
-                        style={{ textAlign: "left", padding: "10px 14px", borderRadius: 10, fontSize: 12, border: `1px solid ${sel ? "rgba(212,175,55,0.6)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(212,175,55,0.12)" : "rgba(255,255,255,0.02)", color: sel ? accent : "#e0e0e0", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 8, fontWeight: sel ? 600 : 400 }}
+                        style={{ textAlign: "left", padding: "10px 14px", borderRadius: 10, fontSize: 13, border: `1px solid ${sel ? "rgba(212,175,55,0.55)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.02)", color: sel ? "#D4AF37" : "#e0e0e0", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 10, fontWeight: sel ? 600 : 400 }}
                       >
-                        {/* Radio para única, checkbox para múltiple */}
-                        <span style={{ width: 16, height: 16, borderRadius: isMulti ? 4 : "50%", border: `1.5px solid ${sel ? accent : "rgba(255,255,255,0.2)"}`, background: sel ? accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 8, color: "#000", transition: "all 0.15s" }}>
+                        <span style={{ width: 16, height: 16, borderRadius: isMulti ? 4 : "50%", border: `1.5px solid ${sel ? "#D4AF37" : "rgba(255,255,255,0.2)"}`, background: sel ? "#D4AF37" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 8, color: "#000", transition: "all 0.15s" }}>
                           {sel && "✓"}
                         </span>
                         {opt}
@@ -472,8 +489,8 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
             })()}
 
             {q.type === "scale" && (
-              <div style={{ paddingLeft: 30 }}>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+              <div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
                   {Array.from({ length: (q.scale_max ?? 5) - (q.scale_min ?? 1) + 1 }, (_, i) => (q.scale_min ?? 1) + i).map((n) => {
                     const sel = answers[q.id] === String(n);
                     return (
@@ -484,7 +501,7 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
                     );
                   })}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
                   <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.35)" }}>
                     {q.scale_min ?? 1} {q.scale_min_label ? `— ${q.scale_min_label}` : ""}
                   </span>
