@@ -522,6 +522,7 @@ export default function EncuestasPage() {
 interface QuestionForm {
   text: string;
   type: "multiple_choice" | "scale";
+  allow_multiple: boolean;   // true = checkboxes, false = radio
   options: string[];
   scale_points: number;
   scale_min_label: string;
@@ -529,7 +530,7 @@ interface QuestionForm {
 }
 
 function emptyQuestion(): QuestionForm {
-  return { text: "", type: "multiple_choice", options: ["", ""], scale_points: 5, scale_min_label: "", scale_max_label: "" };
+  return { text: "", type: "multiple_choice", allow_multiple: false, options: ["", ""], scale_points: 5, scale_min_label: "", scale_max_label: "" };
 }
 
 function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: () => void }) {
@@ -575,7 +576,7 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
         questions: questions.map((q) => ({
           text: q.text.trim(),
           type: q.type,
-          ...(q.type === "multiple_choice" ? { options: q.options.filter((o) => o.trim()) } : {}),
+          ...(q.type === "multiple_choice" ? { options: q.options.filter((o) => o.trim()), allow_multiple: q.allow_multiple } : {}),
           ...(q.type === "scale" ? {
             scale_points:    q.scale_points,
             scale_min_label: q.scale_min_label.trim() || undefined,
@@ -673,17 +674,52 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
                 <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 9, padding: "12px 14px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
                     <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(57,255,20,0.6)", textTransform: "uppercase" }}>Pregunta {i + 1}</span>
-                    <div style={{ display: "flex", gap: 5 }}>
-                      {(["multiple_choice", "scale"] as const).map((t) => (
-                        <button key={t} type="button" onClick={() => updateQ(i, { type: t })}
-                          style={{ padding: "2px 8px", borderRadius: 5, fontSize: 9, fontFamily: "monospace", cursor: "pointer",
-                            border: `1px solid ${q.type === t ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
-                            background: q.type === t ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.02)",
-                            color: q.type === t ? "#39FF14" : "rgba(255,255,255,0.35)",
-                          }}>
-                          {t === "multiple_choice" ? "Opciones" : "Escala"}
-                        </button>
-                      ))}
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {/* ◉ Única */}
+                      {(() => {
+                        const active = q.type === "multiple_choice" && !q.allow_multiple;
+                        return (
+                          <button key="unica" type="button"
+                            onClick={() => updateQ(i, { type: "multiple_choice", allow_multiple: false })}
+                            style={{ padding: "2px 8px", borderRadius: 5, fontSize: 9, fontFamily: "monospace", cursor: "pointer",
+                              border: `1px solid ${active ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
+                              background: active ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.02)",
+                              color: active ? "#39FF14" : "rgba(255,255,255,0.35)",
+                            }}>
+                            ◉ Única
+                          </button>
+                        );
+                      })()}
+                      {/* ☑ Múltiple */}
+                      {(() => {
+                        const active = q.type === "multiple_choice" && q.allow_multiple;
+                        return (
+                          <button key="multiple" type="button"
+                            onClick={() => updateQ(i, { type: "multiple_choice", allow_multiple: true })}
+                            style={{ padding: "2px 8px", borderRadius: 5, fontSize: 9, fontFamily: "monospace", cursor: "pointer",
+                              border: `1px solid ${active ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
+                              background: active ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.02)",
+                              color: active ? "#39FF14" : "rgba(255,255,255,0.35)",
+                            }}>
+                            ☑ Múltiple
+                          </button>
+                        );
+                      })()}
+                      {/* 📊 Escala */}
+                      {(() => {
+                        const active = q.type === "scale";
+                        return (
+                          <button key="scale" type="button"
+                            onClick={() => updateQ(i, { type: "scale", allow_multiple: false })}
+                            style={{ padding: "2px 8px", borderRadius: 5, fontSize: 9, fontFamily: "monospace", cursor: "pointer",
+                              border: `1px solid ${active ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
+                              background: active ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.02)",
+                              color: active ? "#39FF14" : "rgba(255,255,255,0.35)",
+                            }}>
+                            📊 Escala
+                          </button>
+                        );
+                      })()}
                       {questions.length > 1 && (
                         <button type="button" onClick={() => setQuestions((qs) => qs.filter((_, idx) => idx !== i))}
                           style={{ padding: "2px 7px", borderRadius: 5, fontSize: 10, background: "rgba(255,7,58,0.07)", color: "#FF073A", border: "1px solid rgba(255,7,58,0.15)", cursor: "pointer" }}>
