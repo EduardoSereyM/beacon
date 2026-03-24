@@ -311,11 +311,15 @@ async def publish_poll_pulse(
     poll_id: str,
     results: list,
     total_votes: int,
+    results_verified: list | None = None,
+    verified_votes: int = 0,
+    basic_votes: int = 0,
 ) -> bool:
     """
     Publica un pulso de encuesta al canal Redis del poll.
     Canal: beacon:pulse:poll:{poll_id}
     Fallback: broadcast directo vía manager si Redis no disponible.
+    Incluye resultados duales: totales y solo verificados.
     """
     channel_key = f"poll:{poll_id}"
     payload = {
@@ -323,6 +327,9 @@ async def publish_poll_pulse(
         "poll_id": poll_id,
         "results": results,
         "total_votes": total_votes,
+        "results_verified": results_verified or [],
+        "verified_votes": verified_votes,
+        "basic_votes": basic_votes,
         "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
     }
 

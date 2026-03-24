@@ -66,22 +66,23 @@ def _is_open(p: dict) -> bool:
         return False
 
 
-def _compute_results(poll: dict, votes: list) -> dict:
-    """Agrega resultados según tipo de encuesta."""
-    poll_type = poll.get("poll_type", "multiple_choice")
+def _aggregate(poll: dict, votes: list) -> list:
+    """
+    Agrega votos en resultados para un subconjunto (todos o solo verificados).
+    Soporta multiple_choice (con selección múltiple "||") y scale.
+    """
     total = len(votes)
+    poll_type = poll.get("poll_type", "multiple_choice")
 
     if poll_type == "multiple_choice":
         options = poll.get("options") or []
         counts = {opt: 0 for opt in options}
-        # Soporta selección única ("Sí") y múltiple ("Sí||No") con separador ||
         for v in votes:
             raw = v.get("option_value", "")
-            selected = [s.strip() for s in raw.split("||") if s.strip()]
-            for sel in selected:
+            for sel in (s.strip() for s in raw.split("||") if s.strip()):
                 if sel in counts:
                     counts[sel] += 1
-        results = [
+        return [
             {"option": opt, "count": cnt, "pct": round(cnt / total * 100, 1) if total else 0}
             for opt, cnt in counts.items()
         ]
@@ -93,13 +94,31 @@ def _compute_results(poll: dict, votes: list) -> dict:
             except (ValueError, TypeError):
                 pass
         avg = round(sum(values) / len(values), 2) if values else 0
-        results = [{"average": avg, "count": len(values)}]
+        return [{"average": avg, "count": len(values)}]
+
+
+def _compute_results(poll: dict, votes: list) -> dict:
+    """
+    Agrega resultados totales Y verificados.
+
+    Retorna:
+      results          → todos los votos (comportamiento histórico)
+      results_verified → solo votos de ciudadanos VERIFIED
+      total_votes      → total de votos
+      verified_votes   → votos de ciudadanos VERIFIED
+      basic_votes      → votos de ciudadanos BASIC/ANONYMOUS
+    """
+    verified = [v for v in votes if v.get("voter_rank") == "VERIFIED"]
+    basic    = [v for v in votes if v.get("voter_rank") != "VERIFIED"]
 
     return {
         **poll,
-        "total_votes": total,
-        "results": results,
-        "is_open": _is_open(poll),
+        "total_votes":      len(votes),
+        "verified_votes":   len(verified),
+        "basic_votes":      len(basic),
+        "results":          _aggregate(poll, votes),
+        "results_verified": _aggregate(poll, verified),
+        "is_open":          _is_open(poll),
     }
 
 
@@ -135,7 +154,7 @@ async def list_polls(category: Optional[str] = None, search: Optional[str] = Non
         try:
             vote_res = await (
                 supabase.table("poll_votes")
-                .select("option_value")
+                .select("option_value, voter_rank")
                 .eq("poll_id", p["id"])
                 .execute()
             )
@@ -175,7 +194,7 @@ async def my_polls(current_user: dict = Depends(get_current_user)):
     for p in items:
         try:
             vote_res = await (
-                supabase.table("poll_votes").select("option_value").eq("poll_id", p["id"]).execute()
+                supabase.table("poll_votes").select("option_value, voter_rank").eq("poll_id", p["id"]).execute()
             )
             enriched.append(_compute_results(p, vote_res.data or []))
         except Exception:
@@ -305,7 +324,7 @@ async def get_poll(poll_id: str, access_code: Optional[str] = None):
 
     vote_res = await (
         supabase.table("poll_votes")
-        .select("option_value")
+        .select("option_value, voter_rank")
         .eq("poll_id", poll_id)
         .execute()
     )
@@ -407,8 +426,27 @@ async def vote_poll(
     if existing.data:
         raise HTTPException(status_code=409, detail="Ya votaste en esta encuesta")
 
+    # Snapshot del rango del votante (inmutable)
+    voter_rank = "ANONYMOUS"
+    if user_id:
+        try:
+            ur = await (
+                supabase.table("users")
+                .select("rank")
+                .eq("id", user_id)
+                .single()
+                .execute()
+            )
+            voter_rank = ur.data.get("rank", "BASIC") if ur.data else "BASIC"
+        except Exception:
+            voter_rank = "BASIC"
+
     # Insertar voto
-    vote_row: dict = {"poll_id": poll_id, "option_value": payload.option_value}
+    vote_row: dict = {
+        "poll_id": poll_id,
+        "option_value": payload.option_value,
+        "voter_rank": voter_rank,
+    }
     if user_id:
         vote_row["user_id"] = user_id
     else:
@@ -420,7 +458,7 @@ async def vote_poll(
     try:
         all_votes = await (
             supabase.table("poll_votes")
-            .select("option_value")
+            .select("option_value, voter_rank")
             .eq("poll_id", poll_id)
             .execute()
         )
@@ -429,6 +467,9 @@ async def vote_poll(
             poll_id=poll_id,
             results=updated_results["results"],
             total_votes=updated_results["total_votes"],
+            results_verified=updated_results["results_verified"],
+            verified_votes=updated_results["verified_votes"],
+            basic_votes=updated_results["basic_votes"],
         ))
     except Exception as e:
         logger.warning(f"Pulse Poll falló (no crítico): {e}")

@@ -61,7 +61,10 @@ interface Poll {
   ends_at: string;
   is_open: boolean;
   total_votes: number;
+  verified_votes: number;
+  basic_votes: number;
   results: PollResult[];
+  results_verified: PollResult[];
   questions: QuestionDef[] | null;
   category: string;
   requires_auth: boolean;
@@ -284,16 +287,29 @@ function InlineQR({ url }: { url: string }) {
 
 // ─── Resultados ───────────────────────────────────────────────────────────────
 
-function PollResults({ poll, userVote }: { poll: Poll; userVote: string | null }) {
+function PollResults({
+  poll,
+  userVote,
+  results: overrideResults,
+  totalVotes: overrideTotalVotes,
+}: {
+  poll: Poll;
+  userVote: string | null;
+  results?: PollResult[];
+  totalVotes?: number;
+}) {
+  const results    = overrideResults    ?? poll.results;
+  const totalVotes = overrideTotalVotes ?? poll.total_votes;
+
   if (poll.poll_type === "scale") {
-    const r = poll.results[0];
+    const r = results[0];
     return (
       <div style={{ textAlign: "center", padding: "20px 0" }}>
         <p style={{ fontSize: 52, fontFamily: "monospace", fontWeight: 900, color: "#00E5FF", lineHeight: 1 }}>
           {r?.average ?? "–"}
         </p>
         <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", marginTop: 6 }}>
-          promedio · {r?.count ?? 0} votos
+          promedio · {r?.count ?? totalVotes} votos
         </p>
         {userVote && (
           <p style={{ fontSize: 11, fontFamily: "monospace", color: "#39FF14", marginTop: 10 }}>
@@ -306,7 +322,7 @@ function PollResults({ poll, userVote }: { poll: Poll; userVote: string | null }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {poll.results.map((r) => {
+      {results.map((r) => {
         const pct = r.pct ?? 0;
         const isUser = userVote === r.option;
         return (
@@ -344,7 +360,7 @@ function PollResults({ poll, userVote }: { poll: Poll; userVote: string | null }
         );
       })}
       <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 4 }}>
-        {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"}
+        {totalVotes} {totalVotes === 1 ? "voto" : "votos"}
       </p>
     </div>
   );
@@ -561,7 +577,7 @@ function SingleQuestionVote({ poll, onVote, voting }: { poll: Poll; onVote: (v: 
 export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
   const { id } = use(params);
   const { token } = useAuthStore();
-  const { isVerified, isAdmin } = usePermissions();
+  const { isVerified, isAdmin, isBasic } = usePermissions();
 
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
@@ -576,7 +592,14 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
   useBeaconPulse(`poll:${id}`, (data) => {
     if (data.type === "POLL_PULSE" && voted) {
-      setPoll((p) => p ? { ...p, results: data.results as PollResult[], total_votes: data.total_votes as number } : p);
+      setPoll((p) => p ? {
+        ...p,
+        results:          data.results          as PollResult[],
+        total_votes:      data.total_votes       as number,
+        results_verified: (data.results_verified as PollResult[]) ?? p.results_verified,
+        verified_votes:   (data.verified_votes   as number)       ?? p.verified_votes,
+        basic_votes:      (data.basic_votes      as number)       ?? p.basic_votes,
+      } : p);
     }
   });
 
@@ -808,6 +831,44 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
             {/* Divisor */}
             <div style={{ height: 1, background: "rgba(255,255,255,0.06)", marginBottom: 22 }} />
 
+            {/* ── Banner FOMO para usuarios BASIC (antes de votar) ── */}
+            {token && isBasic && poll.is_open && !voted && (
+              <div
+                style={{
+                  borderRadius: 14,
+                  padding: "14px 18px",
+                  marginBottom: 18,
+                  background: "rgba(212,175,55,0.06)",
+                  border: "1px solid rgba(212,175,55,0.25)",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                }}
+              >
+                <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>🗳️</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#D4AF37", marginBottom: 4, lineHeight: 1.3 }}>
+                    Tu voto vale 0.5× y no aparecerá en los Resultados Verificados
+                  </p>
+                  <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.45)", lineHeight: 1.5, marginBottom: 8 }}>
+                    Los ciudadanos VERIFIED tienen peso 1.0× y sus votos forman el resultado formal de la encuesta.
+                  </p>
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent("beacon:open-verify-modal"))}
+                    style={{
+                      fontSize: 10, fontFamily: "monospace", fontWeight: 700,
+                      textTransform: "uppercase", letterSpacing: "0.08em",
+                      color: "#D4AF37", background: "rgba(212,175,55,0.12)",
+                      border: "1px solid rgba(212,175,55,0.35)",
+                      borderRadius: 8, padding: "5px 12px", cursor: "pointer",
+                    }}
+                  >
+                    Verificar identidad →
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ── Contenido de votación ── */}
             {voted ? (
               <div>
@@ -870,23 +931,97 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
               <>
                 <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "22px 0 18px" }} />
 
-                {/* Acceso VERIFIED / admin / ya votó */}
                 {(voted || !poll.is_open || isVerified || isAdmin) ? (
-                  <div>
-                    <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: poll.is_open ? "#39FF14" : "rgba(255,255,255,0.2)", display: "inline-block" }} />
-                      Resultados en vivo · {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"}
-                    </p>
-                    <PollResults poll={poll} userVote={voted ? userVote : null} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+                    {/* ── Card 1: Resultados Verificados ── */}
+                    <div style={{
+                      borderRadius: 16,
+                      padding: "18px 20px",
+                      background: "rgba(212,175,55,0.04)",
+                      border: "1px solid rgba(212,175,55,0.2)",
+                    }}>
+                      {/* Header */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                        <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                          Resultados Verificados
+                        </p>
+                        <span style={{
+                          fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                          color: "#D4AF37", background: "rgba(212,175,55,0.12)",
+                          border: "1px solid rgba(212,175,55,0.3)",
+                          borderRadius: 20, padding: "2px 10px", letterSpacing: "0.06em",
+                        }}>
+                          VERIFICADOS ✓
+                        </span>
+                      </div>
+
+                      {poll.verified_votes > 0 ? (
+                        <PollResults
+                          poll={poll}
+                          userVote={(voted && isVerified) ? userVote : null}
+                          results={poll.results_verified}
+                          totalVotes={poll.verified_votes}
+                        />
+                      ) : (
+                        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", textAlign: "center", padding: "12px 0" }}>
+                          Sin votos verificados aún
+                        </p>
+                      )}
+
+                      {/* Footer */}
+                      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(212,175,55,0.5)", textAlign: "right", marginTop: 10 }}>
+                        {poll.verified_votes} {poll.verified_votes === 1 ? "voto" : "votos"} verificados
+                      </p>
+                    </div>
+
+                    {/* ── Card 2: Resultados Totales ── */}
+                    <div style={{
+                      borderRadius: 16,
+                      padding: "18px 20px",
+                      background: "rgba(255,255,255,0.02)",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                    }}>
+                      {/* Header */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                        <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                          Resultados Totales
+                        </p>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 5,
+                          fontSize: 9, fontFamily: "monospace",
+                          color: poll.is_open ? "#39FF14" : "rgba(255,255,255,0.3)",
+                        }}>
+                          {poll.is_open && (
+                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block" }} />
+                          )}
+                          {poll.is_open ? "EN VIVO" : "CERRADA"}
+                        </span>
+                      </div>
+
+                      <PollResults poll={poll} userVote={voted ? userVote : null} />
+
+                      {/* Footer con breakdown */}
+                      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 10 }}>
+                        {poll.total_votes} votos totales
+                        {poll.verified_votes > 0 && (
+                          <span style={{ color: "rgba(255,255,255,0.15)" }}>
+                            {" "}·{" "}
+                            <span style={{ color: "rgba(212,175,55,0.5)" }}>{poll.verified_votes} verificados</span>
+                            {" · "}
+                            {poll.basic_votes} básicos
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
                   </div>
                 ) : (
                   /* BASIC sin votar: teaser bloqueado */
                   <div style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
-                    {/* Barras borrosas como preview */}
                     <div style={{ filter: "blur(4px)", opacity: 0.4, pointerEvents: "none" }}>
                       <PollResults poll={poll} userVote={null} />
                     </div>
-                    {/* Overlay CTA */}
                     <div style={{
                       position: "absolute", inset: 0,
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
