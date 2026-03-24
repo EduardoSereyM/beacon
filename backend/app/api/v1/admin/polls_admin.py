@@ -193,6 +193,25 @@ async def admin_create_poll(
         details={"title": body.title, "questions": len(body.questions), "category": category},
     )
 
+    # ─── Hook C: Notificación al admin (fire-and-forget) ───
+    try:
+        import asyncio
+        from app.core.notification_service import send_admin_notification
+        asyncio.ensure_future(send_admin_notification(
+            event_type="POLL_CREATED",
+            subject="Nueva encuesta creada",
+            message=f"Se creó la encuesta '{body.title}'.",
+            entity_id=poll["id"],
+            details={
+                "title": body.title,
+                "category": category,
+                "questions": len(body.questions),
+                "admin": admin["email"],
+            },
+        ))
+    except Exception:
+        pass  # Notificación nunca bloquea la creación
+
     return {"poll": poll}
 
 

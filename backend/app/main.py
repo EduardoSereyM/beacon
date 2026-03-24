@@ -268,3 +268,12 @@ from app.api.v1.admin.events_admin import router as admin_events_router  # noqa:
 
 app.include_router(events_router,       prefix=f"{settings.API_V1_PREFIX}", tags=["Events"])
 app.include_router(admin_events_router, prefix=f"{settings.API_V1_PREFIX}", tags=["Admin — Events"])
+
+# ─── Notifications (Admin Bell) ───────────────────────────────────────────────
+from app.api.v1.admin.notifications_endpoint import router as admin_notifications_router  # noqa: E402
+
+app.include_router(
+    admin_notifications_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — Notifications"],
+)

@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     FRONTEND_URL: str = "http://localhost:3000"  # URL del frontend (Next.js)
 
+    # ─── Notifications (Admin Bell) ───
+    # Opcionales: si no están definidas, solo se escribe en audit_logs (sin email).
+    ADMIN_EMAIL:    str = ""
+    SMTP_HOST:      str = ""
+    SMTP_PORT:      int = 587
+    SMTP_USER:      str = ""
+    SMTP_PASSWORD:  str = ""
+
     # ─── CORS (Frontend → Backend) ───
     # En producción setear como JSON: CORS_ORIGINS=["https://app.vercel.app","http://localhost:3000"]
     CORS_ORIGINS: list[str] = [

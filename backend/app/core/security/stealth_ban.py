@@ -176,6 +176,22 @@ class StealthBanEngine:
             },
         )
 
+        # ─── Hook B: Notificación al admin (fire-and-forget) ───
+        try:
+            import asyncio
+            from app.core.notification_service import send_admin_notification
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(send_admin_notification(
+                    event_type="SHADOW_BAN_APPLIED",
+                    subject="Shadow Ban activado",
+                    message=f"Shadow ban aplicado al usuario {user_id}.",
+                    entity_id=user_id,
+                    details={"reason": reason, "severity": "HIGH"},
+                ))
+        except Exception:
+            pass  # Notificación nunca bloquea el flujo de seguridad
+
         return {
             "user_id": user_id,
             "update_data": {

@@ -183,6 +183,25 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         except Exception:
             pass  # audit_logs puede no estar listo — no bloquea
 
+        # ─── Hook A: Notificación al admin (fire-and-forget) ───
+        try:
+            import asyncio
+            from app.core.notification_service import send_admin_notification
+            asyncio.ensure_future(send_admin_notification(
+                event_type="NEW_USER_REGISTERED",
+                subject="Nuevo usuario registrado",
+                message=f"El ciudadano {user_data.email} se ha registrado en BEACON.",
+                entity_id=user_id,
+                details={
+                    "email": user_data.email,
+                    "rank": "BASIC",
+                    "dna_score": dna_result["score"],
+                    "dna_classification": dna_result["classification"],
+                },
+            ))
+        except Exception:
+            pass  # Notificación nunca bloquea el flujo principal
+
         if settings.DEBUG:
             # Local: cuenta activa de inmediato, sin email
             status = "active"

@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from "react";
 import AuthModal from "./AuthModal";
+import NotificationBell from "./NotificationBell";
 import VerifyIdentityModal from "./VerifyIdentityModal";
 import BasicUserBanner from "@/components/shared/BasicUserBanner";
 import usePermissions from "@/hooks/usePermissions";
@@ -137,13 +138,16 @@ export default function NavbarClient() {
                         {isAuthenticated ? (
                             <>
                                 {isAdmin && (
-                                    <Link
-                                        href="/admin"
-                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
-                                        style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.35)", color: "#D4AF37" }}
-                                    >
-                                        🛡️ Admin
-                                    </Link>
+                                    <>
+                                        <NotificationBell />
+                                        <Link
+                                            href="/admin"
+                                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
+                                            style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.35)", color: "#D4AF37" }}
+                                        >
+                                            🛡️ Admin
+                                        </Link>
+                                    </>
                                 )}
                                 {isBasic && (
                                     <button
