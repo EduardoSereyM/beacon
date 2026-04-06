@@ -105,8 +105,8 @@ export default function VerdictButton({
                     <div className="flex items-center justify-center gap-3">
                         <span className="text-lg">🔒</span>
                         <div className="text-left">
-                            <p className="text-xs font-semibold displaced-text">Tu voz no tiene peso aquí.</p>
-                            <p className="text-[11px] displaced-text mt-0.5">Alíneate con el búnker para votar.</p>
+                            <p className="text-xs font-semibold displaced-text">Cuenta inhabilitada para votar.</p>
+                            <p className="text-[11px] displaced-text mt-0.5">Contacta soporte si crees que es un error.</p>
                         </div>
                     </div>
                 </button>
@@ -143,8 +143,20 @@ export default function VerdictButton({
                         backgroundColor: voteStatus === "voted" ? "rgba(57,255,20,0.05)" : "rgba(150,150,150,0.05)",
                     }}
                 >
-                    {voteStatus === "loading" ? "Enviando veredicto..." : voteStatus === "voted" ? "✓ Voto Registrado" : "Emitir Voto"}
+                    {voteStatus === "loading" ? "Enviando voto..." : voteStatus === "voted" ? "✓ Voto Registrado" : "Votar"}
                 </button>
+                {voteStatus === "idle" && (
+                    <p className="text-[10px] text-foreground-muted text-center mt-1.5">
+                        Tu voto aparece en el conteo público.{" "}
+                        <button
+                            onClick={() => window.dispatchEvent(new CustomEvent("beacon:open-verify-modal"))}
+                            className="underline hover:text-white transition-colors"
+                        >
+                            Verificar identidad
+                        </button>
+                        {" "}para que cuente en informes oficiales.
+                    </p>
+                )}
                 {feedbackBlock}
             </div>
         );

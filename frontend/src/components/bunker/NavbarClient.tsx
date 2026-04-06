@@ -71,7 +71,7 @@ export default function NavbarClient() {
                         <Link href="/" className="flex items-center gap-2 sm:gap-3 group flex-shrink-0">
                             <Image
                                 src={logoDorado}
-                                alt="Beacon Protocol Logo"
+                                alt="Beacon Logo"
                                 className="w-7 h-7 sm:w-9 sm:h-9 object-contain transition-all duration-300 group-hover:scale-105"
                             />
                             <div className="flex flex-col">
@@ -79,10 +79,10 @@ export default function NavbarClient() {
                                     className="text-[11px] sm:text-sm font-bold tracking-wide uppercase whitespace-nowrap"
                                     style={{ color: "#D4AF37", lineHeight: "1.1" }}
                                 >
-                                    Beacon Protocol
+                                    Beacon
                                 </h1>
                                 <p className="text-[10px] sm:text-[10px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden sm:block mt-0.5" style={{ lineHeight: "1" }}>
-                                    Motor de Integridad
+                                    Opinión ciudadana verificada
                                 </p>
                             </div>
                         </Link>
@@ -154,7 +154,7 @@ export default function NavbarClient() {
                                         onClick={() => setIsVerifyOpen(true)}
                                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
                                         style={{ background: "rgba(255,140,0,0.12)", border: "1px solid rgba(255,140,0,0.35)", color: "#FF8C00" }}
-                                        title="Tu voto vale 0.5x — verificar para 1.0x"
+                                        title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
                                     >
                                         🔒 Verificar
                                     </button>

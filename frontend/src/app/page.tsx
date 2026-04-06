@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Users, ShieldCheck, BarChart3 } from "lucide-react";
 import EntityCard from "@/components/status/EntityCard";
 import HomeHeroClient from "@/components/home/HomeHeroClient";
 import PollsHomeSectionClient from "@/components/home/PollsHomeSectionClient";
@@ -16,24 +17,23 @@ import PollsHomeSectionClient from "@/components/home/PollsHomeSectionClient";
 export const revalidate = 10;
 
 export const metadata: Metadata = {
-  title: "Beacon Protocol — Motor de Integridad Digital",
+  title: "Beacon — Opinión ciudadana verificada de Chile",
   description:
-    "Evalúa políticos, empresarios y personajes públicos de Chile. Verificación humana forense. La verdad validada.",
+    "La plataforma de opinión ciudadana abierta y verificada de Chile. Sin panelistas seleccionados ni agenda oculta. Vota, ve los resultados y propón preguntas. Siempre gratis.",
   alternates: {
     canonical: "https://www.beaconchile.cl",
   },
   openGraph: {
-    title: "Beacon Protocol — Motor de Integridad Digital",
+    title: "Beacon — Opinión ciudadana verificada de Chile",
     description:
-      "Evalúa políticos, empresarios y personajes públicos de Chile. " +
-      "Verificación humana forense. La verdad validada.",
+      "Sin panelistas seleccionados ni agenda oculta. Vota, ve los resultados y propón preguntas. Siempre gratis.",
     url: "https://www.beaconchile.cl",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Beacon Protocol — Motor de Integridad Digital",
+        alt: "Beacon — Opinión ciudadana verificada de Chile",
       },
     ],
   },
@@ -43,11 +43,11 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  name: "Beacon Protocol",
-  alternateName: "Beacon",
+  name: "Beacon",
+  alternateName: "Beacon Chile",
   url: "https://www.beaconchile.cl",
   description:
-    "Motor de Integridad Digital — Evalúa políticos, empresarios y personajes públicos de Chile.",
+    "Plataforma de opinión ciudadana abierta y verificada de Chile. Sin panelistas seleccionados ni agenda oculta.",
   potentialAction: {
     "@type": "SearchAction",
     target: {
@@ -230,6 +230,56 @@ export default async function Home() {
       <SectionDivider />
 
       {/* ═══════════════════════════════════════════
+       *  POR QUÉ BEACON
+       * ═══════════════════════════════════════════ */}
+      <section className="px-6 pb-10">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              {
+                Icon: Users,
+                title: "Sin panelistas seleccionados",
+                body: "No tenemos 1.000 personas elegidas por nosotros. Cualquier ciudadano puede votar y proponer preguntas.",
+                color: "#00E5FF",
+              },
+              {
+                Icon: ShieldCheck,
+                title: "Cada voto, verificado",
+                body: "Los votos que cuentan en los informes están vinculados a una identidad real, verificada una sola vez. Sin bots, sin multicuentas.",
+                color: "#D4AF37",
+              },
+              {
+                Icon: BarChart3,
+                title: "Datos para todos",
+                body: "Los resultados son públicos y gratis, siempre. No trabajamos para partidos ni gobiernos.",
+                color: "#39FF14",
+              },
+            ].map(({ Icon, title, body, color }) => (
+              <div
+                key={title}
+                className="rounded-xl p-5"
+                style={{
+                  background: "rgba(17,17,17,0.6)",
+                  border: `1px solid ${color}20`,
+                }}
+              >
+                <Icon size={24} style={{ color }} strokeWidth={1.5} />
+                <h3
+                  className="text-sm font-bold uppercase tracking-wider mt-3 mb-2"
+                  style={{ color }}
+                >
+                  {title}
+                </h3>
+                <p className="text-xs text-foreground-muted leading-relaxed">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <SectionDivider />
+
+      {/* ═══════════════════════════════════════════
        *  ENCUESTAS
        * ═══════════════════════════════════════════ */}
       <PollsHomeSectionClient />
@@ -347,12 +397,12 @@ export default async function Home() {
           {[
             { label: "Ciudadanos Activos", value: "1,646", color: "#D4AF37" },
             {
-              label: "Entidades en BBDD",
+              label: "Entidades Evaluadas",
               value: allEntities.length > 0 ? allEntities.length.toLocaleString() : "—",
               color: "#00E5FF",
             },
-            { label: "Votos Procesados", value: "18,403", color: "#39FF14" },
-            { label: "Bots Silenciados", value: "214", color: "#FF073A" },
+            { label: "Votos Registrados", value: "18,403", color: "#39FF14" },
+            { label: "Votos Verificados", value: "14,189", color: "#8A2BE2" },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <p

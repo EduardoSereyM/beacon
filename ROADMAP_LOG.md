@@ -15,6 +15,85 @@
 
 ---
 
+## 🔄 Reencuadre Estratégico — 2026-04-06
+
+### Decisión central
+Beacon cambia su identidad pública de "Motor de Integridad Digital / Protocolo" a **"Primera plataforma de opinión ciudadana abierta y verificada de Chile"**.
+
+El producto no cambia. El énfasis sí: la verificación antimanipulación es el mecanismo, no el protagonista. El protagonista es la voz ciudadana.
+
+### Manifiesto Beacon v4 (adoptado oficialmente)
+
+> Beacon es la primera plataforma de opinión ciudadana abierta y verificada de Chile.
+>
+> Cualquier persona puede votar. Cualquier persona puede ver los resultados. Siempre gratis, sin excepción.
+>
+> No tenemos panelistas seleccionados ni clientes que definan las preguntas. Las preguntas las propone y elige la propia ciudadanía — con moderación mínima, solo para filtrar spam y discurso de odio, nunca por contenido político.
+>
+> Cada voto que cuenta está vinculado a una identidad real, verificada una sola vez con documento oficial — sin revelar quién eres, solo que existes. Un ser humano, una voz.
+>
+> No pretendemos predecir elecciones. No trabajamos para partidos ni gobiernos; trabajamos de cara a la ciudadanía y publicamos todo, sin filtros ni agenda.
+>
+> **Opinión verificada. Poder ciudadano.**
+
+### Modelo de usuario simplificado (reemplaza sistema de tiers)
+
+| Estado | Descripción | Peso en informes |
+|---|---|---|
+| **No verificado** | Registrado con email/contraseña | 0.5 — aparece en conteo público, no en informes oficiales |
+| **Verificado** | RUT entregado y validado (Módulo 11 + hash) | 1.0 — cuenta en todos los informes |
+
+**Los tiers BRONZE / SILVER / GOLD / DIAMOND quedan eliminados de la UI y del modelo público.** El sistema ACM interno puede mantenerse simplificado, pero no se expone al usuario.
+
+### Reglas de participación ciudadana
+
+- **Proponer preguntas:** solo usuarios verificados (RUT)
+- **Upvotear propuestas:** solo usuarios verificados
+- **Votar en encuestas:** cualquier usuario registrado (verificado o no)
+- **Moderar contenido:** equipo Beacon — solo por spam/hate speech, nunca por sesgo político. Criterios de moderación deben ser públicos y escritos.
+
+### Modelo de negocio definido
+
+- Votar y ver resultados: **siempre gratis, sin excepción**
+- **B2B Analytics:** medios, gobierno, empresas pagan por análisis segmentado. Las preguntas son siempre públicas — el cliente compra análisis, no control.
+- **Informes B2B:** bajo demanda
+- **Producto corporativo (encuestas para trabajadores):** pendiente, marca separada, no tocar hasta consolidar Beacon ciudadano.
+
+### Competidores directos identificados
+Cadem y Criteria. Diferenciador clave: panel cerrado y opaco vs. plataforma abierta con identidad verificada.
+
+---
+
+## 🔲 Backlog Estratégico — Post Reencuadre
+
+### RE-1 — Limpieza de sistema de tiers [PRIORIDAD ALTA]
+- [ ] Eliminar BRONZE/SILVER/GOLD/DIAMOND del frontend (UI, labels, EntityCard borders, VerdictButton texts)
+- [ ] Simplificar ACM a modelo binario verificado/no-verificado
+- [ ] Actualizar pesos de voto: eliminar multiplicadores (1x, 1.5x, 2.5x, 5x) → reemplazar por 0.5 (no verificado) / 1.0 (verificado)
+- [ ] Limpiar `backend/app/services/monetization/` o redefinir su alcance
+- [ ] Archivar documentación de tiers (no eliminar — referencia histórica)
+
+### RE-2 — Reencuadre de UI/Copy [PRIORIDAD ALTA]
+- [ ] Home hero: reemplazar "Motor de Integridad Digital" y "Protocolo" por copy del manifiesto
+- [ ] Eliminar lenguaje técnico del primer contacto ("ANTIBOT Activo", "audita tu comportamiento", "Bots Silenciados", "Integrity Index")
+- [ ] Subir tono de convocatoria ciudadana en hero
+- [ ] Sección "Por qué Beacon" (manifiesto destilado en 3 bullets) — debe vivir en el sitio
+- [ ] Jerarquía de navegación: Encuestas como sección principal
+- [ ] Copy para usuario no verificado al votar: "Tu voto aparece en el conteo público, pero solo los votos verificados cuentan para las estadísticas oficiales"
+
+### RE-3 — Feature: Propuesta ciudadana de preguntas
+- [ ] Backend: endpoint `POST /api/v1/encuestas/proponer` — solo usuarios verificados
+- [ ] Backend: endpoint `POST /api/v1/encuestas/{id}/upvote` — solo usuarios verificados
+- [ ] Frontend: flujo de propuesta + lista de propuestas con upvotes
+- [ ] Panel de moderación en Overlord Dashboard
+
+### RE-4 — Informes B2B bajo demanda
+- [ ] Definir estructura del informe (campos, filtros, formato)
+- [ ] Endpoint de generación bajo demanda
+- [ ] UI mínima de solicitud (formulario de contacto o área privada)
+
+---
+
 ## 📊 Resumen de Estado
 
 | Fase | Estado | Progreso |
@@ -248,7 +327,7 @@ A los 180 días: un 5.0 decae a 4.0. A los 360 días: a 3.5. Converge a 3.0 (neu
 - [ ] `is_local_vote` — lógica de detección de brigadas coordinadas por análisis geográfico.
 
 ### Mina de Oro
-- [ ] Activación del `user_asset_calculator.py` para proyectar el valor en dólares de la base de datos basado en densidad demográfica.
+- [ ] `user_asset_calculator.py` — valuación interna en USD de la base de datos por densidad demográfica. **Solo uso interno** (futuro, no exponer al usuario). No forma parte del modelo público de Beacon.
 
 ### Efecto Kahoot
 - [ ] WebSockets para actualizaciones de rankings en tiempo real y 'Gold Explosions'.

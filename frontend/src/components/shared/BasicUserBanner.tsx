@@ -61,11 +61,11 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: "200px" }}>
                 <span style={{ fontSize: "18px" }}>🔒</span>
                 <span style={{ color: "#E0E0E0", fontSize: "13px", lineHeight: "1.4" }}>
-                    <strong style={{ color: AMBER }}>Tu voto vale 0.5x</strong>
-                    {" "}como ciudadano BÁSICO.{" "}
+                    <strong style={{ color: AMBER }}>Tu voto aparece en el conteo público</strong>
+                    {", pero solo los votos verificados cuentan en los informes oficiales. "}
                     <span style={{ color: "#BDBDBD" }}>
-                        Verifica RUT + datos personales y tu voto valdrá{" "}
-                        <strong style={{ color: GOLD }}>el doble (1.0x)</strong>.
+                        Verifica tu identidad con RUT y tu voz contará{" "}
+                        <strong style={{ color: GOLD }}>al 100%</strong>.
                     </span>
                 </span>
             </div>

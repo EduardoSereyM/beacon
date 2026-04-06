@@ -434,19 +434,22 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
             paddingBottom: 22,
             borderBottom: idx < sorted.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
           }}>
-            {/* ── Número + línea ── */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            {/* ── Badge número + línea ── */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
               <span style={{
-                fontSize: 9, fontFamily: "monospace", fontWeight: 700,
-                color: answers[q.id] ? "#D4AF37" : "rgba(255,255,255,0.55)",
-                letterSpacing: "0.12em", flexShrink: 0,
-                transition: "color 0.2s",
+                width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 10, fontFamily: "monospace", fontWeight: 800,
+                border: `1.5px solid ${answers[q.id] ? "rgba(212,175,55,0.7)" : "rgba(57,255,20,0.5)"}`,
+                background: answers[q.id] ? "rgba(212,175,55,0.12)" : "rgba(57,255,20,0.08)",
+                color: answers[q.id] ? "#D4AF37" : "#39FF14",
+                transition: "all 0.2s",
               }}>
-                {String(idx + 1).padStart(2, "0")}
+                {idx + 1}
               </span>
               <div style={{
                 flex: 1, height: 1,
-                background: answers[q.id] ? "rgba(212,175,55,0.35)" : "rgba(255,255,255,0.12)",
+                background: answers[q.id] ? "rgba(212,175,55,0.3)" : "rgba(255,255,255,0.1)",
                 transition: "background 0.2s",
               }} />
             </div>
@@ -475,9 +478,9 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
                           ? toggleMulti(q.id, opt)
                           : setAnswers((p) => ({ ...p, [q.id]: opt }))
                         }
-                        style={{ textAlign: "left", padding: "10px 14px", borderRadius: 10, fontSize: 13, border: `1px solid ${sel ? "rgba(212,175,55,0.55)" : "rgba(255,255,255,0.07)"}`, background: sel ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.02)", color: sel ? "#D4AF37" : "#e0e0e0", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 10, fontWeight: sel ? 600 : 400 }}
+                        style={{ textAlign: "left", padding: "8px 12px", borderRadius: 9, fontSize: 13, border: `1px solid ${sel ? "rgba(212,175,55,0.55)" : "rgba(255,255,255,0.1)"}`, background: sel ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.03)", color: sel ? "#D4AF37" : "#d0d0d0", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 10, fontWeight: sel ? 600 : 400 }}
                       >
-                        <span style={{ width: 16, height: 16, borderRadius: isMulti ? 4 : "50%", border: `1.5px solid ${sel ? "#D4AF37" : "rgba(255,255,255,0.2)"}`, background: sel ? "#D4AF37" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 8, color: "#000", transition: "all 0.15s" }}>
+                        <span style={{ width: 16, height: 16, borderRadius: isMulti ? 4 : "50%", border: `1.5px solid ${sel ? "#D4AF37" : "rgba(255,255,255,0.3)"}`, background: sel ? "#D4AF37" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 8, color: "#000", transition: "all 0.15s" }}>
                           {sel && "✓"}
                         </span>
                         {opt}
@@ -522,8 +525,8 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
       )}
 
       <button onClick={handleSubmit} disabled={submitting || answered < total}
-        style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 13, fontFamily: "monospace", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", border: "none", background: answered < total ? "rgba(255,255,255,0.06)" : submitting ? "rgba(212,175,55,0.4)" : "linear-gradient(135deg, #D4AF37 0%, #F5C842 50%, #B8860B 100%)", color: answered < total ? "rgba(255,255,255,0.3)" : "#0A0A0A", cursor: answered < total ? "not-allowed" : submitting ? "wait" : "pointer", transition: "all 0.2s", boxShadow: answered >= total && !submitting ? "0 4px 24px rgba(212,175,55,0.3)" : "none" }}>
-        {submitting ? "Enviando…" : answered < total ? `Completa ${total - answered} pregunta${total - answered !== 1 ? "s" : ""} más` : "Enviar respuesta →"}
+        style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 13, fontFamily: "monospace", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", border: answered < total ? "1px solid rgba(255,255,255,0.12)" : "none", background: answered < total ? "rgba(255,255,255,0.04)" : submitting ? "rgba(212,175,55,0.4)" : "linear-gradient(135deg, #D4AF37 0%, #F5C842 50%, #B8860B 100%)", color: answered < total ? "rgba(255,255,255,0.55)" : "#0A0A0A", cursor: answered < total ? "not-allowed" : submitting ? "wait" : "pointer", transition: "all 0.2s", boxShadow: answered >= total && !submitting ? "0 4px 24px rgba(212,175,55,0.3)" : "none" }}>
+        {submitting ? "Enviando…" : answered < total ? `Responde ${total - answered} pregunta${total - answered !== 1 ? "s" : ""} pendiente${total - answered !== 1 ? "s" : ""}` : "Enviar respuesta →"}
       </button>
     </div>
   );
