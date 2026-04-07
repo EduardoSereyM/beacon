@@ -1,10 +1,11 @@
 # BEACON Protocol — Documentación de APIs
 
-> **Generado:** 2026-03-12 (actualizado con sistema 2 rangos + P5 verify-identity)
+> **Generado:** 2026-04-07 (actualizado con modelo binario BASIC/VERIFIED)
 > **Proyecto creado:** 2026-02-24
 > **Base URL:** `https://<host>/api/v1`
 > **Formato:** JSON (application/json)
 > **Auth:** Bearer JWT emitido por Supabase Auth
+> **Sistema de rangos:** BASIC (0.5x) | VERIFIED (1.0x)
 
 ---
 

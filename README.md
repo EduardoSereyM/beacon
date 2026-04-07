@@ -1,9 +1,9 @@
-# 🛡️ BEACON: The Universal Integrity Protocol
+# 🗳️ BEACON — Opinión Ciudadana Verificada
 
-> **Motor de Integridad y Meritocracia Digital**
+> **La primera plataforma de opinión ciudadana abierta y verificada de Chile**
 > *"Lo que no es íntegro, no existe."*
 
-Beacon es una infraestructura de confianza humana verificada. Un protocolo que valida la autenticidad de cada voz digital — votos, opiniones, evaluaciones — mediante verificación de identidad, análisis forense de comportamiento y un sistema de rangos meritocrático.
+Beacon es la plataforma donde los chilenos votan sobre políticos, empresas y personajes públicos sin intermediarios. Sin panelistas seleccionados, sin agenda oculta. Cualquiera puede opinar, los votos verificados cuentan en los informes.
 
 ---
 
@@ -42,54 +42,23 @@ Petición HTTP → DNA Scanner → Clasificación → Acción
 
 ---
 
-## 👑 Jerarquía Soberana — El Juego del Calamar de la Integridad
+## 🔐 Sistema de Verificación — Dos Estados
 
 ```
-                    ╔═══════════════╗
-                    ║   💎 DIAMOND    ║  Poder: 5.0x  |  Valor: $500 USD
-                    ║  Auditor de    ║  Verificación presencial
-                    ║  la Verdad     ║
-                    ╚═══════╦═══════╝
-                            │
-                    ╔═══════╩═══════╗
-                    ║   🥇 GOLD      ║  Poder: 2.5x  |  Valor: $150 USD
-                    ║  Referente de  ║  Perfil completo + 30 días
-                    ║  Integridad    ║
-                    ╚═══════╦═══════╝
-                            │
-                    ╔═══════╩═══════╗
-                    ║   🥈 SILVER    ║  Poder: 1.5x  |  Valor: $15 USD
-                    ║  Ciudadano     ║  RUT Verificado (SHA-256)
-                    ║  Verificado    ║
-                    ╚═══════╦═══════╝
-                            │
-                    ╔═══════╩═══════╗
-                    ║   🥉 BRONZE    ║  Poder: 1.0x  |  Valor: $1 USD
-                    ║  Masa Crítica  ║  Solo email verificado
-                    ╚═══════════════╝
+CIUDADANO SIN VERIFICAR (BASIC)        CIUDADANO VERIFICADO (VERIFIED)
+├─ Registrado con email + contraseña   ├─ RUT validado (SHA-256 + salt)
+├─ Puede votar y ver resultados        ├─ 5 campos demográficos completos
+├─ Peso de voto: 0.5x                  ├─ Peso de voto: 1.0x
+└─ Voto aparece en conteo público      └─ Voto cuenta en informes oficiales
 ```
 
-**Rito de Ascensión:**
-1. 📧 **Registro** → Naces como BRONZE (integrity_score: 0.5)
-2. 🪪 **Verifica tu RUT** → Asciende a SILVER (integrity_score: 0.75)
-3. 📊 **Completa tu perfil** → Cada dato demográfico suma +0.02
-4. ⭐ **Comportamiento íntegro** → El sistema te evalúa hacia GOLD/DIAMOND
+**Flujo de verificación:**
+1. 📧 **Registro** → Te creas una cuenta con email y contraseña (estado BASIC)
+2. 🗳️ **Votas** → Tus votos aparecen en el conteo público pero con peso 0.5x
+3. 🪪 **Verificas tu RUT** → El sistema valida tu identidad (Módulo 11 + SHA-256)
+4. ✅ **Datos demográficos completos** → Tu estado cambia a VERIFIED, peso de voto 1.0x
 
----
-
-## 💵 Asset Valuation Engine — La Caja Registradora
-
-Cada ciudadano verificado tiene un **valor de mercado** calculado en tiempo real:
-
-```
-Valor = (Base_Tier × Integrity × 1.2) + Data_Bonus + RUT_Bonus
-
-Donde:
-  Base_Tier    = $1 (BRONZE) | $15 (SILVER) | $150 (GOLD) | $500 (DIAMOND)
-  Integrity    = 0.0 a 1.0 (score de comportamiento)
-  Data_Bonus   = $5.00 si commune + age_range completos
-  RUT_Bonus    = $3.00 si identidad verificada (SHA-256)
-```
+**Principio:** Un voto verificado es un voto real. Los informes solo usan votos verificados.
 
 ---
 
