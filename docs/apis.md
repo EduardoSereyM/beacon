@@ -94,7 +94,7 @@ Base path: `/api/v1/user/auth`
    - `webdriver: true` → score -60 (`WEBDRIVER_DETECTED`)
    - Score > 70 → `HUMAN` | 30-70 → `SUSPICIOUS` | ≤ 30 → `DISPLACED`
 2. Si `DISPLACED` → 400 con mensaje genérico (shadow mode)
-3. Registro en Supabase Auth + inserción en `public.users` con `rank=BRONZE`, `integrity_score=0.5`
+3. Registro en Supabase Auth + inserción en `public.users` con `rank=BASIC`, `integrity_score=0.5`
 
 **Response 200:**
 ```json
@@ -174,7 +174,7 @@ Supabase envía este `token_hash` en el enlace de confirmación de email.
     "id": "uuid",
     "email": "ciudadano@ejemplo.cl",
     "full_name": "Juan Pérez",
-    "rank": "BRONZE",
+    "rank": "BASIC",
     "integrity_score": 0.5,
     "reputation_score": 0.0,
     "is_verified": false,

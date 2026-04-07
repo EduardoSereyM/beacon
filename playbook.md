@@ -15,14 +15,16 @@ Línea de Tiempo de Desempeño: Gráfico que muestra cómo ha evolucionado su ra
 
 2. Sistema de Evaluación (El "Corazón")
 
-**IMPLEMENTADO (Actual):**
-- Sliders Estructurales (Fijos): Deslizadores de 0 a 5 para calificar entidades ✅
+**IMPLEMENTADO (Actual — En Producción):**
+- Sliders Estructurales (Fijos): Deslizadores de 0 a 5 para calificar entidades — **Funcional y activo** ✅
 - Sistema de Voto Único: Un voto por usuario por entidad, no permite duplicados ✅
+- Ponderación por rango: BASIC (0.5x) / VERIFIED (1.0x) ✅
 
 **ROADMAP (P3/P4 — Futuro):**
 - Sliders Dinámicos (Comunidad): Espacio donde aparecen preguntas temporales sugeridas por los usuarios (ej: "¿Cómo califica su reacción ante la crisis X?") — PENDIENTE
 - Micro-Reviews: Campo de texto para justificar la nota — PENDIENTE
-- Dimensiones multidimensionales por categoría (Transparencia, Gestión, Coherencia) — PENDIENTE
+- Propuesta ciudadana de encuestas (P3): Usuarios pueden sugerir nuevas preguntas — PENDIENTE
+- Informes B2B bajo demanda (P4): Reportes personalizados para clientes corporativos — PENDIENTE
 
 3. Motor de Integridad y Reputación (Backend)
 Reputation Score (Privado): Algoritmo que calcula la "calidad" del usuario basado en su comportamiento (antigüedad, reportes exitosos, consistencia).
