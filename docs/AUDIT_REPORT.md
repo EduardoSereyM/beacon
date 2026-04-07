@@ -1,5 +1,40 @@
 # 📋 Informe de Auditoría Documentaria — BEACON
-**Período de Auditoría:** 2026-04-06 a 2026-04-07
+
+## 📅 Auditoría 2 — 2026-04-07 (Post-Desarrollo)
+
+**Período:** 2026-04-07 (continuación)
+**Auditor:** Claude AI (Estratega de Integridad)
+**Hallazgos:** 5 ⚠️ DESACTUALIZADO, 9 ✅ VIGENTE
+**Cambios Ejecutados:** 10 (actualización de texto, contenido, documentación)
+
+### Tabla de Cambios — Auditoría 2
+
+| Archivo | Estado Original | Acción Tomada | Notas |
+|---|---|---|---|
+| README.md | ⚠️ Desactualizado | ✅ Actualizado | Next.js 14→16, agregar endpoints polls/versus/events, "Ascensión SILVER"→"VERIFIED" |
+| ROADMAP_LOG.md | ⚠️ Desactualizado | ✅ Actualizado | Corregir ruta `core/security/`→`core/auth/` para access_control_matrix; agregar P3 Versus/Polls/Events al estado actual |
+| docs/apis.md | ⚠️ Desactualizado | ✅ Actualizado | Agregar secciones 7-9: Polls, Versus, Events con endpoints y esquemas |
+| docs/esquema_bbdd.md | ⚠️ Desactualizado | ⚠️ Marcado | Header DESACTUALIZADO, enumerar 8 migraciones faltantes (backend 014-018, supabase 003-010) |
+| playbook.md | ⚠️ Desactualizado | ✅ Validado | Ya estaba actualizado (BASIC/VERIFIED, P3 features documentadas) |
+| docs/esquema_bbdd.md | ⚠️ Desactualizado | — | Requeriría regeneración con `fetch_db_schema.py` (requiere DB activa) |
+
+### Investigaciones Complementarias
+
+**Polls / Versus / Events:**
+- Estado: 🟡 **EN DESARROLLO** (especialmente polls)
+- Endpoints backend: ✅ Implementados y registrados en FastAPI router
+- Frontend: ✅ Páginas y componentes existen
+- Tests: ❌ NO EXISTEN (crítica para producción)
+
+**access_control_matrix.py:**
+- Ubicación correcta: ✅ `backend/app/core/auth/` (no en `core/security/`)
+- Finalidad: ✅ Matriz JSONB de permisos con herencia (ANONYMOUS → BASIC → VERIFIED)
+- Uso: ✅ Importado desde `auth/dependencies.py`, 27 tests documentados
+
+---
+
+## 📋 Informe de Auditoría Documentaria — BEACON (Auditoría 1)
+**Período de Auditoría:** 2026-04-06 a 2026-04-07 (Fase Inicial)
 **Auditor:** Claude AI (Estratega de Integridad)
 **Estado:** ✅ Completado
 

@@ -1,7 +1,12 @@
+> ⚠️ DESACTUALIZADO [2026-04-07]. Generado 2026-03-11, anterior a migraciones backend 014-018 y supabase 003-010.
+> Falta documentar: polls, versus, events, poll_votes, versus_votes, event_participants, event_votes, geography_cl.
+> Para regenerar: ejecutar `backend/scripts/fetch_db_schema.py` con conexión a DB de producción.
+
 # Esquema de Base de Datos — BEACON Protocol
 
-> **Generado:** 2026-03-11 19:30:17 UTC  
-> **Script:** `backend/scripts/fetch_db_schema.py`  
+> **Generado:** 2026-03-11 19:30:17 UTC
+> **Script:** `backend/scripts/fetch_db_schema.py`
+> **Estado:** ⚠️ DESACTUALIZADO — Ver estructura actual en docs/PROJECT_OVERVIEW.md  
 
 ## Extensiones PostgreSQL
 

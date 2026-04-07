@@ -1102,6 +1102,185 @@ multiplier = integrity_score × 1.2
 
 ---
 
+## 7. Polls (Encuestas Ciudadanas)
+
+Base path: `/api/v1/polls`
+
+### GET `/` — Listar encuestas
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | No |
+| **Tablas DB** | `polls`, `poll_votes` |
+| **Estado** | ✅ Implementado (en desarrollo) |
+
+**Query params:** `category`, `search`, `is_active`, `limit`, `offset`
+
+**Response 200:**
+```json
+{
+  "polls": [
+    {
+      "id": "uuid",
+      "title": "¿Cómo calificas la gestión del Presidente?",
+      "description": "Encuesta ciudadana sobre desempeño ejecutivo",
+      "poll_type": "scale",
+      "starts_at": "2026-04-07T00:00:00Z",
+      "ends_at": "2026-04-14T23:59:59Z",
+      "is_active": true,
+      "total_votes": 1523,
+      "category": "politica"
+    }
+  ],
+  "total": 45
+}
+```
+
+### POST `/` — Crear encuesta
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | JWT (solo VERIFIED) |
+| **Tablas DB** | `polls`, `audit_logs` |
+| **Estado** | ✅ Implementado |
+
+**Body (UserPollCreateIn):**
+```json
+{
+  "title": "¿Qué prioridad debería tener la educación?",
+  "description": "Encuesta sobre políticas educacionales",
+  "poll_type": "multiple_choice",
+  "category": "educacion",
+  "options": ["Inversión", "Calidad docente", "Infraestructura"],
+  "starts_at": "2026-04-08T00:00:00Z",
+  "ends_at": "2026-04-22T23:59:59Z",
+  "requires_auth": true
+}
+```
+
+### POST `/{id}/vote` — Votar en encuesta
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | No (pero `anon_session_id` para anónimos) |
+| **Tablas DB** | `poll_votes`, `audit_logs` |
+| **Estado** | ✅ Implementado |
+
+**Body (PollVotePayload):**
+```json
+{
+  "option_value": "Inversión",
+  "anon_session_id": "uuid-del-navegador"
+}
+```
+
+---
+
+## 8. Versus (VS Head-to-Head)
+
+Base path: `/api/v1/versus`
+
+### GET `/` — Listar versus activos
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | No |
+| **Tablas DB** | `versus`, `versus_votes` |
+| **Estado** | ✅ Implementado (en desarrollo) |
+
+**Response 200:**
+```json
+{
+  "versus": [
+    {
+      "id": "uuid",
+      "title": "Alcalde A vs Alcalde B",
+      "entity_a_id": "uuid",
+      "entity_b_id": "uuid",
+      "starts_at": "2026-04-07T00:00:00Z",
+      "ends_at": "2026-04-14T23:59:59Z",
+      "votes_a": 342,
+      "votes_b": 289,
+      "is_open": true
+    }
+  ]
+}
+```
+
+### POST `/{id}/vote` — Votar en versus
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | JWT |
+| **Tablas DB** | `versus_votes`, `audit_logs` |
+| **Estado** | ✅ Implementado |
+
+**Body (VersusVotePayload):**
+```json
+{
+  "voted_for": "A"
+}
+```
+
+Nota: `voted_for` es "A" o "B". Un voto por usuario por versus (anti-brigada vía UNIQUE constraint).
+
+---
+
+## 9. Events (Eventos con Participantes)
+
+Base path: `/api/v1/events`
+
+### GET `/` — Listar eventos activos
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | No |
+| **Tablas DB** | `events`, `event_participants`, `event_votes` |
+| **Estado** | ✅ Implementado |
+
+**Response 200:**
+```json
+{
+  "events": [
+    {
+      "id": "uuid",
+      "title": "Debate Presidencial 2026",
+      "location": "Estadio Nacional",
+      "starts_at": "2026-04-15T20:00:00Z",
+      "ends_at": "2026-04-15T22:00:00Z",
+      "participants": [
+        {
+          "entity_id": "uuid",
+          "entity_name": "Candidato X",
+          "avg_score": 4.2,
+          "total_votes": 512
+        }
+      ]
+    }
+  ]
+}
+```
+
+### POST `/{id}/vote` — Votar en evento
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | JWT |
+| **Tablas DB** | `event_votes`, `audit_logs` |
+| **Estado** | ✅ Implementado |
+
+**Body (EventVotePayload):**
+```json
+{
+  "entity_id": "uuid",
+  "score": 4.5
+}
+```
+
+Nota: Score 1.0–5.0. Un voto por usuario por entidad por evento (UNIQUE constraint).
+
+---
+
 ## Relación APIs ↔ Base de Datos
 
 ```

@@ -12,7 +12,7 @@ Beacon es la plataforma donde los chilenos votan sobre políticos, empresas y pe
 | Capa | Tecnología | Función |
 |---|---|---|
 | **Backend** | Python 3.12 + FastAPI 0.109 | Motor de integridad async |
-| **Frontend** | Next.js 14 + Tailwind CSS | Interfaz Dark Premium |
+| **Frontend** | Next.js 16 + Tailwind CSS | Interfaz Dark Premium |
 | **Base de Datos** | PostgreSQL (Supabase) | Persistencia inmutable |
 | **Caché/Tiempo Real** | Redis 5.0 async | Latencia <2ms en votaciones |
 | **Auth** | JWT + Supabase Auth | Soberanía de identidad |
@@ -191,7 +191,7 @@ Ejecutar en orden en el **SQL Editor** de Supabase (todas son idempotentes — `
 | `POST` | `/api/v1/user/auth/register` | Registro + DNA scan | ❌ |
 | `POST` | `/api/v1/user/auth/login` | Login → JWT | ❌ |
 | `POST` | `/api/v1/user/auth/confirm-email` | Confirmar email (OTP) | ❌ |
-| `POST` | `/api/v1/user/auth/verify-identity` | Ascensión SILVER (RUT) | ✅ |
+| `POST` | `/api/v1/user/auth/verify-identity` | Ascensión VERIFIED (RUT) | ✅ |
 | `GET` | `/api/v1/user/auth/me` | Perfil público | ✅ |
 | `PUT` | `/api/v1/user/auth/profile` | Datos demográficos | ✅ |
 | `GET` | `/api/v1/entities` | Lista paginada + filtros | ❌ |
@@ -200,7 +200,15 @@ Ejecutar en orden en el **SQL Editor** de Supabase (todas son idempotentes — `
 | `POST` | `/api/v1/entities/{id}/vote` | Veredicto multidimensional (ponderado por rango) | ✅ |
 | `GET` | `/api/v1/dimensions` | Dimensiones por categoría | ❌ |
 | `WS` | `/api/v1/realtime/pulse/{id}` | WebSocket tiempo real | ❌ |
-| `GET` | `/api/v1/admin/*` | Panel Overlord (entidades, stats, AUM, audit, decay) | ✅ Admin |
+| `GET` | `/api/v1/polls` | Lista encuestas activas | ❌ |
+| `POST` | `/api/v1/polls` | Crear encuesta (solo VERIFIED) | ✅ |
+| `GET` | `/api/v1/polls/{id}` | Detalle encuesta + resultados | ❌ |
+| `POST` | `/api/v1/polls/{id}/vote` | Votar en encuesta | ❌/✅ |
+| `GET` | `/api/v1/versus` | Lista versus activos | ❌ |
+| `POST` | `/api/v1/versus/{id}/vote` | Votar en versus (A o B) | ✅ |
+| `GET` | `/api/v1/events` | Lista eventos activos | ❌ |
+| `POST` | `/api/v1/events/{id}/vote` | Votar en evento (score 1-5) | ✅ |
+| `GET` | `/api/v1/admin/*` | Panel Overlord (entidades, stats, AUM, audit, decay, polls, versus, events) | ✅ Admin |
 
 ---
 

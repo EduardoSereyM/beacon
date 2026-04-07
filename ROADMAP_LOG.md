@@ -304,12 +304,23 @@ A los 180 días: un 5.0 decae a 4.0. A los 360 días: a 3.5. Converge a 3.0 (neu
 ## 🔲 Pendientes Críticos — Fase 2 (Cierre MVP)
 
 ### P3 — VS/Versus
-- [ ] Backend: `GET /api/v1/versus` + `POST /api/v1/versus/{id}/vote` con tabla `event_votes` (votos de evento, no afectan `reputation_score` permanente).
-- [ ] Frontend: página `/versus` con UI head-to-head — dos entidades lado a lado, votación simultánea.
+- [x] Backend: `GET /api/v1/versus` + `POST /api/v1/versus/{id}/vote` con tabla `versus_votes` (votos de evento, no afectan `reputation_score` permanente). **Código implementado, tests pendientes.**
+- [x] Frontend: página `/versus` con UI head-to-head — dos entidades lado a lado, votación simultánea. **En desarrollo.**
 
 ### P4 — Páginas de Sección con Filtros
 - [ ] `/politicos`, `/empresas`, `/periodistas` — cada una con filtros propios: región, comuna, partido, búsqueda.
 - [ ] Backend: endpoint `/entities` con sort por `reputation_score DESC` (actualmente ordena por `updated_at`).
+
+### P3 — Polls / Encuestas Ciudadanas
+- [x] Backend: `GET /api/v1/polls`, `POST /api/v1/polls`, `POST /api/v1/polls/{id}/vote` con tabla `polls` y `poll_votes`. **Código implementado, en desarrollo activo.**
+- [x] Frontend: páginas `/app/polls`, `/app/admin/polls` con creación y votación. **En desarrollo.**
+- [ ] Tests unitarios/integración para polls endpoints.
+- [ ] Documentación API completa en docs/apis.md.
+
+### P3/P4 — Events
+- [x] Backend: `GET /api/v1/events`, `POST /api/v1/events/{id}/vote` con tabla `events` y `event_votes`. **Código implementado.**
+- [x] Frontend: páginas `/app/events` con participantes y votación. **En desarrollo.**
+- [ ] Tests para events endpoints.
 
 ### P5 — Verificación de Identidad RUT (BRONZE → SILVER)
 - [ ] `POST /api/v1/user/auth/verify-identity` — ascenso de rango tras validación RUT Módulo 11.
@@ -389,7 +400,7 @@ A los 180 días: un 5.0 decae a 4.0. A los 360 días: a 3.5. Converge a 3.0 (neu
 | Módulo | Archivo | Función |
 |---|---|---|
 | Seguridad | `panic_gate_extreme.py` | Botón Rojo + Redis |
-| ACM | `access_control_matrix.py` | Permisos con herencia |
+| ACM | `core/auth/access_control_matrix.py` | Permisos con herencia |
 | Auth | `AuthModal.tsx` | Login/Registro Dark Premium |
 | Hook | `usePermissions.ts` | ACM espejo frontend |
 | Identidad | `rut_validator.py` | Hash forense con salt |
