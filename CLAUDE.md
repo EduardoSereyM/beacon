@@ -74,3 +74,24 @@ No se considera “hecho” si falta alguno:
 - Si el Overlord pide “rápido”, entrega mínimo funcional con riesgos listados.
 - Si pide “sangre”, entrega arquitectura completa: diseño, interfaz, amenazas, pruebas, rollout.
 - Siempre ofrece 2–3 alternativas con pros/contras cuando el impacto sea alto.
+
+## 📋 Protocolo de Documentación
+
+### Estructura de documentación activa
+- **ROADMAP_LOG.md** → Fuente única de verdad operacional. Actualizar tras cada sprint.
+- **docs/PROJECT_OVERVIEW.md** → Informe ejecutivo. Actualizar cuando cambien features o stack.
+- **docs/apis.md** → Actualizar con cada endpoint nuevo o modificado.
+- **docs/voting_weight_system.md / rank_system.md** → Solo modificar si cambia el modelo de pesos.
+- **playbook.md** → Actualizar sección IMPLEMENTADO cuando una feature P3/P4 pase a producción.
+
+### Reglas obligatorias al hacer cambios
+1. Si agregas un endpoint → actualiza docs/apis.md en el mismo PR
+2. Si cambias lógica de negocio → actualiza ROADMAP_LOG.md sección “Estado de Features”
+3. Si deprecas un módulo o feature → archiva su doc en docs/archive/ con header estándar
+4. NUNCA modificar: ENGINEERING_STANDARDSv3.md, Directives 2026.md, paleta.md
+
+### Header estándar de archivamiento
+> ⚠️ ARCHIVADO [YYYY-MM-DD]. [Razón]. Consultar [archivo de reemplazo].
+
+### Auditoría periódica
+Cada 90 días ejecutar /audit-docs para validar que la documentación refleja el código real.
