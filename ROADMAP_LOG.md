@@ -403,13 +403,253 @@ A los 180 días: un 5.0 decae a 4.0. A los 360 días: a 3.5. Converge a 3.0 (neu
 
 ---
 
+## 📋 Estado Operacional del Sistema — Detalles Técnicos
+
+### 1. Endpoints Activos por Módulo
+
+#### Auth — `/api/v1/user/auth/`
+
+| Método | Endpoint | Auth requerida | Descripción |
+|---|---|---|---|
+| `POST` | `/register` | No | Registro de nuevo usuario con email + password |
+| `POST` | `/sign-in` | No | Login con email + password |
+| `POST` | `/confirm-email` | No | Verifica token OTP de confirmación de email |
+| `POST` | `/verify-identity` | JWT | Verificación de RUT (Módulo 11 + hash SHA-256) |
+| `PUT` | `/profile` | JWT | Actualiza perfil demográfico (region, commune, birth_year) |
+| `GET` | `/me` | JWT | Obtiene datos del usuario autenticado |
+
+#### Entidades — `/api/v1/entities/`
+
+| Método | Endpoint | Auth requerida | Descripción |
+|---|---|---|---|
+| `GET` | `/` | No | Lista entidades con filtros (category, limit, sort) |
+| `GET` | `/{entity_id}` | No | Obtiene detalles de una entidad |
+| `POST` | `/{entity_id}/vote` | JWT | Emite un voto para una entidad |
+| `GET` | `/search` | No | Búsqueda de entidades por nombre/región |
+
+#### Admin — `/api/v1/admin/`
+
+| Método | Endpoint | Auth requerida | Descripción |
+|---|---|---|---|
+| `GET` | `/entities` | JWT (Admin) | Lista todas las entidades |
+| `POST` | `/entities` | JWT (Admin) | Crea nueva entidad |
+| `PUT` | `/entities/{id}` | JWT (Admin) | Actualiza entidad |
+| `GET` | `/decay/preview` | JWT (Admin) | Vista previa del decay de reputation |
+| `POST` | `/decay/run` | JWT (Admin) | Ejecuta el job de decay |
+| `GET` | `/audit-logs` | JWT (Admin) | Acceso a audit logs inmutables |
+
+#### Stats — `/api/v1/stats/`
+
+| Método | Endpoint | Auth requerida | Descripción |
+|---|---|---|---|
+| `GET` | `/aum` | No | Estadísticas globales (usuarios activos, entidades, votos) |
+| `GET` | `/health` | No | Health check del servicio |
+
+---
+
+### 2. Migraciones
+
+> Las migraciones se aplican en orden cronológico. **Nunca modificar una migración ya aplicada** — siempre crear una nueva.
+
+| # | Archivo | Fecha | Descripción | Status |
+|---|---|---|---|---|
+| 001 | `001_initial_schema.sql` | 2026-02-24 | Scaffolding base: `users`, `entities`, `entity_reviews` | ✅ Aplicada |
+| 002 | `002_entities_schema.sql` | 2026-02-24 | Extensión de `entities` con campos de scoring | ✅ Aplicada |
+| 003-011 | `*` | 2026-02-24 a 2026-03-09 | Incrementos de seguridad, ACM, audit_logs | ✅ Aplicadas |
+| 012 | `012_fix_entities_columns.sql` | 2026-03-10 | `ADD COLUMN IF NOT EXISTS` para todas las columnas reales | ✅ Aplicada |
+| 013 | `013_add_last_reviewed_at_to_entities.sql` | 2026-03-10 | `last_reviewed_at` para el job de decay | ✅ Aplicada |
+| 014 | `014_rank_simplification.sql` | 2026-03-12 | Sistema 2 rangos: BASIC / VERIFIED | ✅ Aplicada |
+| 015 | `015_fix_rank_constraint.sql` | 2026-03-12 | Constraint check para los 2 rangos | ✅ Aplicada |
+
+**Ver esquema completo en docs/esquema_bbdd.md**
+
+---
+
+### 3. Lógicas de Negocio Críticas
+
+#### Validación RUT Chileno (Módulo 11)
+**Ubicación:** `backend/app/core/security/rut_validator.py` · `frontend/src/hooks/useRutValidation.ts`
+**Cuándo se usa:** Todo campo de RUT en formularios y endpoints.
+
+**Algoritmo:**
+1. Limpiar formato: eliminar puntos y guión, convertir a mayúsculas
+2. Separar cuerpo (todos los dígitos excepto el último) y dígito verificador (DV)
+3. Validar que el cuerpo tenga mínimo 7 dígitos
+4. Validar que el DV sea un dígito o la letra K
+5. Calcular suma: recorrer el cuerpo de derecha a izquierda, multiplicar cada dígito por el factor del ciclo `2→3→4→5→6→7→2→...`
+6. Calcular `resto = 11 - (suma % 11)`
+7. El DV esperado es: `K` si resto=10, `0` si resto=11, el número si resto es 1-9
+8. Retornar `DV ingresado == DV esperado`
+
+**Almacenamiento:** El RUT nunca se guarda en texto plano — se almacena como `rut_hash` (SHA-256 + salt dinamico desde `RUT_HASH_SALT`).
+
+**Casos de referencia:**
+| RUT | Resultado |
+|---|---|
+| `76354771-K` | ✅ válido |
+| `11111111-1` | ✅ válido |
+| `12345678-5` | ✅ válido |
+| `76354771-9` | ❌ DV incorrecto |
+
+---
+
+#### Fórmula de Ranking Bayesiana (Reputation Score)
+**Ubicación:** `backend/app/core/ranking/integrity_engine.py`
+**Cuándo se usa:** Cada vez que se emite un voto para una entidad.
+
+**Fórmula:**
+```
+score = (m·C + Σ_votos) / (m + n)
+
+Donde:
+  m = 30 (prior — "confianza inicial")
+  C = 3.0 (centro del prior — neutral)
+  Σ_votos = suma de todos los votos recibidos
+  n = cantidad total de votos
+```
+
+**Implicación:** Con pocos votos, el score tiende a 3.0 (neutral). Con muchos votos, converge al promedio real.
+
+---
+
+#### Decay de Reputación (Exponencial)
+**Ubicación:** `backend/app/core/decay/reputation_decay.py`
+**Cuándo se usa:** Job cron diario (00:03 UTC) que aplica decay a todas las entidades.
+
+**Fórmula:**
+```
+new_score = C + (old_score − C) × e^(−ln2 × elapsed_days / half_life)
+
+Donde:
+  C = 3.0 (prior Bayesiano — asíntota inferior)
+  half_life = DECAY_HALF_LIFE_DAYS (default 180 días)
+  elapsed_days = días desde last_reviewed_at
+```
+
+**Comportamiento:** A los 180 días, un score de 5.0 decae a 4.0. A los 360 días, a 3.5. Converge perpetuamente a 3.0.
+
+---
+
+### 4. Decisiones de Arquitectura (ADRs)
+
+#### ADR-001 — Next.js 14+ como SSR + ISR (No SPA)
+**Fecha:** 2026-02-24
+**Estado:** ✅ Vigente
+
+**Decisión:** Frontend en Next.js con Server Components (async), no SPA pura.
+
+**Razón:** ISR (Incremental Static Regeneration) permite cachear la home page cada 60s en Vercel, sin depender de que Render esté "caliente". Cold starts de backend no afectan UX del usuario.
+
+**Consecuencia:** Las páginas dinámicas (entity/{id}) se renderizan on-demand; la home se regenera automáticamente. Solves Render Starter's cold start problema elegantemente.
+
+---
+
+#### ADR-002 — RLS (Row Level Security) + service_role Backend
+**Fecha:** 2026-02-24
+**Estado:** ✅ Vigente
+
+**Decisión:** Toda lectura pública usa `anon` key; operaciones autenticadas usan `service_role` solo desde backend (FastAPI).
+
+**Razón:** El frontend NUNCA ve `service_role`. Evita que un usuario pueda editar query params y acceder a datos privados.
+
+**Consecuencia:** El backend es el único guardián. Todas las validaciones deben ocurrir en FastAPI antes de tocar Supabase.
+
+---
+
+#### ADR-003 — Audit Logs Append-Only (Immutable)
+**Fecha:** 2026-02-24
+**Estado:** ✅ Vigente
+
+**Decisión:** Tabla `audit_logs` nunca se actualiza ni borra — solo INSERT. Registra toda acción sensible.
+
+**Razón:** Trazabilidad forense. Si alguien manipula datos, el audit log prueba quién, cuándo, y desde dónde.
+
+**Consecuencia:** Los auditors y admins pueden reconstruir cualquier evento pasado. No hay "borrador de historia".
+
+---
+
+#### ADR-004 — DNA Scanner (Clasificación de Tráfico)
+**Fecha:** 2026-02-24
+**Estado:** ✅ Vigente
+
+**Decisión:** Cada request HTTP se analiza antes de tocar lógica: HUMAN (>70) / SUSPICIOUS (30-70) / DISPLACED (≤30).
+
+**Razón:** Detectar y aislar bots/scrapers sin alertarlos. Los DISPLACED siguen votando (creen que funciona) pero sus votos se silencian.
+
+**Consecuencia:** El atacante no sabe que fue detectado. Mejora la cadena de inteligencia.
+
+---
+
+### 5. Tests Documentados
+
+#### Backend (pytest)
+
+| Archivo | Capa | Función / qué verifica |
+|---|---|---|
+| `tests/test_access_control_matrix.py` | ACM | 27 tests: herencia de permisos, pesos de voto, auditoría |
+| `tests/test_redis_panic_gate.py` | Redis/Panic | 12 tests: propagación de nivel de seguridad, fallback, CAPTCHA |
+| `tests/test_rut_validator.py` | Seguridad | Módulo 11 validation, hash irreversibilidad, colisiones |
+| `tests/core/test_reputation_decay.py` | Decay | Fórmula exponencial, convergencia a 3.0 |
+| `tests/api/test_votes.py` | Votos | Endpoint bayesiano, weight application, atomic updates |
+
+#### Frontend (vitest + Testing Library)
+
+| Archivo | Componente | Función / qué verifica |
+|---|---|---|
+| `frontend/src/components/bunker/__tests__/AuthModal.test.tsx` | `AuthModal` | Login/registro, validación RUT local, feedback |
+| `frontend/src/components/status/__tests__/VerdictButton.test.tsx` | `VerdictButton` | Estados (idle/loading/voted), partículas doradas |
+| `frontend/src/components/home/__tests__/HomeHeroClient.test.tsx` | `HomeHeroClient` | Hero render, CTA visibility según auth state |
+
+---
+
+### 6. Estado de Features
+
+#### ✅ Completadas
+
+| Feature | Módulo | Fecha | Notas |
+|---|---|---|---|
+| Autenticación email + password | `auth` | 2026-02-24 | Sign-up/sign-in con Supabase Auth |
+| Confirmación de email | `auth` | 2026-03-09 | OTP vía email, flujo /auth/callback |
+| Verificación RUT (Módulo 11) | `identity` | 2026-03-12 | SHA-256 hash, sin persistencia de RUT en texto plano |
+| Sistema de ranking Bayesiano | `ranking` | 2026-02-24 | Prior m=30, C=3.0, shrinkage estadístico |
+| DNA Scanner (Detección de bots) | `security` | 2026-02-24 | HUMAN/SUSPICIOUS/DISPLACED, user-agent analysis |
+| Panic Gate Extreme (Redis) | `security` | 2026-02-24 | 3 niveles (GREEN/YELLOW/RED), failsafe sin Redis |
+| Votación Bayesiana | `votes` | 2026-03-10 | Endpoint POST /vote, atomic updates, weight application |
+| Decay de reputación | `decay` | 2026-03-10 | Job cron, fórmula exponencial, convergencia |
+| Audit logs inmutables | `audit` | 2026-02-24 | Append-only, trazabilidad forense completa |
+| UI Dark Premium | `frontend` | 2026-03-09 | Next.js 14, Tailwind 4, Server Components, ISR |
+| Home Page (Server Component) | `frontend` | 2026-03-09 | ISR 60s, cacheo en Vercel, zero Render cold start |
+| Reencuadre ciudadano (manifiesto v4) | `product` | 2026-04-06 | Copy, navegación simplificada (4 secciones), hero nuevo |
+
+#### 🚧 En Desarrollo
+
+| Feature | Módulo | Responsable | Bloqueada por |
+|---|---|---|---|
+| Propuesta ciudadana de preguntas (RE-3) | `encuestas` | IA | Design de UX para propuesta + moderación |
+| Informes B2B bajo demanda (RE-4) | `b2b` | IA | Definición de estructura de informe |
+
+#### ⏸️ Pendientes (Roadmap)
+
+| Feature | Módulo | Prioridad | Notas |
+|---|---|---|---|
+| P3 — VS/Versus (head-to-head) | `events` | Alta | Event votes, UI comparativa lado a lado |
+| P4 — Páginas de sección con filtros | `entities` | Alta | `/politicos`, `/empresas` con filtros region/partido |
+| P5 — Flujo de upgrade RUT → Verificado | `identity` | Media | SMS 2FA opcional, UI de perfil |
+| P6 — Scrapers de enrichment | `scrapers` | Media | BCN, Cámara, Senado, Wikipedia (bio/foto) |
+| Recovery flow (Olvidé contraseña) | `auth` | Media | Tokens firmados, SMTP Resend |
+| Anti-brigada (Rate limiting) | `security` | Media | 1 voto por user/entity, detección geográfica |
+| Mina de Oro (Asset valuation) | `valuation` | Baja | USD internos, solo uso backend futuro |
+| Efecto Kahoot (WebSockets RT) | `infrastructure` | Baja | Ranking updates en tiempo real |
+
+---
+
 <sub>
 
 **📝 Verificación de Integridad**
 
 Este documento ha sido chequeado y aprobado bajo los estándares de las **Technical Directives 2026**.
 
-Última actualización: `2026-03-09T17:10:00-03:00`
+Última actualización: `2026-04-07T00:00:00-03:00`
 Autor: Beacon Protocol — Motor de Integridad Digital
 Commits de referencia:
 - `223bafd` — Home Server Component + ISR + CORS fix producción
