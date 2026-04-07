@@ -1,12 +1,7 @@
-> ⚠️ DESACTUALIZADO [2026-04-07]. Generado 2026-03-11, anterior a migraciones backend 014-018 y supabase 003-010.
-> Falta documentar: polls, versus, events, poll_votes, versus_votes, event_participants, event_votes, geography_cl.
-> Para regenerar: ejecutar `backend/scripts/fetch_db_schema.py` con conexión a DB de producción.
-
 # Esquema de Base de Datos — BEACON Protocol
 
-> **Generado:** 2026-03-11 19:30:17 UTC
-> **Script:** `backend/scripts/fetch_db_schema.py`
-> **Estado:** ⚠️ DESACTUALIZADO — Ver estructura actual en docs/PROJECT_OVERVIEW.md  
+> **Generado:** 2026-04-07 16:32:46 UTC  
+> **Script:** `backend/scripts/fetch_db_schema.py`  
 
 ## Extensiones PostgreSQL
 
@@ -928,6 +923,88 @@ _Auth: Stores user login data within a secure schema._
 | `users_phone_key` | `CREATE UNIQUE INDEX users_phone_key ON auth.users USING btree (phone)` |
 | `users_pkey` | `CREATE UNIQUE INDEX users_pkey ON auth.users USING btree (id)` |
 
+### Tabla: `auth.webauthn_challenges`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `user_id` | `UUID` | NULL | `` |  |
+| 3 | `challenge_type` | `TEXT` | NOT NULL | `` |  |
+| 4 | `session_data` | `JSONB` | NOT NULL | `` |  |
+| 5 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |  |
+| 6 | `expires_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `` |  |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `16494_42534_1_not_null` | `None` |  |
+| CHECK | `16494_42534_3_not_null` | `None` |  |
+| CHECK | `16494_42534_4_not_null` | `None` |  |
+| CHECK | `16494_42534_5_not_null` | `None` |  |
+| CHECK | `16494_42534_6_not_null` | `None` |  |
+| CHECK | `webauthn_challenges_challenge_type_check` | `None` |  |
+| FOREIGN KEY | `webauthn_challenges_user_id_fkey` | `user_id` | `public.users(id)` ON DELETE CASCADE |
+| PRIMARY KEY | `webauthn_challenges_pkey` | `id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `webauthn_challenges_expires_at_idx` | `CREATE INDEX webauthn_challenges_expires_at_idx ON auth.webauthn_challenges USING btree (expires_at)` |
+| `webauthn_challenges_pkey` | `CREATE UNIQUE INDEX webauthn_challenges_pkey ON auth.webauthn_challenges USING btree (id)` |
+| `webauthn_challenges_user_id_idx` | `CREATE INDEX webauthn_challenges_user_id_idx ON auth.webauthn_challenges USING btree (user_id)` |
+
+### Tabla: `auth.webauthn_credentials`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `user_id` | `UUID` | NOT NULL | `` |  |
+| 3 | `credential_id` | `BYTEA` | NOT NULL | `` |  |
+| 4 | `public_key` | `BYTEA` | NOT NULL | `` |  |
+| 5 | `attestation_type` | `TEXT` | NOT NULL | `''::text` |  |
+| 6 | `aaguid` | `UUID` | NULL | `` |  |
+| 7 | `sign_count` | `BIGINT` | NOT NULL | `0` |  |
+| 8 | `transports` | `JSONB` | NOT NULL | `'[]'::jsonb` |  |
+| 9 | `backup_eligible` | `BOOLEAN` | NOT NULL | `false` |  |
+| 10 | `backed_up` | `BOOLEAN` | NOT NULL | `false` |  |
+| 11 | `friendly_name` | `TEXT` | NOT NULL | `''::text` |  |
+| 12 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |  |
+| 13 | `updated_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |  |
+| 14 | `last_used_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `` |  |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `16494_42511_10_not_null` | `None` |  |
+| CHECK | `16494_42511_11_not_null` | `None` |  |
+| CHECK | `16494_42511_12_not_null` | `None` |  |
+| CHECK | `16494_42511_13_not_null` | `None` |  |
+| CHECK | `16494_42511_1_not_null` | `None` |  |
+| CHECK | `16494_42511_2_not_null` | `None` |  |
+| CHECK | `16494_42511_3_not_null` | `None` |  |
+| CHECK | `16494_42511_4_not_null` | `None` |  |
+| CHECK | `16494_42511_5_not_null` | `None` |  |
+| CHECK | `16494_42511_7_not_null` | `None` |  |
+| CHECK | `16494_42511_8_not_null` | `None` |  |
+| CHECK | `16494_42511_9_not_null` | `None` |  |
+| FOREIGN KEY | `webauthn_credentials_user_id_fkey` | `user_id` | `public.users(id)` ON DELETE CASCADE |
+| PRIMARY KEY | `webauthn_credentials_pkey` | `id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `webauthn_credentials_credential_id_key` | `CREATE UNIQUE INDEX webauthn_credentials_credential_id_key ON auth.webauthn_credentials USING btree (credential_id)` |
+| `webauthn_credentials_pkey` | `CREATE UNIQUE INDEX webauthn_credentials_pkey ON auth.webauthn_credentials USING btree (id)` |
+| `webauthn_credentials_user_id_idx` | `CREATE INDEX webauthn_credentials_user_id_idx ON auth.webauthn_credentials USING btree (user_id)` |
+
 ---
 
 ## Schema `extensions`
@@ -1044,6 +1121,13 @@ _Auth: Stores user login data within a secure schema._
 | `idx_audit_logs_created_at` | `CREATE INDEX idx_audit_logs_created_at ON public.audit_logs USING btree (created_at DESC)` |
 | `idx_audit_logs_entity_type` | `CREATE INDEX idx_audit_logs_entity_type ON public.audit_logs USING btree (entity_type)` |
 
+#### Políticas RLS
+
+| Política | Permisiva | Roles | Comando | USING |
+|----------|-----------|-------|---------|-------|
+| `audit_insert_service` | PERMISSIVE | public | INSERT | `` |
+| `audit_select_service` | PERMISSIVE | public | SELECT | `true` |
+
 ### Tabla: `public.config_params`
 
 #### Columnas
@@ -1134,6 +1218,9 @@ _Auth: Stores user login data within a secure schema._
 | `Moderators edit entities` | PERMISSIVE | authenticated | UPDATE | `(EXISTS ( SELECT 1
    FROM users
   WHERE ((users.id = auth.u` |
+| `entities_delete_service` | PERMISSIVE | public | DELETE | `true` |
+| `entities_insert_service` | PERMISSIVE | public | INSERT | `` |
+| `entities_update_service` | PERMISSIVE | public | UPDATE | `true` |
 
 #### Triggers
 
@@ -1231,6 +1318,103 @@ _Registro de veredictos emitidos por ciudadano. UNIQUE(entity_id, user_id) garan
 |----------|-----------|-------|---------|-------|
 | `dimensions_read_public` | PERMISSIVE | public | SELECT | `true` |
 
+### Tabla: `public.event_participants`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `event_id` | `UUID` | NULL | `` |  |
+| 3 | `entity_id` | `UUID` | NULL | `` |  |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `2200_36931_1_not_null` | `None` |  |
+| FOREIGN KEY | `event_participants_entity_id_fkey` | `entity_id` | `public.entities(id)` ON DELETE CASCADE |
+| FOREIGN KEY | `event_participants_event_id_fkey` | `event_id` | `public.events(id)` ON DELETE CASCADE |
+| PRIMARY KEY | `event_participants_pkey` | `id` |  |
+| UNIQUE | `event_participants_event_id_entity_id_key` | `event_id, entity_id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `event_participants_event_id_entity_id_key` | `CREATE UNIQUE INDEX event_participants_event_id_entity_id_key ON public.event_participants USING btree (event_id, entity_id)` |
+| `event_participants_event_id_idx` | `CREATE INDEX event_participants_event_id_idx ON public.event_participants USING btree (event_id)` |
+| `event_participants_pkey` | `CREATE UNIQUE INDEX event_participants_pkey ON public.event_participants USING btree (id)` |
+
+### Tabla: `public.event_votes`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `event_id` | `UUID` | NULL | `` |  |
+| 3 | `entity_id` | `UUID` | NULL | `` |  |
+| 4 | `user_id` | `UUID` | NULL | `` |  |
+| 5 | `score` | `NUMERIC(3,1)` | NOT NULL | `` |  |
+| 6 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `2200_36949_1_not_null` | `None` |  |
+| CHECK | `2200_36949_5_not_null` | `None` |  |
+| CHECK | `event_votes_score_check` | `None` |  |
+| FOREIGN KEY | `event_votes_entity_id_fkey` | `entity_id` | `public.entities(id)` ON DELETE CASCADE |
+| FOREIGN KEY | `event_votes_event_id_fkey` | `event_id` | `public.events(id)` ON DELETE CASCADE |
+| FOREIGN KEY | `event_votes_user_id_fkey` | `user_id` | `public.users(id)` ON DELETE CASCADE |
+| PRIMARY KEY | `event_votes_pkey` | `id` |  |
+| UNIQUE | `event_votes_event_id_entity_id_user_id_key` | `event_id, entity_id, user_id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `event_votes_entity_id_idx` | `CREATE INDEX event_votes_entity_id_idx ON public.event_votes USING btree (entity_id)` |
+| `event_votes_event_id_entity_id_user_id_key` | `CREATE UNIQUE INDEX event_votes_event_id_entity_id_user_id_key ON public.event_votes USING btree (event_id, entity_id, user_id)` |
+| `event_votes_event_id_idx` | `CREATE INDEX event_votes_event_id_idx ON public.event_votes USING btree (event_id)` |
+| `event_votes_pkey` | `CREATE UNIQUE INDEX event_votes_pkey ON public.event_votes USING btree (id)` |
+
+### Tabla: `public.events`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `title` | `TEXT` | NOT NULL | `` |  |
+| 3 | `description` | `TEXT` | NULL | `` |  |
+| 4 | `location` | `TEXT` | NULL | `` |  |
+| 5 | `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `` |  |
+| 6 | `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `` |  |
+| 7 | `is_active` | `BOOLEAN` | NULL | `true` |  |
+| 8 | `created_by` | `UUID` | NULL | `` |  |
+| 9 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
+| 10 | `updated_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `2200_36915_1_not_null` | `None` |  |
+| CHECK | `2200_36915_2_not_null` | `None` |  |
+| CHECK | `2200_36915_5_not_null` | `None` |  |
+| CHECK | `2200_36915_6_not_null` | `None` |  |
+| FOREIGN KEY | `events_created_by_fkey` | `created_by` | `public.users(id)` ON DELETE NO ACTION |
+| PRIMARY KEY | `events_pkey` | `id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `events_pkey` | `CREATE UNIQUE INDEX events_pkey ON public.events USING btree (id)` |
+
 ### Tabla: `public.geography_cl`
 
 #### Columnas
@@ -1258,6 +1442,85 @@ _Registro de veredictos emitidos por ciudadano. UNIQUE(entity_id, user_id) garan
 |--------|------------|
 | `geography_cl_comuna_region_key` | `CREATE UNIQUE INDEX geography_cl_comuna_region_key ON public.geography_cl USING btree (comuna, region)` |
 | `geography_cl_pkey` | `CREATE UNIQUE INDEX geography_cl_pkey ON public.geography_cl USING btree (id)` |
+
+### Tabla: `public.poll_votes`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `poll_id` | `UUID` | NOT NULL | `` |  |
+| 3 | `user_id` | `UUID` | NULL | `` |  |
+| 4 | `option_value` | `TEXT` | NOT NULL | `` |  |
+| 5 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
+| 6 | `anon_session_id` | `TEXT` | NULL | `` |  |
+| 7 | `voter_rank` | `TEXT` | NOT NULL | `'BASIC'::text` | Snapshot inmutable del rango del votante al emitir el voto. |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `2200_36891_1_not_null` | `None` |  |
+| CHECK | `2200_36891_2_not_null` | `None` |  |
+| CHECK | `2200_36891_4_not_null` | `None` |  |
+| CHECK | `2200_36891_7_not_null` | `None` |  |
+| CHECK | `poll_votes_voter_rank_check` | `None` |  |
+| FOREIGN KEY | `poll_votes_poll_id_fkey` | `poll_id` | `public.polls(id)` ON DELETE CASCADE |
+| FOREIGN KEY | `poll_votes_user_id_fkey` | `user_id` | `public.users(id)` ON DELETE NO ACTION |
+| PRIMARY KEY | `poll_votes_pkey` | `id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `poll_votes_anon_unique` | `CREATE UNIQUE INDEX poll_votes_anon_unique ON public.poll_votes USING btree (poll_id, anon_session_id) WHERE (anon_session_id IS NOT NULL)` |
+| `poll_votes_auth_unique` | `CREATE UNIQUE INDEX poll_votes_auth_unique ON public.poll_votes USING btree (poll_id, user_id) WHERE (user_id IS NOT NULL)` |
+| `poll_votes_pkey` | `CREATE UNIQUE INDEX poll_votes_pkey ON public.poll_votes USING btree (id)` |
+
+### Tabla: `public.polls`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `title` | `TEXT` | NOT NULL | `` |  |
+| 3 | `description` | `TEXT` | NULL | `` |  |
+| 4 | `poll_type` | `TEXT` | NOT NULL | `` |  |
+| 5 | `options` | `JSONB` | NULL | `` |  |
+| 6 | `scale_min` | `INTEGER` | NULL | `1` |  |
+| 7 | `scale_max` | `INTEGER` | NULL | `5` |  |
+| 8 | `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `` |  |
+| 9 | `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `` |  |
+| 10 | `is_active` | `BOOLEAN` | NULL | `true` |  |
+| 11 | `created_by` | `UUID` | NULL | `` |  |
+| 12 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
+| 13 | `header_image` | `TEXT` | NULL | `` |  |
+| 14 | `questions` | `JSONB` | NOT NULL | `'[]'::jsonb` |  |
+| 15 | `category` | `TEXT` | NULL | `'general'::text` |  |
+| 16 | `requires_auth` | `BOOLEAN` | NULL | `true` |  |
+| 17 | `access_code` | `TEXT` | NULL | `` |  |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `2200_36873_14_not_null` | `None` |  |
+| CHECK | `2200_36873_1_not_null` | `None` |  |
+| CHECK | `2200_36873_2_not_null` | `None` |  |
+| CHECK | `2200_36873_4_not_null` | `None` |  |
+| CHECK | `2200_36873_8_not_null` | `None` |  |
+| CHECK | `2200_36873_9_not_null` | `None` |  |
+| CHECK | `polls_poll_type_check` | `None` |  |
+| FOREIGN KEY | `polls_created_by_fkey` | `created_by` | `public.users(id)` ON DELETE NO ACTION |
+| PRIMARY KEY | `polls_pkey` | `id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `polls_pkey` | `CREATE UNIQUE INDEX polls_pkey ON public.polls USING btree (id)` |
 
 ### Tabla: `public.reviews`
 
@@ -1337,7 +1600,6 @@ _Registro de veredictos emitidos por ciudadano. UNIQUE(entity_id, user_id) garan
 | 2 | `first_name` | `TEXT` | NULL | `` |  |
 | 3 | `last_name` | `TEXT` | NULL | `` |  |
 | 4 | `rut_hash` | `TEXT` | NULL | `` |  |
-| 5 | `comuna_id` | `INTEGER` | NULL | `` |  |
 | 6 | `reputation_score` | `NUMERIC(3,2)` | NULL | `0.5` |  |
 | 7 | `is_rut_verified` | `BOOLEAN` | NULL | `false` |  |
 | 8 | `is_shadow_banned` | `BOOLEAN` | NULL | `false` |  |
@@ -1353,6 +1615,10 @@ _Registro de veredictos emitidos por ciudadano. UNIQUE(entity_id, user_id) garan
 | 18 | `last_login_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `` |  |
 | 19 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
 | 20 | `updated_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
+| 21 | `region` | `TEXT` | NULL | `` |  |
+| 22 | `commune` | `TEXT` | NULL | `` |  |
+| 23 | `country` | `TEXT` | NULL | `` |  |
+| 24 | `birth_year` | `INTEGER` | NULL | `` |  |
 
 #### Constraints
 
@@ -1363,7 +1629,6 @@ _Registro de veredictos emitidos por ciudadano. UNIQUE(entity_id, user_id) garan
 | CHECK | `check_integrity_range` | `None` |  |
 | CHECK | `check_reputation_range` | `None` |  |
 | CHECK | `users_rank_check` | `None` |  |
-| FOREIGN KEY | `users_comuna_id_fkey` | `comuna_id` | `public.geography_cl(id)` ON DELETE NO ACTION |
 | FOREIGN KEY | `users_id_fkey` | `id` | `public.users(id)` ON DELETE CASCADE |
 | PRIMARY KEY | `users_pkey` | `id` |  |
 | UNIQUE | `users_email_key` | `email` |  |
@@ -1388,6 +1653,79 @@ _Registro de veredictos emitidos por ciudadano. UNIQUE(entity_id, user_id) garan
 | Nombre | Evento | Timing | Acción |
 |--------|--------|--------|--------|
 | `update_users_modtime` | UPDATE | BEFORE | `EXECUTE FUNCTION update_updated_at_column()` |
+
+### Tabla: `public.versus`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `title` | `TEXT` | NOT NULL | `` |  |
+| 3 | `description` | `TEXT` | NULL | `` |  |
+| 4 | `entity_a_id` | `UUID` | NOT NULL | `` |  |
+| 5 | `entity_b_id` | `UUID` | NOT NULL | `` |  |
+| 6 | `starts_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `` |  |
+| 7 | `ends_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `` |  |
+| 8 | `is_active` | `BOOLEAN` | NULL | `true` |  |
+| 9 | `affects_reputation` | `BOOLEAN` | NULL | `false` |  |
+| 10 | `created_by` | `UUID` | NULL | `` |  |
+| 11 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `2200_36824_1_not_null` | `None` |  |
+| CHECK | `2200_36824_2_not_null` | `None` |  |
+| CHECK | `2200_36824_4_not_null` | `None` |  |
+| CHECK | `2200_36824_5_not_null` | `None` |  |
+| CHECK | `2200_36824_6_not_null` | `None` |  |
+| CHECK | `2200_36824_7_not_null` | `None` |  |
+| CHECK | `different_entities` | `None` |  |
+| FOREIGN KEY | `versus_created_by_fkey` | `created_by` | `public.users(id)` ON DELETE NO ACTION |
+| FOREIGN KEY | `versus_entity_a_id_fkey` | `entity_a_id` | `public.entities(id)` ON DELETE NO ACTION |
+| FOREIGN KEY | `versus_entity_b_id_fkey` | `entity_b_id` | `public.entities(id)` ON DELETE NO ACTION |
+| PRIMARY KEY | `versus_pkey` | `id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `versus_pkey` | `CREATE UNIQUE INDEX versus_pkey ON public.versus USING btree (id)` |
+
+### Tabla: `public.versus_votes`
+
+#### Columnas
+
+| # | Columna | Tipo | Nullable | Default | Comentario |
+|---|---------|------|----------|---------|------------|
+| 1 | `id` | `UUID` | NOT NULL | `gen_random_uuid()` |  |
+| 2 | `versus_id` | `UUID` | NOT NULL | `` |  |
+| 3 | `user_id` | `UUID` | NOT NULL | `` |  |
+| 4 | `voted_for` | `TEXT` | NOT NULL | `` |  |
+| 5 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NULL | `now()` |  |
+
+#### Constraints
+
+| Tipo | Nombre | Columnas | Referencias |
+|------|--------|----------|-------------|
+| CHECK | `2200_36851_1_not_null` | `None` |  |
+| CHECK | `2200_36851_2_not_null` | `None` |  |
+| CHECK | `2200_36851_3_not_null` | `None` |  |
+| CHECK | `2200_36851_4_not_null` | `None` |  |
+| CHECK | `versus_votes_voted_for_check` | `None` |  |
+| FOREIGN KEY | `versus_votes_user_id_fkey` | `user_id` | `public.users(id)` ON DELETE NO ACTION |
+| FOREIGN KEY | `versus_votes_versus_id_fkey` | `versus_id` | `public.versus(id)` ON DELETE CASCADE |
+| PRIMARY KEY | `versus_votes_pkey` | `id` |  |
+| UNIQUE | `versus_votes_versus_id_user_id_key` | `versus_id, user_id` |  |
+
+#### Índices
+
+| Nombre | Definición |
+|--------|------------|
+| `versus_votes_pkey` | `CREATE UNIQUE INDEX versus_votes_pkey ON public.versus_votes USING btree (id)` |
+| `versus_votes_versus_id_user_id_key` | `CREATE UNIQUE INDEX versus_votes_versus_id_user_id_key ON public.versus_votes USING btree (versus_id, user_id)` |
 
 ---
 
@@ -1663,6 +2001,7 @@ _Registro de veredictos emitidos por ciudadano. UNIQUE(entity_id, user_id) garan
 | 7 | `owner_id` | `TEXT` | NULL | `` |  |
 | 8 | `created_at` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | `now()` |  |
 | 9 | `user_metadata` | `JSONB` | NULL | `` |  |
+| 10 | `metadata` | `JSONB` | NULL | `` |  |
 
 #### Constraints
 
@@ -1819,8 +2158,8 @@ _Table with encrypted `secret` column for storing sensitive information on disk.
 | `extensions` | `dearmor` | FUNCTION | `text` | `bytea` |  |
 | `extensions` | `decrypt` | FUNCTION | `bytea, bytea, text` | `bytea` |  |
 | `extensions` | `decrypt_iv` | FUNCTION | `bytea, bytea, bytea, text` | `bytea` |  |
-| `extensions` | `digest` | FUNCTION | `text, text` | `bytea` |  |
 | `extensions` | `digest` | FUNCTION | `bytea, text` | `bytea` |  |
+| `extensions` | `digest` | FUNCTION | `text, text` | `bytea` |  |
 | `extensions` | `encrypt` | FUNCTION | `bytea, bytea, text` | `bytea` |  |
 | `extensions` | `encrypt_iv` | FUNCTION | `bytea, bytea, bytea, text` | `bytea` |  |
 | `extensions` | `gen_random_bytes` | FUNCTION | `integer` | `bytea` |  |
@@ -1837,16 +2176,16 @@ _Table with encrypted `secret` column for storing sensitive information on disk.
 | `extensions` | `pg_stat_statements_reset` | FUNCTION | `userid oid DEFAULT 0, dbid oid DEFAULT 0, query...` | `timestamptz` |  |
 | `extensions` | `pgp_armor_headers` | FUNCTION | `text, OUT key text, OUT value text` | `record` |  |
 | `extensions` | `pgp_key_id` | FUNCTION | `bytea` | `text` |  |
-| `extensions` | `pgp_pub_decrypt` | FUNCTION | `bytea, bytea` | `text` |  |
 | `extensions` | `pgp_pub_decrypt` | FUNCTION | `bytea, bytea, text, text` | `text` |  |
 | `extensions` | `pgp_pub_decrypt` | FUNCTION | `bytea, bytea, text` | `text` |  |
-| `extensions` | `pgp_pub_decrypt_bytea` | FUNCTION | `bytea, bytea, text` | `bytea` |  |
-| `extensions` | `pgp_pub_decrypt_bytea` | FUNCTION | `bytea, bytea` | `bytea` |  |
+| `extensions` | `pgp_pub_decrypt` | FUNCTION | `bytea, bytea` | `text` |  |
 | `extensions` | `pgp_pub_decrypt_bytea` | FUNCTION | `bytea, bytea, text, text` | `bytea` |  |
-| `extensions` | `pgp_pub_encrypt` | FUNCTION | `text, bytea` | `bytea` |  |
+| `extensions` | `pgp_pub_decrypt_bytea` | FUNCTION | `bytea, bytea` | `bytea` |  |
+| `extensions` | `pgp_pub_decrypt_bytea` | FUNCTION | `bytea, bytea, text` | `bytea` |  |
 | `extensions` | `pgp_pub_encrypt` | FUNCTION | `text, bytea, text` | `bytea` |  |
-| `extensions` | `pgp_pub_encrypt_bytea` | FUNCTION | `bytea, bytea` | `bytea` |  |
+| `extensions` | `pgp_pub_encrypt` | FUNCTION | `text, bytea` | `bytea` |  |
 | `extensions` | `pgp_pub_encrypt_bytea` | FUNCTION | `bytea, bytea, text` | `bytea` |  |
+| `extensions` | `pgp_pub_encrypt_bytea` | FUNCTION | `bytea, bytea` | `bytea` |  |
 | `extensions` | `pgp_sym_decrypt` | FUNCTION | `bytea, text` | `text` |  |
 | `extensions` | `pgp_sym_decrypt` | FUNCTION | `bytea, text, text` | `text` |  |
 | `extensions` | `pgp_sym_decrypt_bytea` | FUNCTION | `bytea, text, text` | `bytea` |  |
@@ -1890,6 +2229,8 @@ _Table with encrypted `secret` column for storing sensitive information on disk.
 | `realtime` | `subscription_check_filters` | FUNCTION | `` | `trigger` |  |
 | `realtime` | `to_regrole` | FUNCTION | `role_name text` | `regrole` |  |
 | `realtime` | `topic` | FUNCTION | `` | `text` |  |
+| `storage` | `allow_any_operation` | FUNCTION | `expected_operations text[]` | `bool` |  |
+| `storage` | `allow_only_operation` | FUNCTION | `expected_operation text` | `bool` |  |
 | `storage` | `can_insert_object` | FUNCTION | `bucketid text, name text, owner uuid, metadata ...` | `void` |  |
 | `storage` | `enforce_bucket_name_length` | FUNCTION | `` | `trigger` |  |
 | `storage` | `extension` | FUNCTION | `name text` | `text` |  |
@@ -1919,17 +2260,32 @@ _Table with encrypted `secret` column for storing sensitive information on disk.
 erDiagram
     ENTITY_REVIEWS }o--|| ENTITIES : "entity_id"
     ENTITY_REVIEWS }o--|| USERS : "user_id"
+    EVENTS }o--|| USERS : "created_by"
+    EVENT_PARTICIPANTS }o--|| ENTITIES : "entity_id"
+    EVENT_PARTICIPANTS }o--|| EVENTS : "event_id"
+    EVENT_VOTES }o--|| ENTITIES : "entity_id"
+    EVENT_VOTES }o--|| EVENTS : "event_id"
+    EVENT_VOTES }o--|| USERS : "user_id"
     IDENTITIES }o--|| USERS : "user_id"
     MFA_FACTORS }o--|| USERS : "user_id"
     OAUTH_AUTHORIZATIONS }o--|| USERS : "user_id"
     OAUTH_CONSENTS }o--|| USERS : "user_id"
     ONE_TIME_TOKENS }o--|| USERS : "user_id"
+    POLLS }o--|| USERS : "created_by"
+    POLL_VOTES }o--|| POLLS : "poll_id"
+    POLL_VOTES }o--|| USERS : "user_id"
     REVIEWS }o--|| ENTITIES : "entity_id"
     REVIEWS }o--|| GEOGRAPHY_CL : "comuna_id_at_vote"
     REVIEWS }o--|| USERS : "user_id"
     SESSIONS }o--|| USERS : "user_id"
-    USERS }o--|| GEOGRAPHY_CL : "comuna_id"
     USERS }o--|| USERS : "id"
+    VERSUS }o--|| ENTITIES : "entity_a_id"
+    VERSUS }o--|| ENTITIES : "entity_b_id"
+    VERSUS }o--|| USERS : "created_by"
+    VERSUS_VOTES }o--|| USERS : "user_id"
+    VERSUS_VOTES }o--|| VERSUS : "versus_id"
+    WEBAUTHN_CHALLENGES }o--|| USERS : "user_id"
+    WEBAUTHN_CREDENTIALS }o--|| USERS : "user_id"
 ```
 
 ---
@@ -1938,13 +2294,13 @@ erDiagram
 
 | Métrica | Valor |
 |---------|-------|
-| Schemas | 113 |
-| Tablas/Vistas | 45 |
-| Columnas totales | 460 |
-| Constraints | 305 |
-| Índices | 137 |
-| Políticas RLS | 5 |
+| Schemas | 115 |
+| Tablas/Vistas | 54 |
+| Columnas totales | 543 |
+| Constraints | 382 |
+| Índices | 158 |
+| Políticas RLS | 10 |
 | Triggers | 15 |
-| Funciones | 101 |
+| Funciones | 103 |
 | Extensiones | 6 |
 | Enums | 13 |
