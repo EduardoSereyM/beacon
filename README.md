@@ -114,7 +114,7 @@ BEACON/
 │   ├── requirements.txt              # 12 dependencias de alta precisión
 │   └── .env                          # 🔒 NO VERSIONADO (llaves Supabase + JWT)
 │
-├── frontend/                         # La Interfaz de Estatus (Next.js 14)
+├── frontend/                         # La Interfaz de Estatus (Next.js 16)
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── globals.css           # Design System Dark Premium completo
@@ -172,14 +172,31 @@ npm run dev                   # http://localhost:3000
 
 ### Migraciones SQL
 Ejecutar en orden en el **SQL Editor** de Supabase (todas son idempotentes — `IF NOT EXISTS`):
-1. `supabase/migrations/001_initial_schema.sql`
-2. `supabase/migrations/002_entities_schema.sql`
-3. `backend/migrations/008_entity_reviews.sql` — tabla anti-brigada
-4. `backend/migrations/009_entities_reputation_columns.sql` — reputation_score + total_reviews
-5. `backend/migrations/010_evaluation_dimensions.sql` — dimensiones por categoría (seed incluido)
-6. `backend/migrations/011_fix_audit_logs_schema.sql` — audit_logs UUID + índices
-7. `backend/migrations/012_document_entities_real_schema.sql` — columnas reales de entities ✅ aplicada
-8. `backend/migrations/013_add_last_reviewed_at_to_entities.sql` — decay job ✅ aplicada
+
+**supabase/migrations/ (aplicar primero):**
+1. `supabase/migrations/001_initial_schema.sql` — users, audit_logs, config_params + RLS
+2. `supabase/migrations/002_entities_schema.sql` — entities + service_tags + pg_trgm
+3. `supabase/migrations/003_territorial_config.sql` — tabla de configuración territorial
+4. `supabase/migrations/004_add_country_to_users.sql` — campo country en users
+5. `supabase/migrations/005_add_party_to_entities.sql` — campo party en entities
+6. `supabase/migrations/006_audit_logs_select_policy.sql` — RLS SELECT en audit_logs
+7. `supabase/migrations/007_entities_rls_admin_policies.sql` — políticas RLS admin en entities
+8. `supabase/migrations/008_entities_category_check_constraint.sql` — constraint de categoría
+9. `supabase/migrations/009_audit_logs_insert_policy.sql` — RLS INSERT en audit_logs
+10. `supabase/migrations/010_polls_header_image_questions.sql` — tablas polls + poll_votes
+
+**backend/migrations/ (aplicar después):**
+11. `backend/migrations/008_entity_reviews.sql` — tabla anti-brigada
+12. `backend/migrations/009_entities_reputation_columns.sql` — reputation_score + total_reviews
+13. `backend/migrations/010_evaluation_dimensions.sql` — dimensiones por categoría (seed incluido)
+14. `backend/migrations/011_fix_audit_logs_schema.sql` — audit_logs UUID + índices
+15. `backend/migrations/012_document_entities_real_schema.sql` — columnas reales de entities ✅ aplicada
+16. `backend/migrations/013_add_last_reviewed_at_to_entities.sql` — decay job ✅ aplicada
+17. `backend/migrations/014_rank_simplification.sql` — sistema 2 rangos: BASIC / VERIFIED ✅ aplicada
+18. `backend/migrations/015_fix_rank_constraint.sql` — constraint check para 2 rangos ✅ aplicada
+19. `backend/migrations/016_add_region_commune_columns.sql` — columnas region y commune en users ✅ aplicada
+20. `backend/migrations/017_add_gender_column.sql` — campo gender en users ✅ aplicada
+21. `backend/migrations/018_add_voter_rank_to_poll_votes.sql` — snapshot de rango en poll_votes ✅ aplicada
 
 ---
 
@@ -237,7 +254,7 @@ Este proyecto se rige por las **Technical Directives 2026 v1.0**:
   - [x] AsyncClient singleton + lifespan (PR-8, PR-10)
   - [x] Audit logger async en toda la capa admin (PR-4)
   - [x] Despliegue producción: `www.beaconchile.cl` (Render + Vercel)
-- [ ] **P3 — Versus**: `/versus` head-to-head con tabla `event_votes`
+- [x] **P3 — Versus**: `/versus` head-to-head — código implementado (`versus.py`, `versus_admin.py`)
 - [ ] **P4 — Filtros geográficos**: /politicos, /empresas, /periodistas con filtros propios
 - [ ] **P5 — Verificación RUT BRONZE→SILVER**: formulario en perfil
 - [ ] **P6 — Scrapers**: BCN, Cámara, Senado, Wikipedia (Playwright)

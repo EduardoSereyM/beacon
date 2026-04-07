@@ -94,4 +94,4 @@ No se considera “hecho” si falta alguno:
 > ⚠️ ARCHIVADO [YYYY-MM-DD]. [Razón]. Consultar [archivo de reemplazo].
 
 ### Auditoría periódica
-Cada 90 días ejecutar /audit-docs para validar que la documentación refleja el código real.
+Cada 4 días ejecutar /audit-docs para validar que la documentación refleja el código real.

@@ -198,7 +198,7 @@ Cadem y Criteria. Diferenciador clave: panel cerrado y opaco vs. plataforma abie
 - [x] **Endpoint de Votación Bayesiano** — `POST /api/v1/entities/{entity_id}/vote` (`votes.py`).
   - Fórmula: `score = (m·C + Σ_votos) / (m + n)` con m=30, C=3.0.
   - Actualiza `reputation_score` + `total_reviews` en Supabase atómicamente.
-  - Requiere JWT autenticado (mínimo BRONZE).
+  - Requiere JWT autenticado (mínimo BASIC).
 
 ### 4. Garantía Zero-Waste & Async Purity
 - [x] Inspección async en controladores de FastAPI y delegación I/O al Transaction Pooler.
@@ -322,7 +322,7 @@ A los 180 días: un 5.0 decae a 4.0. A los 360 días: a 3.5. Converge a 3.0 (neu
 - [x] Frontend: páginas `/app/events` con participantes y votación. **En desarrollo.**
 - [ ] Tests para events endpoints.
 
-### P5 — Verificación de Identidad RUT (BRONZE → SILVER)
+### P5 — Verificación de Identidad RUT (BASIC → VERIFIED)
 - [ ] `POST /api/v1/user/auth/verify-identity` — ascenso de rango tras validación RUT Módulo 11.
 - [ ] Frontend: flujo de upgrade en perfil de usuario.
 
@@ -389,7 +389,7 @@ A los 180 días: un 5.0 decae a 4.0. A los 360 días: a 3.5. Converge a 3.0 (neu
 
 ### Verificación de Identidad SMS (2FA)
 - [ ] Integración con proveedor de SMS para envío de códigos OTP
-- [ ] Flujo de ascenso: BRONZE → SILVER requiere verificación SMS
+- [ ] Flujo de ascenso: BASIC → VERIFIED requiere verificación SMS
 - [ ] Rate limiting anti-abuso (máx. 3 intentos por hora)
 - [ ] `IDENTITY_SMS_VERIFIED` en audit_logs al completar verificación
 
@@ -471,6 +471,9 @@ A los 180 días: un 5.0 decae a 4.0. A los 360 días: a 3.5. Converge a 3.0 (neu
 | 013 | `013_add_last_reviewed_at_to_entities.sql` | 2026-03-10 | `last_reviewed_at` para el job de decay | ✅ Aplicada |
 | 014 | `014_rank_simplification.sql` | 2026-03-12 | Sistema 2 rangos: BASIC / VERIFIED | ✅ Aplicada |
 | 015 | `015_fix_rank_constraint.sql` | 2026-03-12 | Constraint check para los 2 rangos | ✅ Aplicada |
+| 016 | `016_add_region_commune_columns.sql` | 2026-03-12 | Columnas region y commune en users | ✅ Aplicada |
+| 017 | `017_add_gender_column.sql` | 2026-03-12 | Campo gender en users | ✅ Aplicada |
+| 018 | `018_add_voter_rank_to_poll_votes.sql` | 2026-03-12 | Snapshot de rango del votante en poll_votes | ✅ Aplicada |
 
 **Ver esquema completo en docs/esquema_bbdd.md**
 

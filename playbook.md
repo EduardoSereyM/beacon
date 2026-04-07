@@ -756,7 +756,7 @@ broadcast_to_entity(entity_id, data)
 Seguridad
 WebSocket solo lectura: cualquier dato enviado por el cliente se ignora
 Votos solo por REST: validados por los "amigos bits" antes de tocar la BBDD
-RLS por rango: BRONZE no puede insertar entidades, DELETE prohibido
+RLS por rango: solo VERIFIED puede insertar entidades, DELETE prohibido
 Trigger forense: cada entidad creada queda registrada en audit_logs con IP
 Commits
 275ea73 — Frontend core (navbar, hero, EntityCard)
