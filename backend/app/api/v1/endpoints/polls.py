@@ -39,8 +39,9 @@ class UserQuestionIn(BaseModel):
     options: Optional[List[str]] = None
     scale_points: Optional[int] = None  # 2–10
     allow_multiple: bool = False     # True = checkboxes, False = radio (solo multiple_choice)
-    scale_min_label: Optional[str] = None  # ej: "Muy confusa"
-    scale_max_label: Optional[str] = None  # ej: "Muy clara"
+    scale_min_label: Optional[str] = None  # ej: "Muy confusa" (legado, usar scale_labels)
+    scale_max_label: Optional[str] = None  # ej: "Muy clara"   (legado, usar scale_labels)
+    scale_labels: Optional[List[str]] = None  # etiqueta para cada punto (índice 0 = punto 1)
 
 
 VALID_CATEGORIES = {"general", "politica", "economia", "salud", "educacion", "espectaculos", "deporte", "cultura"}
@@ -69,7 +70,12 @@ def _is_open(p: dict) -> bool:
 def _aggregate(poll: dict, votes: list) -> list:
     """
     Agrega votos en resultados para un subconjunto (todos o solo verificados).
-    Soporta multiple_choice (con selección múltiple "||") y scale.
+    Soporta multiple_choice, scale y ranking.
+
+    Convención de posiciones (RANKING):
+      Todas las posiciones en los outputs de API son 1-based (1 = primer lugar).
+      Borda internamente: option en posición p (1-based) recibe (n - p) puntos,
+      donde n = número de opciones. Posición 1 → n-1 pts, posición n → 0 pts.
     """
     total = len(votes)
     poll_type = poll.get("poll_type", "multiple_choice")
@@ -86,15 +92,50 @@ def _aggregate(poll: dict, votes: list) -> list:
             {"option": opt, "count": cnt, "pct": round(cnt / total * 100, 1) if total else 0}
             for opt, cnt in counts.items()
         ]
-    else:  # scale
-        values = []
+
+    if poll_type == "ranking":
+        options = poll.get("options") or []
+        n = len(options)
+        borda:      dict = {opt: 0   for opt in options}
+        pos_sum:    dict = {opt: 0.0 for opt in options}
+        pos_count:  dict = {opt: 0   for opt in options}
+        first_place: dict = {opt: 0  for opt in options}
+
         for v in votes:
-            try:
-                values.append(float(v["option_value"]))
-            except (ValueError, TypeError):
-                pass
-        avg = round(sum(values) / len(values), 2) if values else 0
-        return [{"average": avg, "count": len(values)}]
+            ranked = [s.strip() for s in v.get("option_value", "").split("||") if s.strip()]
+            for pos_1based, opt in enumerate(ranked, start=1):  # pos_1based: 1 = primer lugar
+                if opt in borda:
+                    borda[opt]     += n - pos_1based          # Borda: n-p (1-based)
+                    pos_sum[opt]   += pos_1based
+                    pos_count[opt] += 1
+                    if pos_1based == 1:
+                        first_place[opt] += 1
+
+        result = []
+        for opt in options:
+            cnt  = pos_count[opt]
+            avg_pos = round(pos_sum[opt] / cnt, 2) if cnt else None
+            fp_pct  = round(first_place[opt] / total * 100, 1) if total else 0
+            result.append({
+                "option":          opt,
+                "borda_score":     borda[opt],
+                "avg_position":    avg_pos,    # 1-based: 1.0 = siempre primero
+                "first_place_pct": fp_pct,
+                "count":           cnt,
+            })
+        # Ordenar por Borda descendente (mayor puntaje = más preferida)
+        result.sort(key=lambda x: x["borda_score"], reverse=True)
+        return result
+
+    # scale
+    values = []
+    for v in votes:
+        try:
+            values.append(float(v["option_value"]))
+        except (ValueError, TypeError):
+            pass
+    avg = round(sum(values) / len(values), 2) if values else 0
+    return [{"average": avg, "count": len(values)}]
 
 
 def _compute_results(poll: dict, votes: list) -> dict:
@@ -162,6 +203,8 @@ async def list_polls(category: Optional[str] = None, search: Optional[str] = Non
         except Exception:
             enriched.append(_compute_results(p, []))
 
+    # Ordenar por total_votes desc — las más participadas primero
+    enriched.sort(key=lambda x: x.get("total_votes", 0), reverse=True)
     return {"items": enriched, "total": len(enriched)}
 
 
@@ -213,10 +256,10 @@ async def create_user_poll(
         raise HTTPException(status_code=400, detail="El título es obligatorio")
     if len(payload.questions) == 0:
         raise HTTPException(status_code=400, detail="Se requiere al menos 1 pregunta")
-    if len(payload.questions) > 2:
-        raise HTTPException(status_code=400, detail="Máximo 2 preguntas permitidas")
-    if not 1 <= payload.ends_in_days <= 14:
-        raise HTTPException(status_code=400, detail="La duración debe ser entre 1 y 14 días")
+    if len(payload.questions) > 4:
+        raise HTTPException(status_code=400, detail="Máximo 4 preguntas permitidas")
+    if not 1 <= payload.ends_in_days <= 30:
+        raise HTTPException(status_code=400, detail="La duración debe ser entre 1 y 30 días")
     if payload.category not in VALID_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Categoría inválida: {payload.category}")
 
@@ -234,15 +277,28 @@ async def create_user_poll(
             sp = q.scale_points or 5
             if not 2 <= sp <= 10:
                 raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: escala debe ser 2–10 puntos")
-            questions_clean.append({"text": q.text.strip(), "type": "scale", "scale_min": 1, "scale_max": sp, "scale_min_label": q.scale_min_label or None, "scale_max_label": q.scale_max_label or None, "order_index": i})
+            # Normalizar etiquetas: si vienen scale_labels úsalas; si no, construir desde min/max legados
+            labels: Optional[List[str]] = None
+            if q.scale_labels and len(q.scale_labels) == sp:
+                labels = [lbl.strip() for lbl in q.scale_labels]
+            elif q.scale_min_label or q.scale_max_label:
+                labels = [q.scale_min_label.strip() if q.scale_min_label else ""] + [""] * (sp - 2) + [q.scale_max_label.strip() if q.scale_max_label else ""]
+            questions_clean.append({"text": q.text.strip(), "type": "scale", "scale_min": 1, "scale_max": sp, "scale_labels": labels, "order_index": i})
+        elif q.type == "ranking":
+            opts = [o.strip() for o in (q.options or []) if o.strip()]
+            if len(opts) < 3:
+                raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: ranking requiere mínimo 3 opciones")
+            if len(opts) > 6:
+                raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: ranking permite máximo 6 opciones")
+            questions_clean.append({"text": q.text.strip(), "type": "ranking", "options": opts, "order_index": i})
         else:
-            raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: tipo inválido (multiple_choice | scale)")
+            raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: tipo inválido (multiple_choice | scale | ranking)")
 
     now = datetime.now(timezone.utc)
     # Determinar poll_type y options desde la primera pregunta (retrocompatibilidad)
     first_q = questions_clean[0]
-    if first_q["type"] == "multiple_choice":
-        poll_type = "multiple_choice"
+    if first_q["type"] in ("multiple_choice", "ranking"):
+        poll_type = first_q["type"]
         options = first_q["options"]
         scale_min, scale_max = 1, 5
     else:
@@ -395,6 +451,15 @@ async def vote_poll(
         options = poll.get("options") or []
         if payload.option_value not in options:
             raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones: {options}")
+    elif poll["poll_type"] == "ranking":
+        # Ranking completo obligatorio: todas las opciones exactamente una vez
+        options = poll.get("options") or []
+        submitted = [s.strip() for s in payload.option_value.split("||") if s.strip()]
+        if sorted(submitted) != sorted(options):
+            raise HTTPException(
+                status_code=400,
+                detail="Ranking incompleto: debes ordenar todas las opciones exactamente una vez"
+            )
     else:  # scale
         try:
             val = float(payload.option_value)
@@ -476,3 +541,226 @@ async def vote_poll(
 
     logger.info(f"Poll voto | poll={poll_id} | user={user_id or 'anon'} | value={payload.option_value}")
     return {"success": True, "option_value": payload.option_value}
+
+
+# ─── Cross-tabs ────────────────────────────────────────────────────────────────
+
+MIN_CROSSTAB_N = 5  # Grupos con menos de N respuestas se suprimen (privacidad)
+
+VALID_DIMENSIONS = {"age", "region", "commune", "country"}
+
+AGE_BINS = [
+    (18, 29,  "18-29"),
+    (30, 44,  "30-44"),
+    (45, 59,  "45-59"),
+    (60, 999, "60+"),
+]
+
+
+def _age_group(birth_year: Optional[int], reference_year: int) -> Optional[str]:
+    if not birth_year:
+        return None
+    age = reference_year - birth_year
+    for lo, hi, label in AGE_BINS:
+        if lo <= age <= hi:
+            return label
+    return None
+
+
+def _crosstab_aggregate(votes_with_demo: list, dimension_values: list, options_or_scale: dict) -> list:
+    """
+    Agrupa votos por valor de dimensión demográfica y agrega resultados.
+    Suprime grupos con n < MIN_CROSSTAB_N.
+    Retorna lista de grupos ordenada por n desc.
+    """
+    from collections import defaultdict
+
+    groups: dict = defaultdict(list)
+    for item in votes_with_demo:
+        grp = item.get("_dim")
+        if grp:
+            groups[grp].append(item["option_value"])
+
+    poll_type = options_or_scale.get("poll_type", "multiple_choice")
+    poll_options = options_or_scale.get("options") or []
+
+    results = []
+    suppressed = 0
+
+    for group, values in groups.items():
+        n = len(values)
+        if n < MIN_CROSSTAB_N:
+            suppressed += 1
+            continue
+
+        if poll_type == "multiple_choice":
+            counts = {opt: 0 for opt in poll_options}
+            for v in values:
+                for sel in (s.strip() for s in v.split("||") if s.strip()):
+                    if sel in counts:
+                        counts[sel] += 1
+            breakdown = [
+                {"option": opt, "count": cnt, "pct": round(cnt / n * 100, 1)}
+                for opt, cnt in counts.items()
+            ]
+
+        elif poll_type == "ranking":
+            # Posiciones 1-based. avg_position: 1.0 = siempre primero.
+            pos_sum:    dict = {opt: 0.0 for opt in poll_options}
+            pos_count:  dict = {opt: 0   for opt in poll_options}
+            first_place: dict = {opt: 0  for opt in poll_options}
+            for v in values:
+                ranked = [s.strip() for s in v.split("||") if s.strip()]
+                for pos_1based, opt in enumerate(ranked, start=1):
+                    if opt in pos_sum:
+                        pos_sum[opt]    += pos_1based
+                        pos_count[opt]  += 1
+                        if pos_1based == 1:
+                            first_place[opt] += 1
+            breakdown = [
+                {
+                    "option":          opt,
+                    "avg_position":    round(pos_sum[opt] / pos_count[opt], 2) if pos_count[opt] else None,
+                    "first_place_pct": round(first_place[opt] / n * 100, 1),
+                }
+                for opt in poll_options
+            ]
+            breakdown.sort(key=lambda x: (x["avg_position"] or 999))
+            results.append({"group": group, "n": n, "breakdown": breakdown})
+            continue
+
+        else:  # scale — distribución completa por punto + promedio
+            scale_min = options_or_scale.get("scale_min", 1)
+            scale_max = options_or_scale.get("scale_max", 5)
+            point_counts: dict = {}
+            nums = []
+            for v in values:
+                try:
+                    pt = float(v)
+                    nums.append(pt)
+                    key = str(int(pt))
+                    point_counts[key] = point_counts.get(key, 0) + 1
+                except (ValueError, TypeError):
+                    pass
+            avg = round(sum(nums) / len(nums), 2) if nums else 0
+            breakdown = [
+                {
+                    "option": str(pt),
+                    "count": point_counts.get(str(pt), 0),
+                    "pct": round(point_counts.get(str(pt), 0) / n * 100, 1),
+                }
+                for pt in range(scale_min, scale_max + 1)
+            ]
+            results.append({"group": group, "n": n, "breakdown": breakdown, "average": avg})
+            continue
+
+        results.append({"group": group, "n": n, "breakdown": breakdown})
+
+    results.sort(key=lambda x: x["n"], reverse=True)
+    return results, suppressed
+
+
+@router.get("/polls/{poll_id}/crosstabs", summary="Cross-tabs demográficos de una encuesta")
+async def get_poll_crosstabs(
+    poll_id: str,
+    dimension: str = "region",
+    question_index: int = 0,
+):
+    """
+    Devuelve resultados desagregados por dimensión demográfica.
+
+    - dimension: age | region | commune | country (default: region)
+    - question_index: índice de la pregunta en encuestas multi-pregunta (default: 0)
+
+    Solo incluye votos de ciudadanos VERIFIED (datos demográficos confiables).
+    Suprime grupos con menos de MIN_CROSSTAB_N=5 respuestas para evitar de-anonimización.
+    """
+    if dimension not in VALID_DIMENSIONS:
+        raise HTTPException(status_code=400, detail=f"dimension inválida. Opciones: {', '.join(sorted(VALID_DIMENSIONS))}")
+
+    supabase = get_async_supabase_client()
+
+    # 1. Verificar que la encuesta existe
+    try:
+        poll_res = await supabase.table("polls").select("id, poll_type, options, questions").eq("id", poll_id).single().execute()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Encuesta no encontrada")
+    poll = poll_res.data
+
+    # Resolver tipo, opciones y rango de escala para question_index
+    questions = poll.get("questions") or []
+    if questions and question_index < len(questions):
+        q = questions[question_index]
+        q_type    = q.get("type", poll["poll_type"])
+        q_options = q.get("options") or poll.get("options") or []
+        q_scale_min = int(q.get("scale_min", 1))
+        q_scale_max = int(q.get("scale_max", 5))
+    else:
+        q_type      = poll["poll_type"]
+        q_options   = poll.get("options") or []
+        q_scale_min = int(poll.get("scale_min", 1))
+        q_scale_max = int(poll.get("scale_max", 5))
+    poll_meta = {"poll_type": q_type, "options": q_options, "scale_min": q_scale_min, "scale_max": q_scale_max}
+
+    # 2. Votos VERIFIED con user_id
+    try:
+        votes_res = await (
+            supabase.table("poll_votes")
+            .select("user_id, option_value")
+            .eq("poll_id", poll_id)
+            .eq("voter_rank", "VERIFIED")
+            .not_.is_("user_id", "null")
+            .execute()
+        )
+    except Exception as e:
+        logger.error(f"Error leyendo votos para crosstabs poll={poll_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al leer votos")
+
+    votes = votes_res.data or []
+    if not votes:
+        return {"poll_id": poll_id, "dimension": dimension, "total_verified_votes": 0, "suppressed_groups": 0, "results": []}
+
+    # 3. Demografía de los votantes
+    user_ids = list({v["user_id"] for v in votes})
+    demo_field = "birth_year" if dimension == "age" else dimension
+    try:
+        users_res = await (
+            supabase.table("users")
+            .select(f"id, {demo_field}")
+            .in_("id", user_ids)
+            .execute()
+        )
+    except Exception as e:
+        logger.error(f"Error leyendo demografía users para crosstabs: {e}")
+        raise HTTPException(status_code=500, detail="Error al leer datos demográficos")
+
+    from datetime import datetime as _dt
+    current_year = _dt.now().year
+    user_demo: dict = {}
+    for u in (users_res.data or []):
+        if dimension == "age":
+            user_demo[u["id"]] = _age_group(u.get("birth_year"), current_year)
+        else:
+            user_demo[u["id"]] = u.get(dimension)
+
+    # 4. Enriquecer votos con dimensión
+    enriched = []
+    for v in votes:
+        dim_val = user_demo.get(v["user_id"])
+        if dim_val:
+            enriched.append({"option_value": v["option_value"], "_dim": dim_val})
+
+    # 5. Agregar y aplicar filtro de privacidad
+    results, suppressed = _crosstab_aggregate(enriched, [], poll_meta)
+
+    logger.info(f"Crosstabs | poll={poll_id} | dim={dimension} | verified={len(votes)} | groups={len(results)} | suppressed={suppressed}")
+
+    return {
+        "poll_id":              poll_id,
+        "dimension":            dimension,
+        "question_index":       question_index,
+        "total_verified_votes": len(votes),
+        "suppressed_groups":    suppressed,
+        "min_group_size":       MIN_CROSSTAB_N,
+        "results":              results,
+    }

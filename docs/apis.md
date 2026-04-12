@@ -1106,33 +1106,52 @@ multiplier = integrity_score × 1.2
 
 Base path: `/api/v1/polls`
 
+> **Actualizado:** 2026-04-12. Refleja Fase 1–3: 4 preguntas, tipos multiple_choice/scale/ranking, duración 1–30 días, labels de escala, cross-tabs demográficos.
+
 ### GET `/` — Listar encuestas
 
 | Campo | Valor |
 |-------|-------|
 | **Auth** | No |
 | **Tablas DB** | `polls`, `poll_votes` |
-| **Estado** | ✅ Implementado (en desarrollo) |
+| **Estado** | ✅ Implementado |
 
-**Query params:** `category`, `search`, `is_active`, `limit`, `offset`
+**Query params:** `category` (string), `search` (string)
+
+**Ordenamiento:** por `total_votes` descendente (más votadas primero).
 
 **Response 200:**
 ```json
 {
-  "polls": [
+  "items": [
     {
       "id": "uuid",
       "title": "¿Cómo calificas la gestión del Presidente?",
-      "description": "Encuesta ciudadana sobre desempeño ejecutivo",
+      "description": "Contexto editorial visible al ciudadano",
       "poll_type": "scale",
+      "questions": [
+        {
+          "text": "¿Cómo evalúas la gestión?",
+          "type": "scale",
+          "scale_min": 1,
+          "scale_max": 7,
+          "scale_labels": ["Muy mal", "", "", "Regular", "", "", "Muy bien"],
+          "order_index": 0
+        }
+      ],
       "starts_at": "2026-04-07T00:00:00Z",
       "ends_at": "2026-04-14T23:59:59Z",
-      "is_active": true,
+      "is_open": true,
       "total_votes": 1523,
-      "category": "politica"
+      "verified_votes": 890,
+      "basic_votes": 633,
+      "results": [{"average": 3.8, "count": 1523}],
+      "results_verified": [{"average": 4.1, "count": 890}],
+      "category": "politica",
+      "requires_auth": true
     }
   ],
-  "total": 45
+  "total": 12
 }
 ```
 
@@ -1140,39 +1159,135 @@ Base path: `/api/v1/polls`
 
 | Campo | Valor |
 |-------|-------|
-| **Auth** | JWT (solo VERIFIED) |
-| **Tablas DB** | `polls`, `audit_logs` |
+| **Auth** | JWT (requiere rank VERIFIED) |
+| **Tablas DB** | `polls` |
 | **Estado** | ✅ Implementado |
+
+**Límites:** máx. 4 preguntas, duración 1–30 días.
 
 **Body (UserPollCreateIn):**
 ```json
 {
-  "title": "¿Qué prioridad debería tener la educación?",
-  "description": "Encuesta sobre políticas educacionales",
-  "poll_type": "multiple_choice",
+  "title": "¿Qué prioridad tiene para ti?",
+  "description": "Contexto editorial visible al ciudadano antes de responder",
   "category": "educacion",
-  "options": ["Inversión", "Calidad docente", "Infraestructura"],
-  "starts_at": "2026-04-08T00:00:00Z",
-  "ends_at": "2026-04-22T23:59:59Z",
-  "requires_auth": true
+  "ends_in_days": 14,
+  "questions": [
+    {
+      "text": "Ordena de mayor a menor prioridad",
+      "type": "ranking",
+      "options": ["Educación", "Salud", "Seguridad", "Economía"]
+    },
+    {
+      "text": "¿Cuán satisfecho estás con el sistema de salud?",
+      "type": "scale",
+      "scale_points": 7,
+      "scale_labels": ["Muy insatisfecho/a", "", "", "Neutro", "", "", "Muy satisfecho/a"]
+    },
+    {
+      "text": "¿Qué área necesita más inversión?",
+      "type": "multiple_choice",
+      "options": ["Infraestructura", "Capital humano", "Tecnología"],
+      "allow_multiple": false
+    }
+  ]
 }
 ```
 
-### POST `/{id}/vote` — Votar en encuesta
+**Tipos de pregunta:**
+
+| Tipo | Descripción | Campos requeridos | Límites |
+|------|-------------|-------------------|---------|
+| `multiple_choice` | Radio o checkboxes | `options` (array), `allow_multiple` | mín. 2 opciones |
+| `scale` | Escala numérica | `scale_points` (2–10), `scale_labels` (opcional, length == scale_points) | — |
+| `ranking` | Drag-and-drop ordenado | `options` (array) | mín. 3, máx. 6 opciones |
+
+### GET `/{id}` — Detalle + resultados
 
 | Campo | Valor |
 |-------|-------|
-| **Auth** | No (pero `anon_session_id` para anónimos) |
-| **Tablas DB** | `poll_votes`, `audit_logs` |
+| **Auth** | No (opcional para resultados verificados) |
+| **Tablas DB** | `polls`, `poll_votes` |
+| **Estado** | ✅ Implementado |
+
+Devuelve el poll con `results` (todos los votos) y `results_verified` (solo VERIFIED).
+
+**Resultados según tipo:**
+- `multiple_choice`: `[{option, count, pct}]` por opción
+- `scale`: `[{average, count}]`
+- `ranking`: `[{option, borda_score, avg_position, first_place_pct, count}]` — ordenado por Borda desc
+
+> **Convención ranking:** posiciones 1-based en toda la API. `avg_position: 1.0` = siempre en primer lugar.
+
+### GET `/{id}/crosstabs` — Análisis demográfico
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | No (recomendado solo para admins en UI) |
+| **Tablas DB** | `poll_votes`, `users` |
+| **Estado** | ✅ Implementado |
+
+**Query params:**
+- `dimension`: `region` (default) | `commune` | `age` | `country`
+- `question_index`: int (default `0`) — índice de pregunta en encuestas multi-pregunta
+
+**Solo votos VERIFIED** con `user_id` no nulo. Grupos con `n < 5` suprimidos (privacidad).
+
+**Response 200:**
+```json
+{
+  "poll_id": "uuid",
+  "dimension": "region",
+  "question_index": 0,
+  "total_verified_votes": 890,
+  "suppressed_groups": 2,
+  "min_group_size": 5,
+  "results": [
+    {
+      "group": "Metropolitana",
+      "n": 420,
+      "breakdown": [
+        {"option": "Educación", "avg_position": 1.4, "first_place_pct": 52.0},
+        {"option": "Salud",     "avg_position": 2.1, "first_place_pct": 28.0}
+      ]
+    }
+  ]
+}
+```
+
+**Breakdown según tipo de pregunta:**
+- `multiple_choice`: `{option, count, pct}`
+- `scale`: `{option (punto), count, pct}` + `average` en el grupo
+- `ranking`: `{option, avg_position, first_place_pct}` — ordenado por `avg_position` asc
+
+### POST `/{id}/vote` — Votar
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | JWT (o `anon_session_id` si `requires_auth=false`) |
+| **Tablas DB** | `poll_votes` |
 | **Estado** | ✅ Implementado |
 
 **Body (PollVotePayload):**
 ```json
 {
-  "option_value": "Inversión",
+  "option_value": "Educación||Salud||Seguridad||Economía",
   "anon_session_id": "uuid-del-navegador"
 }
 ```
+
+**Formato de `option_value` según tipo:**
+- `multiple_choice`: string simple (`"Sí"`) o múltiple (`"Sí||No sé"`)
+- `scale`: string numérico (`"5"`)
+- `ranking`: opciones separadas por `||` en orden de preferencia (`"Edu||Salud||Eco"`) — **ranking completo obligatorio**
+
+### GET `/my` — Encuestas donde el usuario ya participó
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | JWT requerido |
+| **Tablas DB** | `poll_votes`, `polls` |
+| **Estado** | ✅ Implementado |
 
 ---
 

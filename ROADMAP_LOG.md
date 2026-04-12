@@ -634,6 +634,12 @@ Donde:
 | UI Dark Premium | `frontend` | 2026-03-09 | Next.js 14, Tailwind 4, Server Components, ISR |
 | Home Page (Server Component) | `frontend` | 2026-03-09 | ISR 60s, cacheo en Vercel, zero Render cold start |
 | Reencuadre ciudadano (manifiesto v4) | `product` | 2026-04-06 | Copy, navegación simplificada (4 secciones), hero nuevo |
+| Encuestas — Fase 1 (infraestructura) | `encuestas` | 2026-04-12 | 4 preguntas máx, duración 1–30 días, escala 2–10 pts, labels por punto, contexto editorial, escala 6 sin punto neutral |
+| Encuestas — Fase 2 (cross-tabs) | `encuestas` | 2026-04-12 | Endpoint `GET /polls/{id}/crosstabs?dimension=age\|region\|commune\|country`, privacidad n<5, histograma completo en escala |
+| Encuestas — Fase 2.5 (distribución escala) | `encuestas` | 2026-04-12 | Distribución completa por punto en cross-tabs (no solo promedio) |
+| Encuestas — Fase 3 (ranking) | `encuestas` | 2026-04-12 | Tipo `ranking` con drag-and-drop, Borda + pos. promedio + frec. #1, cross-tabs de ranking por grupo |
+| Encuestas — ordenamiento por votos | `encuestas` | 2026-04-12 | Lista `/polls` ordenada por `total_votes` desc |
+| CreatePollButton desbloqueado para VERIFIED | `frontend` | 2026-04-12 | Ciudadanos VERIFIED pueden crear encuestas desde la UI |
 
 #### 🚧 En Desarrollo
 
@@ -663,7 +669,7 @@ Donde:
 
 Este documento ha sido chequeado y aprobado bajo los estándares de las **Technical Directives 2026**.
 
-Última actualización: `2026-04-07T00:00:00-03:00`
+Última actualización: `2026-04-12T00:00:00-03:00`
 Autor: Beacon Protocol — Motor de Integridad Digital
 Commits de referencia:
 - `223bafd` — Home Server Component + ISR + CORS fix producción

@@ -7,6 +7,24 @@
 "use client";
 
 import { use, useState, useEffect, useCallback } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import Image from "next/image";
 import QRCode from "react-qr-code";
@@ -29,13 +47,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 interface QuestionDef {
   id: string;
   text: string;
-  type: "multiple_choice" | "scale";
+  type: "multiple_choice" | "scale" | "ranking";
   allow_multiple?: boolean;   // true = checkboxes, false/undefined = radio
   options: string[] | null;
   scale_min?: number;
   scale_max?: number;
-  scale_min_label?: string;   // ej: "Muy confusa"
-  scale_max_label?: string;   // ej: "Muy clara"
+  scale_min_label?: string;
+  scale_max_label?: string;
   order_index?: number;
 }
 
@@ -44,6 +62,38 @@ interface PollResult {
   count?: number;
   pct?: number;
   average?: number;
+  // ranking fields
+  borda_score?: number;
+  avg_position?: number;
+  first_place_pct?: number;
+}
+
+// ─── Cross-tabs ────────────────────────────────────────────────────────────────
+
+type CrossTabDimension = "region" | "commune" | "age" | "country";
+
+interface CrossTabBreakdown {
+  option?: string;
+  count: number;
+  pct?: number;
+  average?: number;
+}
+
+interface CrossTabGroup {
+  group: string;
+  n: number;
+  breakdown: CrossTabBreakdown[];
+  average?: number;  // solo para preguntas de escala
+}
+
+interface CrossTabData {
+  poll_id: string;
+  dimension: CrossTabDimension;
+  question_index: number;
+  total_verified_votes: number;
+  suppressed_groups: number;
+  min_group_size: number;
+  results: CrossTabGroup[];
 }
 
 interface Poll {
@@ -320,6 +370,60 @@ function PollResults({
     );
   }
 
+  if (poll.poll_type === "ranking") {
+    // Mostrar posición promedio (columna principal) + frecuencia #1
+    const maxBorda = results[0]?.borda_score ?? 1;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 16, marginBottom: 4 }}>
+          <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", width: 52, textAlign: "right" }}>pos. prom.</span>
+          <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", width: 42, textAlign: "right" }}>#1 frec.</span>
+        </div>
+        {results.map((r, idx) => {
+          const barWidth = maxBorda > 0 ? Math.round(((r.borda_score ?? 0) / maxBorda) * 100) : 0;
+          return (
+            <div key={r.option} style={{
+              position: "relative", overflow: "hidden",
+              padding: "10px 12px", borderRadius: 12,
+              border: `1px solid ${idx === 0 ? "rgba(212,175,55,0.4)" : "rgba(255,255,255,0.07)"}`,
+              background: "rgba(255,255,255,0.02)",
+            }}>
+              <div style={{
+                position: "absolute", left: 0, top: 0, height: "100%",
+                width: `${barWidth}%`,
+                background: idx === 0 ? "rgba(212,175,55,0.1)" : "rgba(255,255,255,0.03)",
+                transition: "width 0.7s ease",
+              }} />
+              <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{
+                  width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 9, fontFamily: "monospace", fontWeight: 800,
+                  background: idx === 0 ? "rgba(212,175,55,0.2)" : "rgba(255,255,255,0.06)",
+                  color: idx === 0 ? "#D4AF37" : "rgba(255,255,255,0.4)",
+                }}>
+                  {idx + 1}
+                </span>
+                <span style={{ flex: 1, fontSize: 13, color: idx === 0 ? "#f5f5f5" : "rgba(255,255,255,0.75)", fontWeight: idx === 0 ? 700 : 400 }}>
+                  {r.option}
+                </span>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(0,229,255,0.7)", width: 52, textAlign: "right", flexShrink: 0 }}>
+                  {r.avg_position != null ? `${r.avg_position}°` : "–"}
+                </span>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", width: 42, textAlign: "right", flexShrink: 0 }}>
+                  {r.first_place_pct ?? 0}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 4 }}>
+          {totalVotes} {totalVotes === 1 ? "voto" : "votos"} · ordenado por Borda
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {results.map((r) => {
@@ -366,6 +470,87 @@ function PollResults({
   );
 }
 
+// ─── Ranking drag-and-drop ────────────────────────────────────────────────────
+
+function SortableItem({ id, position, label }: { id: string; position: number; label: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "10px 12px",
+        borderRadius: 10,
+        border: `1px solid ${isDragging ? "rgba(57,255,20,0.5)" : "rgba(255,255,255,0.1)"}`,
+        background: isDragging ? "rgba(57,255,20,0.08)" : "rgba(255,255,255,0.03)",
+        cursor: isDragging ? "grabbing" : "grab",
+        userSelect: "none",
+        touchAction: "none",
+        zIndex: isDragging ? 10 : 1,
+        boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,0.5)" : "none",
+        transition: transition ?? "box-shadow 0.15s",
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <span style={{
+        width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 10, fontFamily: "monospace", fontWeight: 800,
+        background: "rgba(57,255,20,0.12)",
+        border: "1px solid rgba(57,255,20,0.3)",
+        color: "#39FF14",
+      }}>
+        {position}
+      </span>
+      <span style={{ flex: 1, fontSize: 13, color: "#f5f5f5" }}>{label}</span>
+      <span style={{ fontSize: 14, color: "rgba(255,255,255,0.2)", flexShrink: 0 }}>⠿</span>
+    </div>
+  );
+}
+
+function RankingInput({ options, value, onChange }: {
+  options: string[];
+  value: string[];   // ordered list, same elements as options
+  onChange: (ordered: string[]) => void;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = value.indexOf(active.id as string);
+      const newIndex = value.indexOf(over.id as string);
+      onChange(arrayMove(value, oldIndex, newIndex));
+    }
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", marginBottom: 10, letterSpacing: "0.08em" }}>
+        ARRASTRA para ordenar · 1 = mayor prioridad
+      </p>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={value} strategy={verticalListSortingStrategy}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {value.map((opt, idx) => (
+              <SortableItem key={opt} id={opt} position={idx + 1} label={opt} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  );
+}
+
 // ─── Formulario multi-pregunta ────────────────────────────────────────────────
 
 function MultiQuestionForm({ questions, onSubmit, submitting }: {
@@ -373,12 +558,22 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
   onSubmit: (answers: Record<string, string>) => void;
   submitting: boolean;
 }) {
-  // answers: para radio → string, para multi-select → string[] (se join con "||" al enviar)
-  const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  // answers: radio → string | multi-select → string[] | ranking → string[] (ordenado)
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>(() => {
+    // Inicializar rankings con el orden original de opciones
+    const init: Record<string, string | string[]> = {};
+    for (const q of questions) {
+      if (q.type === "ranking" && q.options) {
+        init[q.id] = [...q.options];
+      }
+    }
+    return init;
+  });
   const [localError, setLocalError] = useState<string | null>(null);
   const sorted = [...questions].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
   const total = sorted.length;
   const answered = sorted.filter((q) => {
+    if (q.type === "ranking") return true;  // siempre tiene orden inicial
     const a = answers[q.id];
     return Array.isArray(a) ? a.length > 0 : !!a;
   }).length;
@@ -398,11 +593,11 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
     });
     if (missing) { setLocalError(`Responde: "${missing.text}"`); return; }
     setLocalError(null);
-    // Serializar multi-select como "opt1||opt2"
+    // Serializar: multi-select y ranking como "opt1||opt2||..."
     const serialized: Record<string, string> = {};
     for (const q of sorted) {
       const a = answers[q.id];
-      serialized[q.id] = Array.isArray(a) ? a.join("||") : (a as string);
+      serialized[q.id] = Array.isArray(a) ? a.join("||") : (a as string ?? "");
     }
     onSubmit(serialized);
   }
@@ -490,6 +685,14 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
                 </div>
               );
             })()}
+
+            {q.type === "ranking" && q.options && (
+              <RankingInput
+                options={q.options}
+                value={(answers[q.id] as string[]) ?? [...q.options]}
+                onChange={(ordered) => setAnswers((p) => ({ ...p, [q.id]: ordered }))}
+              />
+            )}
 
             {q.type === "scale" && (
               <div>
@@ -588,6 +791,243 @@ function SingleQuestionVote({ poll, onVote, voting }: { poll: Poll; onVote: (v: 
         style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 13, fontFamily: "monospace", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", border: "none", background: voting ? "rgba(57,255,20,0.3)" : "linear-gradient(135deg, #39FF14 0%, #00E5FF 100%)", color: "#0A0A0A", cursor: voting ? "wait" : "pointer", transition: "all 0.2s", boxShadow: !voting ? "0 4px 24px rgba(57,255,20,0.25)" : "none" }}>
         {voting ? "Enviando…" : `Votar ${scaleVal} →`}
       </button>
+    </div>
+  );
+}
+
+// ─── Cross-tabs Panel ─────────────────────────────────────────────────────────
+
+const DIM_LABELS: Record<CrossTabDimension, string> = {
+  region:  "Región",
+  commune: "Comuna",
+  age:     "Edad",
+  country: "País",
+};
+
+function CrossTabsPanel({ pollId, pollType }: { pollId: string; pollType: "multiple_choice" | "scale" | "ranking" }) {
+  const [dimension, setDimension]   = useState<CrossTabDimension>("region");
+  const [data, setData]             = useState<CrossTabData | null>(null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+
+  const fetchCrosstabs = useCallback(async (dim: CrossTabDimension) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/polls/${pollId}/crosstabs?dimension=${dim}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setData(await res.json());
+    } catch {
+      setError("Error al cargar cross-tabs");
+    } finally {
+      setLoading(false);
+    }
+  }, [pollId]);
+
+  useEffect(() => { fetchCrosstabs(dimension); }, [fetchCrosstabs, dimension]);
+
+  const dimTabStyle = (d: CrossTabDimension) => ({
+    padding: "4px 12px",
+    borderRadius: 20,
+    fontSize: 9,
+    fontFamily: "monospace" as const,
+    letterSpacing: "0.06em",
+    cursor: "pointer" as const,
+    transition: "all 0.15s",
+    border: `1px solid ${dimension === d ? "rgba(0,229,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+    background: dimension === d ? "rgba(0,229,255,0.1)" : "transparent",
+    color: dimension === d ? "#00E5FF" : "rgba(255,255,255,0.35)",
+  });
+
+  return (
+    <div style={{
+      borderRadius: 16,
+      padding: "18px 20px",
+      background: "rgba(0,229,255,0.02)",
+      border: "1px solid rgba(0,229,255,0.1)",
+      marginTop: 14,
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+            Análisis Demográfico
+          </p>
+          <p style={{ fontSize: 8, fontFamily: "monospace", color: "rgba(0,229,255,0.4)", marginTop: 2 }}>
+            Solo votos de ciudadanos VERIFIED
+          </p>
+        </div>
+        <span style={{
+          fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+          color: "#00E5FF", background: "rgba(0,229,255,0.08)",
+          border: "1px solid rgba(0,229,255,0.2)",
+          borderRadius: 20, padding: "2px 10px",
+        }}>
+          ADMIN
+        </span>
+      </div>
+
+      {/* Selector de dimensión */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+        {(Object.keys(DIM_LABELS) as CrossTabDimension[]).map((d) => (
+          <button key={d} onClick={() => setDimension(d)} style={dimTabStyle(d)}>
+            {DIM_LABELS[d]}
+          </button>
+        ))}
+      </div>
+
+      {/* Estados */}
+      {loading && (
+        <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", textAlign: "center", padding: "20px 0" }}>
+          Calculando cross-tabs…
+        </p>
+      )}
+      {!loading && error && (
+        <p style={{ fontSize: 10, fontFamily: "monospace", color: "#FF073A", textAlign: "center", padding: "12px 0" }}>
+          {error}
+        </p>
+      )}
+      {!loading && !error && data && (
+        <>
+          {/* Métricas resumen */}
+          <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
+              <span style={{ color: "#00E5FF" }}>{data.total_verified_votes}</span> votos VERIFIED
+            </span>
+            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
+              <span style={{ color: "#39FF14" }}>{data.results.length}</span> grupos mostrados
+            </span>
+            {data.suppressed_groups > 0 && (
+              <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
+                <span style={{ color: "rgba(255,7,58,0.7)" }}>{data.suppressed_groups}</span> suprimidos (n&lt;{data.min_group_size})
+              </span>
+            )}
+          </div>
+
+          {/* Sin datos */}
+          {data.results.length === 0 && (
+            <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", textAlign: "center", padding: "16px 0" }}>
+              Sin grupos con suficientes respuestas (mín. {data.min_group_size})
+            </p>
+          )}
+
+          {/* Grupos */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {data.results.map((group) => (
+              <div key={group.group} style={{
+                borderRadius: 10,
+                padding: "12px 14px",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}>
+                {/* Cabecera grupo */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#f5f5f5" }}>{group.group}</span>
+                  <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(0,229,255,0.6)", background: "rgba(0,229,255,0.06)", border: "1px solid rgba(0,229,255,0.15)", borderRadius: 20, padding: "2px 8px" }}>
+                    n={group.n}
+                  </span>
+                </div>
+
+                {/* Breakdown */}
+                {pollType === "ranking" ? (
+                  /* Ranking: posición promedio por opción (1-based, menor = más preferida) */
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {group.breakdown.map((b, bi) => (
+                      <div key={b.option} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{
+                          width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 9, fontFamily: "monospace", fontWeight: 800,
+                          background: bi === 0 ? "rgba(212,175,55,0.2)" : "rgba(255,255,255,0.05)",
+                          color: bi === 0 ? "#D4AF37" : "rgba(255,255,255,0.3)",
+                        }}>
+                          {bi + 1}
+                        </span>
+                        <span style={{ flex: 1, fontSize: 10, color: bi === 0 ? "#f5f5f5" : "rgba(255,255,255,0.6)" }}>
+                          {b.option}
+                        </span>
+                        <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(0,229,255,0.7)", flexShrink: 0 }}>
+                          {b.avg_position != null ? `pos. ${b.avg_position}` : "–"}
+                        </span>
+                        <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", width: 36, textAlign: "right", flexShrink: 0 }}>
+                          {b.first_place_pct ?? 0}% #1
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : pollType === "multiple_choice" ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {group.breakdown.map((b) => {
+                      const pct = b.pct ?? 0;
+                      return (
+                        <div key={b.option}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.6)" }}>{b.option}</span>
+                            <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)" }}>
+                              {pct}% <span style={{ color: "rgba(255,255,255,0.2)" }}>({b.count})</span>
+                            </span>
+                          </div>
+                          <div style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+                            <div style={{
+                              height: "100%",
+                              width: `${pct}%`,
+                              background: pct >= 50 ? "linear-gradient(90deg,#39FF14,#00E5FF)" : "rgba(0,229,255,0.5)",
+                              borderRadius: 2,
+                              transition: "width 0.6s ease",
+                            }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Escala: histograma por punto + promedio */
+                  <div>
+                    {/* Promedio destacado */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 10 }}>
+                      <span style={{ fontSize: 22, fontFamily: "monospace", fontWeight: 900, color: "#00E5FF" }}>
+                        {group.average ?? "–"}
+                      </span>
+                      <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
+                        promedio · {group.n} votos
+                      </span>
+                    </div>
+                    {/* Histograma por punto */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {group.breakdown.map((b) => {
+                        const pct = b.pct ?? 0;
+                        const maxPct = Math.max(...group.breakdown.map((x) => x.pct ?? 0), 1);
+                        const relWidth = Math.round((pct / maxPct) * 100);
+                        return (
+                          <div key={b.option} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", width: 16, textAlign: "right", flexShrink: 0 }}>
+                              {b.option}
+                            </span>
+                            <div style={{ flex: 1, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+                              <div style={{
+                                height: "100%",
+                                width: `${relWidth}%`,
+                                background: pct === Math.max(...group.breakdown.map((x) => x.pct ?? 0))
+                                  ? "linear-gradient(90deg,#00E5FF,#39FF14)"
+                                  : "rgba(0,229,255,0.45)",
+                                borderRadius: 3,
+                                transition: "width 0.5s ease",
+                              }} />
+                            </div>
+                            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", width: 34, textAlign: "right", flexShrink: 0 }}>
+                              {pct}%
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -995,7 +1435,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                       </p>
                     </div>
 
-                    {/* ── Card 2: Resultados Totales ── */}
+                    {/* ── Card 2: Resultados Totales ── (sin cambio de posición) */}
                     <div style={{
                       borderRadius: 16,
                       padding: "18px 20px",
@@ -1034,6 +1474,11 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                         )}
                       </p>
                     </div>
+
+                    {/* ── Card 3: Análisis Demográfico (solo admins) ── */}
+                    {isAdmin && poll.verified_votes > 0 && (
+                      <CrossTabsPanel pollId={poll.id} pollType={poll.poll_type} />
+                    )}
 
                   </div>
                 ) : (

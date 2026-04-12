@@ -12,6 +12,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuthStore } from "@/store";
 import usePermissions from "@/hooks/usePermissions";
+import CreatePollButton from "@/components/polls/CreatePollButton";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -315,7 +316,7 @@ function PollCard({ poll }: { poll: PollItem }) {
 
 export default function EncuestasPage() {
   const { token } = useAuthStore();
-  const { isVerified } = usePermissions();
+  const { isVerified, isAdmin } = usePermissions();
   const [items, setItems] = useState<PollItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -386,20 +387,8 @@ export default function EncuestasPage() {
                 🗂 Mis Encuestas
               </Link>
             )}
-            {isVerified && (
-              <button
-                onClick={() => setShowCreate(true)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  fontSize: 11, fontFamily: "monospace", color: "#39FF14",
-                  padding: "5px 14px", borderRadius: 20,
-                  border: "1px solid rgba(57,255,20,0.25)",
-                  background: "rgba(57,255,20,0.06)", cursor: "pointer",
-                }}
-              >
-                + Crear Encuesta
-              </button>
-            )}
+            {/* Disabled for non-admin: Show "Coming Soon" modal */}
+            <CreatePollButton isAdmin={isVerified || isAdmin} onCreateClick={() => setShowCreate(true)} />
           </div>
         </div>
 
@@ -505,8 +494,8 @@ export default function EncuestasPage() {
         )}
       </div>
 
-      {/* Modal crear encuesta */}
-      {showCreate && (
+      {/* Modal crear encuesta - DISABLED: Only admins can create */}
+      {showCreate && isVerified && (
         <CreatePollModal
           token={token!}
           onClose={() => setShowCreate(false)}
@@ -521,16 +510,23 @@ export default function EncuestasPage() {
 
 interface QuestionForm {
   text: string;
-  type: "multiple_choice" | "scale";
-  allow_multiple: boolean;   // true = checkboxes, false = radio
+  type: "multiple_choice" | "scale" | "ranking";
+  allow_multiple: boolean;   // true = checkboxes, false = radio (solo multiple_choice)
   options: string[];
   scale_points: number;
-  scale_min_label: string;
-  scale_max_label: string;
+  scale_labels: string[];    // etiqueta para cada punto (length == scale_points)
 }
 
 function emptyQuestion(): QuestionForm {
-  return { text: "", type: "multiple_choice", allow_multiple: false, options: ["", ""], scale_points: 5, scale_min_label: "", scale_max_label: "" };
+  return { text: "", type: "multiple_choice", allow_multiple: false, options: ["", ""], scale_points: 5, scale_labels: ["", "", "", "", ""] };
+}
+
+/** Redimensiona el array scale_labels al nuevo número de puntos preservando valores existentes */
+function resizeLabels(current: string[], newSize: number): string[] {
+  if (current.length === newSize) return current;
+  if (current.length < newSize) return [...current, ...Array(newSize - current.length).fill("")];
+  // Al reducir: preservar primero y último, descartar intermedios
+  return [current[0], ...Array(newSize - 2).fill(""), current[current.length - 1]];
 }
 
 function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: () => void }) {
@@ -563,6 +559,10 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
       if (q.type === "multiple_choice") {
         const valid = q.options.filter((o) => o.trim());
         if (valid.length < 2) { setError(`Pregunta ${i + 1}: mínimo 2 opciones`); return; }
+      } else if (q.type === "ranking") {
+        const valid = q.options.filter((o) => o.trim());
+        if (valid.length < 3) { setError(`Pregunta ${i + 1}: ranking requiere mínimo 3 opciones`); return; }
+        if (valid.length > 6) { setError(`Pregunta ${i + 1}: ranking permite máximo 6 opciones`); return; }
       }
     }
     setSaving(true);
@@ -577,10 +577,10 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
           text: q.text.trim(),
           type: q.type,
           ...(q.type === "multiple_choice" ? { options: q.options.filter((o) => o.trim()), allow_multiple: q.allow_multiple } : {}),
+          ...(q.type === "ranking" ? { options: q.options.filter((o) => o.trim()) } : {}),
           ...(q.type === "scale" ? {
-            scale_points:    q.scale_points,
-            scale_min_label: q.scale_min_label.trim() || undefined,
-            scale_max_label: q.scale_max_label.trim() || undefined,
+            scale_points:  q.scale_points,
+            scale_labels:  q.scale_labels.map((l) => l.trim()),
           } : {}),
         })),
       };
@@ -628,10 +628,15 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
             <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ej: ¿Apruebas la nueva ley X?" />
           </div>
 
-          {/* Descripción */}
+          {/* Contexto editorial */}
           <div>
-            <label style={labelStyle}>Descripción (opcional)</label>
-            <input style={inputStyle} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Contexto breve" />
+            <label style={labelStyle}>Contexto editorial (visible al ciudadano)</label>
+            <textarea
+              style={{ ...inputStyle, resize: "vertical", minHeight: 56 }}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="2-3 líneas neutrales que explican el tema antes de responder"
+            />
           </div>
 
           {/* Categoría + Duración */}
@@ -647,7 +652,7 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
             <div>
               <label style={labelStyle}>Duración (días)</label>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {[1, 3, 7, 14].map((d) => (
+                {[1, 3, 7, 14, 30].map((d) => (
                   <button
                     key={d}
                     type="button"
@@ -668,7 +673,7 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
 
           {/* Preguntas */}
           <div>
-            <label style={labelStyle}>Preguntas (máx. 2) *</label>
+            <label style={labelStyle}>Preguntas (máx. 4) *</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {questions.map((q, i) => (
                 <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 9, padding: "12px 14px" }}>
@@ -705,6 +710,21 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
                           </button>
                         );
                       })()}
+                      {/* ⇅ Ranking */}
+                      {(() => {
+                        const active = q.type === "ranking";
+                        return (
+                          <button key="ranking" type="button"
+                            onClick={() => updateQ(i, { type: "ranking", allow_multiple: false, options: q.options.length >= 3 ? q.options : ["", "", ""] })}
+                            style={{ padding: "2px 8px", borderRadius: 5, fontSize: 9, fontFamily: "monospace", cursor: "pointer",
+                              border: `1px solid ${active ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
+                              background: active ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.02)",
+                              color: active ? "#39FF14" : "rgba(255,255,255,0.35)",
+                            }}>
+                            ⇅ Ranking
+                          </button>
+                        );
+                      })()}
                       {/* 📊 Escala */}
                       {(() => {
                         const active = q.type === "scale";
@@ -729,6 +749,33 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
                     </div>
                   </div>
                   <input style={{ ...inputStyle, marginBottom: 8 }} value={q.text} onChange={(e) => updateQ(i, { text: e.target.value })} placeholder="Texto de la pregunta" />
+                  {q.type === "ranking" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(0,229,255,0.5)", marginBottom: 2 }}>
+                        Mín. 3 · Máx. 6 opciones — el ciudadano las ordenará por prioridad
+                      </p>
+                      {q.options.map((opt, oi) => (
+                        <div key={oi} style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                          <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(0,229,255,0.4)", width: 16, textAlign: "right", flexShrink: 0 }}>
+                            {oi + 1}.
+                          </span>
+                          <input style={{ ...inputStyle, flex: 1 }} value={opt}
+                            onChange={(e) => { const opts = [...q.options]; opts[oi] = e.target.value; updateQ(i, { options: opts }); }}
+                            placeholder={`Opción ${oi + 1}`} />
+                          {q.options.length > 3 && (
+                            <button type="button" onClick={() => updateQ(i, { options: q.options.filter((_, j) => j !== oi) })}
+                              style={{ padding: "0 8px", borderRadius: 5, background: "rgba(255,7,58,0.07)", color: "#FF073A", border: "1px solid rgba(255,7,58,0.15)", cursor: "pointer", fontSize: 11 }}>✕</button>
+                          )}
+                        </div>
+                      ))}
+                      {q.options.length < 6 && (
+                        <button type="button" onClick={() => updateQ(i, { options: [...q.options, ""] })}
+                          style={{ alignSelf: "flex-start", padding: "4px 10px", borderRadius: 5, fontSize: 10, fontFamily: "monospace", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }}>
+                          + Opción
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {q.type === "multiple_choice" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                       {q.options.map((opt, oi) => (
@@ -752,8 +799,9 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {/* Selector de puntos */}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {[2, 3, 4, 5, 7, 10].map((pts) => (
-                          <button key={pts} type="button" onClick={() => updateQ(i, { scale_points: pts })}
+                        {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((pts) => (
+                          <button key={pts} type="button"
+                            onClick={() => updateQ(i, { scale_points: pts, scale_labels: resizeLabels(q.scale_labels, pts) })}
                             style={{ width: 34, height: 34, borderRadius: 7, fontSize: 12, fontFamily: "monospace", fontWeight: 700, cursor: "pointer",
                               border: `1px solid ${q.scale_points === pts ? "#39FF14" : "rgba(255,255,255,0.1)"}`,
                               background: q.scale_points === pts ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.02)",
@@ -765,40 +813,43 @@ function CreatePollModal({ token, onClose, onCreated }: { token: string; onClose
                       </div>
                       <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", marginTop: -4 }}>
                         Escala de 1 a {q.scale_points} puntos
+                        {q.scale_points === 6 && <span style={{ color: "rgba(0,229,255,0.5)", marginLeft: 8 }}>— sin punto neutral (fuerza postura)</span>}
                       </p>
-                      {/* Etiquetas semánticas */}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <div>
-                          <label style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 4 }}>
-                            1 = etiqueta mínimo
-                          </label>
-                          <input
-                            style={{ ...inputStyle, fontSize: 11 }}
-                            value={q.scale_min_label}
-                            onChange={(e) => updateQ(i, { scale_min_label: e.target.value })}
-                            placeholder="ej: Muy confusa"
-                          />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 4 }}>
-                            {q.scale_points} = etiqueta máximo
-                          </label>
-                          <input
-                            style={{ ...inputStyle, fontSize: 11 }}
-                            value={q.scale_max_label}
-                            onChange={(e) => updateQ(i, { scale_max_label: e.target.value })}
-                            placeholder="ej: Muy clara"
-                          />
-                        </div>
+                      {/* Etiquetas semánticas — un campo por punto */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        <label style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                          Etiquetas por punto (opcional)
+                        </label>
+                        {Array.from({ length: q.scale_points }, (_, pi) => (
+                          <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(57,255,20,0.5)", width: 20, textAlign: "right", flexShrink: 0 }}>
+                              {pi + 1}
+                            </span>
+                            <input
+                              style={{ ...inputStyle, fontSize: 11 }}
+                              value={q.scale_labels[pi] ?? ""}
+                              onChange={(e) => {
+                                const next = [...q.scale_labels];
+                                next[pi] = e.target.value;
+                                updateQ(i, { scale_labels: next });
+                              }}
+                              placeholder={
+                                pi === 0 ? "ej: Muy insatisfecho/a" :
+                                pi === q.scale_points - 1 ? "ej: Muy satisfecho/a" :
+                                `Punto ${pi + 1}`
+                              }
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
                 </div>
               ))}
-              {questions.length < 2 && (
+              {questions.length < 4 && (
                 <button type="button" onClick={() => setQuestions((qs) => [...qs, emptyQuestion()])}
                   style={{ alignSelf: "flex-start", padding: "6px 14px", borderRadius: 7, fontSize: 11, fontFamily: "monospace", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }}>
-                  + Agregar pregunta ({questions.length}/2)
+                  + Agregar pregunta ({questions.length}/4)
                 </button>
               )}
             </div>
