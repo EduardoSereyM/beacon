@@ -106,7 +106,7 @@ interface Poll {
   source_url: string | null;    // fuente de origen
   tags: string[];
   header_image: string | null;
-  poll_type: "multiple_choice" | "scale";
+  poll_type: "multiple_choice" | "scale" | "ranking";
   options: string[] | null;
   scale_min: number;
   scale_max: number;

@@ -15,6 +15,63 @@
 
 ---
 
+## 🚀 Sprint 2026-04-12 — Polls como entidades propias (commit a403295)
+
+### Implementado y desplegado
+
+#### DB — Migración 011 (ejecutada en Supabase)
+- `slug` TEXT UNIQUE — URL canónica `/encuestas/{slug}`
+- `status` TEXT — ciclo `draft → active ⇄ paused → closed`
+- `is_featured` BOOLEAN — control manual del hero del home
+- `context` TEXT — texto contextual visible en la página pública
+- `source_url` + `tags[]` — metadatos para agentes de contenido
+- Índices: `polls_slug_unique_idx`, `polls_status_idx`, `polls_featured_status_idx`
+- Migración automática de registros existentes (2 polls → status `closed`)
+
+#### Backend — Nuevos endpoints
+| Endpoint | Descripción |
+|---|---|
+| `GET /polls/featured` | Lógica mixta: `is_featured=true` primero, fallback a más votada 24h |
+| `GET /polls/by-slug/{slug}` | Lookup por slug para páginas `/encuestas/[slug]` |
+| `GET /polls?status=&limit=` | Filtra por ciclo de vida (activas, cerradas, draft, pausadas) |
+| `POST /admin/polls` | Acepta slug, status, is_featured, context, source_url, tags; auto-genera slug |
+| `PATCH /admin/polls/{id}` | Actualiza todos los campos nuevos; sincroniza `is_active` con `status` |
+
+#### Frontend
+- `/encuestas/[slug]` — OG dinámico con votos en vivo (`4.821 votos · descripción`)
+- `EncuestaDetailClient` — fetch por slug (`/polls/by-slug/`), vote por UUID, share por slug
+- `PollsHeroSection` — consume `/polls/featured` (lógica mixta)
+- `PollCard`, `TrendingPollsSection`, `PollsByCategorySection`, `ClosedPollsSection` — usan `slug || id`
+- Sección **Contexto** en detalle: muestra `context`, `source_url` y `tags`
+- `PollCommentsSection` — UI completa con reacciones (👍 👎 🤔); backend de persistencia pendiente
+
+#### Brand
+- Nuevo logo `logo.png` + favicon actualizados en Navbar y AuthModal
+- Assets legacy eliminados (`LogoBeaconCian.png`, etc.)
+- `/entities` en modo "En Construcción" con CTA a encuestas
+
+#### Formato JSON canónico para agentes
+```json
+{
+  "slug": "aprobacion-presidente-abril-2026",
+  "question": "¿Aprueba la gestión del Presidente?",
+  "category": "politica",
+  "options": [{"label": "Apruebo", "value": "apruebo"}, ...],
+  "context": "Encuesta mensual...",
+  "source_url": "https://...",
+  "scheduled_at": "2026-04-14T10:00:00Z",
+  "closes_at": "2026-04-21T23:59:59Z",
+  "tags": ["gobierno", "aprobación"]
+}
+```
+
+### Pendiente (próxima iteración)
+- [ ] Backend de comentarios persistidos (`POST /api/v1/polls/{id}/comments`)
+- [ ] Admin UI para carga de encuestas JSON desde agentes
+- [ ] Cargar primeras encuestas reales de agentes de cowork
+
+---
+
 ## 🎯 Decisión Estratégica — 2026-04-12: Encuestas como Feature Principal
 
 ### Contexto
