@@ -31,6 +31,7 @@ import QRCode from "react-qr-code";
 import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 import usePermissions from "@/hooks/usePermissions";
+import PollCommentsSection from "@/components/polls/PollCommentsSection";
 
 // ─── Logos de redes sociales ──────────────────────────────────────────────────
 import logoWhatsapp from "@/asset/logos/whatsapp.png";
@@ -98,8 +99,12 @@ interface CrossTabData {
 
 interface Poll {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
+  context: string | null;       // texto contextual visible en la página
+  source_url: string | null;    // fuente de origen
+  tags: string[];
   header_image: string | null;
   poll_type: "multiple_choice" | "scale";
   options: string[] | null;
@@ -110,6 +115,8 @@ interface Poll {
   starts_at: string;
   ends_at: string;
   is_open: boolean;
+  status: "draft" | "active" | "paused" | "closed";
+  is_featured: boolean;
   total_votes: number;
   verified_votes: number;
   basic_votes: number;
@@ -138,7 +145,7 @@ function getOrCreateAnonSessionId(): string {
 }
 
 interface EncuestaPageProps {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>;   // Next.js captura el segmento como "id" (folder [id])
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1035,7 +1042,7 @@ function CrossTabsPanel({ pollId, pollType }: { pollId: string; pollType: "multi
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
-  const { id } = use(params);
+  const { id: slug } = use(params);   // el segmento es el slug: /encuestas/{slug}
   const { token } = useAuthStore();
   const { isVerified, isAdmin, isBasic } = usePermissions();
 
@@ -1050,7 +1057,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
   const [accessError, setAccessError] = useState<string | null>(null);
   const [verifyingCode, setVerifyingCode] = useState(false);
 
-  useBeaconPulse(`poll:${id}`, (data) => {
+  useBeaconPulse(`poll:${slug}`, (data) => {
     if (data.type === "POLL_PULSE" && voted) {
       setPoll((p) => p ? {
         ...p,
@@ -1067,16 +1074,17 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
     setLoading(true);
     setNotFound(false);
     try {
+      // Usar endpoint by-slug — URL canónica: /encuestas/{slug}
       const url = code
-        ? `${API_URL}/api/v1/polls/${id}?access_code=${encodeURIComponent(code)}`
-        : `${API_URL}/api/v1/polls/${id}`;
+        ? `${API_URL}/api/v1/polls/by-slug/${slug}?access_code=${encodeURIComponent(code)}`
+        : `${API_URL}/api/v1/polls/by-slug/${slug}`;
       const res = await fetch(url);
       if (res.status === 404) { setNotFound(true); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setPoll(await res.json());
     } catch { setNotFound(true); }
     finally { setLoading(false); }
-  }, [id]);
+  }, [slug]);
 
   async function handleVerifyCode() {
     if (!accessCode.trim()) return;
@@ -1105,7 +1113,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
       const body: Record<string, string> = { option_value: optionValue };
       if (!requiresAuth) body["anon_session_id"] = getOrCreateAnonSessionId();
       if (poll?.is_private && accessCode) body["access_code"] = accessCode;
-      const res = await fetch(`${API_URL}/api/v1/polls/${id}/vote`, {
+      const res = await fetch(`${API_URL}/api/v1/polls/${poll!.id}/vote`, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
@@ -1191,8 +1199,8 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
   const hasMultiQ = (poll.questions?.length ?? 0) > 1;
   const pageUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/encuestas/${id}`
-    : `https://www.beaconchile.cl/encuestas/${id}`;
+    ? `${window.location.origin}/encuestas/${poll?.slug || slug}`
+    : `https://www.beaconchile.cl/encuestas/${poll?.slug || slug}`;
 
   return (
     <div className="min-h-screen pt-20 pb-16 px-4 sm:px-6">
@@ -1205,7 +1213,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
           </Link>
           <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 11 }}>/</span>
           <span style={{ fontSize: 10, fontFamily: "monospace", color: "#39FF14", letterSpacing: "0.08em" }}>
-            POLL:{id.slice(0, 8).toUpperCase()}
+            {(poll?.slug || slug).toUpperCase()}
           </span>
         </div>
 
@@ -1512,6 +1520,68 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
             </p>
           </div>
         </div>
+
+        {/* ══════════════════════════════════════════
+         *  CONTEXTO — información de la encuesta
+         * ══════════════════════════════════════════ */}
+        {(poll.context || poll.source_url || (poll.tags && poll.tags.length > 0)) && (
+          <div
+            style={{
+              marginTop: 16,
+              borderRadius: 16,
+              border: "1px solid rgba(0,229,255,0.1)",
+              background: "rgba(0,229,255,0.03)",
+              padding: "20px 24px",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <span style={{ fontSize: 13 }}>🔍</span>
+              <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", color: "rgba(0,229,255,0.6)", textTransform: "uppercase" }}>
+                Contexto
+              </span>
+            </div>
+
+            {/* Texto de contexto */}
+            {poll.context && (
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.7, marginBottom: poll.source_url || poll.tags?.length ? 14 : 0 }}>
+                {poll.context}
+              </p>
+            )}
+
+            {/* Fuente */}
+            {poll.source_url && (
+              <a
+                href={poll.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, fontFamily: "monospace", color: "#00E5FF", textDecoration: "none", marginBottom: poll.tags?.length ? 12 : 0 }}
+              >
+                🔗 Ver fuente →
+              </a>
+            )}
+
+            {/* Tags */}
+            {poll.tags && poll.tags.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                {poll.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    style={{ fontSize: 9, fontFamily: "monospace", padding: "2px 10px", borderRadius: 20, background: "rgba(0,229,255,0.07)", border: "1px solid rgba(0,229,255,0.15)", color: "rgba(0,229,255,0.5)" }}
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════
+         *  COMENTARIOS / REACCIONES CIUDADANAS
+         * ══════════════════════════════════════════ */}
+        <PollCommentsSection pollId={poll.id} pollSlug={poll.slug} isOpen={poll.is_open} />
+
       </div>
     </div>
   );

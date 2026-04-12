@@ -1,54 +1,107 @@
 /**
- * BEACON PROTOCOL — /entities (Buscador Maestro)
+ * BEACON PROTOCOL — /entities (En Construcción)
  * ================================================
- * Server Component Híbrido: SEO + hidratación server-side.
- * El fetch va al Backend API (Frontend → Backend → Supabase).
- * La anon key nunca se expone. El DNA Scanner permanece activo.
+ * El directorio de entidades está en desarrollo activo.
+ * Prioridad actual: Encuestas ciudadanas.
  *
- * ISR: revalida cada 60s — contenido fresco sin cold-start.
+ * Retomar en v2.0+ cuando el flujo de encuestas esté consolidado.
  */
 
 import type { Metadata } from "next";
-import EntitiesListPage from "@/components/shared/EntitiesListPage";
-
-export const revalidate = 60;
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Explorar Entidades — Beacon Protocol",
+  title: "Directorio de Entidades — Próximamente · Beacon",
   description:
-    "Evalúa políticos, empresas y personajes públicos con el Protocolo Beacon. Transparencia verificada por la ciudadanía.",
-  openGraph: {
-    title: "Explorar Entidades — Beacon Protocol",
-    description:
-      "Plataforma de integridad ciudadana. Vota con peso real según tu nivel de verificación.",
-    type: "website",
-  },
+    "El directorio de políticos, empresas y personajes públicos está en construcción. Mientras tanto, participa en nuestras encuestas ciudadanas.",
+  robots: { index: false, follow: false },
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-async function fetchInitialEntities(params: Record<string, string> = {}) {
-  try {
-    const query = new URLSearchParams({ limit: "24", offset: "0", ...params });
-    const res = await fetch(`${API_URL}/api/v1/entities?${query.toString()}`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return { entities: [], total: 0 };
-    return await res.json();
-  } catch {
-    return { entities: [], total: 0 };
-  }
-}
-
-export default async function EntitiesPage() {
-  // Pre-carga server-side: Google indexa las primeras 24 entidades en el HTML
-  const initialData = await fetchInitialEntities();
-
+export default function EntitiesPage() {
   return (
-    <EntitiesListPage
-      title="Explorar Entidades"
-      subtitle="Busca políticos, empresas, personajes públicos y eventos evaluados por el Protocolo Beacon."
-      initialData={initialData}
-    />
+    <div className="min-h-screen flex items-center justify-center px-6 py-24">
+      <div className="max-w-lg w-full text-center">
+
+        {/* Icono */}
+        <div className="flex items-center justify-center mb-6">
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+            style={{
+              background: "rgba(212,175,55,0.08)",
+              border: "1px solid rgba(212,175,55,0.2)",
+            }}
+          >
+            🏗️
+          </div>
+        </div>
+
+        {/* Badge */}
+        <div className="flex justify-center mb-4">
+          <span
+            className="text-[10px] font-mono uppercase tracking-[0.2em] px-3 py-1 rounded-full"
+            style={{
+              background: "rgba(212,175,55,0.08)",
+              border: "1px solid rgba(212,175,55,0.2)",
+              color: "#D4AF37",
+            }}
+          >
+            En Construcción
+          </span>
+        </div>
+
+        {/* Título */}
+        <h1
+          className="text-2xl sm:text-3xl font-bold uppercase tracking-wider mb-3"
+          style={{ color: "#D4AF37" }}
+        >
+          Directorio de Entidades
+        </h1>
+
+        <p className="text-sm text-foreground-muted leading-relaxed mb-8">
+          El módulo de evaluación de políticos, empresas y personajes públicos
+          está en desarrollo activo. Estamos consolidando primero el sistema
+          de encuestas ciudadanas para garantizar la mejor experiencia.
+        </p>
+
+        {/* Separador */}
+        <div
+          className="my-8 h-px"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, rgba(212,175,55,0.15), transparent)",
+          }}
+        />
+
+        {/* CTA encuestas */}
+        <p className="text-xs text-foreground-muted uppercase tracking-widest mb-4 font-mono">
+          Mientras tanto
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            href="/encuestas"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold uppercase tracking-wider transition-all hover:scale-105"
+            style={{
+              background: "rgba(0,229,255,0.08)",
+              border: "1px solid rgba(0,229,255,0.25)",
+              color: "#00E5FF",
+            }}
+          >
+            📊 Ver Encuestas →
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-mono uppercase tracking-wider transition-all hover:opacity-80"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.5)",
+            }}
+          >
+            ← Volver al inicio
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

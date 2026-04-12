@@ -15,7 +15,7 @@ import BasicUserBanner from "@/components/shared/BasicUserBanner";
 import usePermissions from "@/hooks/usePermissions";
 import Image from "next/image";
 import Link from "next/link";
-import logoDorado from "@/asset/brand/LogoBeaconCian.png";
+import logoDorado from "@/asset/brand/logo.png";
 
 export default function NavbarClient() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -90,7 +90,10 @@ export default function NavbarClient() {
                         {/* ─── Navigation Links (Desktop lg+) ─── */}
                         <div className="hidden lg:flex items-center gap-3 xl:gap-5">
                             <Link href="/encuestas" className="text-xs font-bold uppercase tracking-wider transition-colors px-2.5 py-1 rounded-lg" style={{ color: "#D4AF37", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)" }}>Encuestas</Link>
-                            <Link href="/entities" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Directorio</Link>
+                            <Link href="/entities" className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
+                                Directorio
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.2)", color: "#D4AF37" }}>🚧</span>
+                            </Link>
                             <Link href="/versus" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Versus</Link>
                             <Link href="/events" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Eventos</Link>
                         </div>
@@ -257,7 +260,10 @@ export default function NavbarClient() {
 
                     <div className="flex flex-col gap-6 text-center mb-auto">
                         <Link href="/encuestas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-widest" style={{ color: "#D4AF37" }}>Encuestas</Link>
-                        <Link href="/entities" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Directorio</Link>
+                        <Link href="/entities" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center gap-2 text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">
+                            Directorio
+                            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.2)", color: "#D4AF37" }}>🚧</span>
+                        </Link>
                         <Link href="/versus" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Versus</Link>
                         <Link href="/events" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Eventos</Link>
                     </div>

@@ -1,7 +1,7 @@
 /**
  * BEACON PROTOCOL — Type declarations for static image imports.
  * Allows TypeScript to understand PNG/JPG/SVG imports used in Next.js
- * (e.g. `import logo from "@/asset/brand/LogoBeaconCian.png"`).
+ * (e.g. `import logo from "@/asset/brand/logo.png"`).
  */
 
 declare module "*.png" {

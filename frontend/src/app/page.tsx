@@ -10,9 +10,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Users, ShieldCheck, BarChart3 } from "lucide-react";
-import EntityCard from "@/components/status/EntityCard";
 import HomeHeroClient from "@/components/home/HomeHeroClient";
-import PollsHomeSectionClient from "@/components/home/PollsHomeSectionClient";
+import PollsHeroSection from "@/components/polls/PollsHeroSection";
+import TrendingPollsSection from "@/components/polls/TrendingPollsSection";
+import PollsByCategorySection from "@/components/polls/PollsByCategorySection";
+import ClosedPollsSection from "@/components/polls/ClosedPollsSection";
 
 export const revalidate = 10;
 
@@ -67,120 +69,6 @@ const jsonLd = {
   },
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-interface BackendEntity {
-  id: string;
-  first_name: string;
-  last_name: string;
-  second_last_name?: string;
-  category: string;
-  position?: string;
-  region?: string;
-  district?: string;
-  bio?: string;
-  party?: string;
-  photo_path?: string;
-  official_links?: Record<string, unknown>;
-  reputation_score: number;
-  total_reviews: number;
-  is_verified: boolean;
-  integrity_index: number;
-  service_tags?: string[];
-}
-
-async function fetchSection(category: string, limit: number): Promise<BackendEntity[]> {
-  try {
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (category) params.set("category", category);
-    const res = await fetch(`${API_URL}/api/v1/entities?${params.toString()}`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.entities || [];
-  } catch {
-    return [];
-  }
-}
-
-// ─── Section Header ───
-function SectionHeader({
-  icon,
-  title,
-  count,
-  href,
-}: {
-  icon: string;
-  title: string;
-  count?: number;
-  href: string;
-}) {
-  return (
-    <div className="flex items-center justify-between mb-5">
-      <div className="flex items-center gap-3">
-        <div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: "#39FF14", boxShadow: "0 0 6px rgba(57,255,20,0.5)" }}
-        />
-        <span className="text-sm" aria-hidden>
-          {icon}
-        </span>
-        <h2 className="text-xs tracking-[0.18em] uppercase text-foreground-muted font-medium">
-          {title}
-        </h2>
-        {count !== undefined && (
-          <span className="text-[9px] font-mono text-foreground-muted">({count})</span>
-        )}
-      </div>
-      <Link
-        href={href}
-        className="text-[10px] uppercase tracking-wider font-mono transition-colors hover:opacity-80"
-        style={{ color: "#00E5FF" }}
-      >
-        Ver todos →
-      </Link>
-    </div>
-  );
-}
-
-// ─── Entity Grid ───
-function EntityGrid({
-  entities,
-  cols = 3,
-}: {
-  entities: BackendEntity[];
-  cols?: number;
-}) {
-  const gridClass =
-    cols === 5
-      ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"
-      : cols === 4
-        ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
-        : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5";
-
-  if (!entities.length) {
-    return (
-      <p className="text-[11px] text-foreground-muted font-mono py-6 text-center">
-        Sin datos disponibles
-      </p>
-    );
-  }
-
-  return (
-    <div className={gridClass}>
-      {entities.map((entity, idx) => (
-        <div
-          key={entity.id}
-          style={{ animation: `fadeInUp 0.4s ease-out ${idx * 50}ms both` }}
-        >
-          <EntityCard entity={entity} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ─── Divider ───
 function SectionDivider() {
   return (
@@ -195,15 +83,7 @@ function SectionDivider() {
 }
 
 // ─── Page ───
-export default async function Home() {
-  // Fetches paralelos en el servidor — Vercel cachea, Render dormido no afecta al usuario
-  const [politicos, empresas, periodistas, allEntities] = await Promise.all([
-    fetchSection("politico", 9),
-    fetchSection("empresario", 9),
-    fetchSection("periodista", 9),
-    fetchSection("", 200),
-  ]);
-
+export default function Home() {
   return (
     <div className="min-h-screen">
       {/* ─── JSON-LD ─── */}
@@ -280,9 +160,26 @@ export default async function Home() {
       <SectionDivider />
 
       {/* ═══════════════════════════════════════════
-       *  ENCUESTAS
+       *  🎯 POLLS ARE NOW PRIMARY FEATURE
        * ═══════════════════════════════════════════ */}
-      <PollsHomeSectionClient />
+
+      {/* HERO POLL */}
+      <PollsHeroSection />
+
+      <SectionDivider />
+
+      {/* TRENDING POLLS */}
+      <TrendingPollsSection />
+
+      <SectionDivider />
+
+      {/* POLLS BY CATEGORY */}
+      <PollsByCategorySection />
+
+      <SectionDivider />
+
+      {/* CLOSED POLLS / RESULTS */}
+      <ClosedPollsSection />
 
       <SectionDivider />
 
@@ -338,57 +235,6 @@ export default async function Home() {
         </div>
       </section>
 
-      <SectionDivider />
-
-      {/* ═══════════════════════════════════════════
-       *  PERSONAJES PÚBLICOS
-       * ═══════════════════════════════════════════ */}
-      <section className="px-6 pb-10">
-        <div className="max-w-7xl mx-auto">
-          <SectionHeader
-            icon="👤"
-            title="Personajes Públicos"
-            count={periodistas.length}
-            href="/personajes"
-          />
-          <EntityGrid entities={periodistas} cols={3} />
-        </div>
-      </section>
-
-      <SectionDivider />
-
-      {/* ═══════════════════════════════════════════
-       *  EMPRESAS DESTACADAS
-       * ═══════════════════════════════════════════ */}
-      <section className="px-6 pb-10">
-        <div className="max-w-7xl mx-auto">
-          <SectionHeader
-            icon="🏢"
-            title="Empresas Destacadas"
-            count={empresas.length}
-            href="/empresas"
-          />
-          <EntityGrid entities={empresas} cols={3} />
-        </div>
-      </section>
-
-      <SectionDivider />
-
-      {/* ═══════════════════════════════════════════
-       *  TOP POLÍTICOS
-       * ═══════════════════════════════════════════ */}
-      <section className="px-6 pb-10">
-        <div className="max-w-7xl mx-auto">
-          <SectionHeader
-            icon="⚖️"
-            title="Top Políticos"
-            count={politicos.length}
-            href="/politicos"
-          />
-          <EntityGrid entities={politicos} cols={3} />
-        </div>
-      </section>
-
       {/* ═══════════════════════════════════════════
        *  STATS FOOTER
        * ═══════════════════════════════════════════ */}
@@ -396,11 +242,7 @@ export default async function Home() {
         <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6">
           {[
             { label: "Ciudadanos Activos", value: "1,646", color: "#D4AF37" },
-            {
-              label: "Entidades Evaluadas",
-              value: allEntities.length > 0 ? allEntities.length.toLocaleString() : "—",
-              color: "#00E5FF",
-            },
+            { label: "Entidades Evaluadas", value: "—", color: "#00E5FF" },
             { label: "Votos Registrados", value: "18,403", color: "#39FF14" },
             { label: "Votos Verificados", value: "14,189", color: "#8A2BE2" },
           ].map((stat) => (

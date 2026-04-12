@@ -165,25 +165,121 @@ def _compute_results(poll: dict, votes: list) -> dict:
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
-@router.get("/polls", summary="Listar encuestas activas")
-async def list_polls(category: Optional[str] = None, search: Optional[str] = None):
+POLL_PUBLIC_FIELDS = "id, slug, title, description, context, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, questions, category, requires_auth, is_featured, tags, status"
+
+
+@router.get("/polls/featured", summary="Encuesta destacada para el hero del home")
+async def get_featured_poll():
+    """
+    Lógica mixta: primero busca una encuesta con is_featured=true y status='active'.
+    Si no hay ninguna, devuelve la encuesta activa con más votos en las últimas 24h.
+    """
     supabase = get_async_supabase_client()
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    # 1. Buscar featured manual
+    try:
+        featured_res = await (
+            supabase.table("polls")
+            .select(POLL_PUBLIC_FIELDS)
+            .eq("status", "active")
+            .eq("is_featured", True)
+            .is_("access_code", "null")
+            .lte("starts_at", now_iso)
+            .gte("ends_at", now_iso)
+            .limit(1)
+            .execute()
+        )
+        if featured_res.data:
+            poll = featured_res.data[0]
+            vote_res = await (
+                supabase.table("poll_votes")
+                .select("option_value, voter_rank")
+                .eq("poll_id", poll["id"])
+                .execute()
+            )
+            return _compute_results(poll, vote_res.data or [])
+    except Exception as e:
+        logger.warning(f"Error buscando featured poll: {e}")
+
+    # 2. Fallback: la más votada en las últimas 24h
+    try:
+        since_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        active_res = await (
+            supabase.table("polls")
+            .select(POLL_PUBLIC_FIELDS)
+            .eq("status", "active")
+            .is_("access_code", "null")
+            .lte("starts_at", now_iso)
+            .gte("ends_at", now_iso)
+            .execute()
+        )
+        polls = active_res.data or []
+        if not polls:
+            return None
+
+        # Contar votos recientes por poll
+        best_poll = None
+        best_count = -1
+        for p in polls:
+            vote_res = await (
+                supabase.table("poll_votes")
+                .select("id")
+                .eq("poll_id", p["id"])
+                .gte("created_at", since_24h)
+                .execute()
+            )
+            count = len(vote_res.data or [])
+            if count > best_count:
+                best_count = count
+                best_poll = p
+
+        if best_poll:
+            all_votes = await (
+                supabase.table("poll_votes")
+                .select("option_value, voter_rank")
+                .eq("poll_id", best_poll["id"])
+                .execute()
+            )
+            return _compute_results(best_poll, all_votes.data or [])
+    except Exception as e:
+        logger.error(f"Error en fallback featured poll: {e}")
+
+    return None
+
+
+@router.get("/polls", summary="Listar encuestas por status")
+async def list_polls(
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+    status: Optional[str] = "active",   # active | closed | draft | paused
+    limit: Optional[int] = 50,
+):
+    supabase = get_async_supabase_client()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Validar status
+    valid_statuses = {"active", "closed", "draft", "paused"}
+    if status not in valid_statuses:
+        status = "active"
 
     try:
         query = (
             supabase.table("polls")
-            .select("id, title, description, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, questions, category, requires_auth")
-            .eq("is_active", True)
-            .is_("access_code", "null")   # solo encuestas públicas
-            .lte("starts_at", now_iso)
-            .gte("ends_at", now_iso)
-            .order("starts_at", desc=True)
+            .select(POLL_PUBLIC_FIELDS)
+            .eq("status", status)
+            .is_("access_code", "null")
         )
+        # Las activas se filtran por fecha; las cerradas no (ya pasó ends_at)
+        if status == "active":
+            query = query.lte("starts_at", now_iso).gte("ends_at", now_iso)
+
         if category:
             query = query.eq("category", category)
         if search:
             query = query.ilike("title", f"%{search}%")
+
+        query = query.order("ends_at", desc=True).limit(limit)
         result = await query.execute()
     except Exception as e:
         logger.error(f"Error listando polls: {e}")
@@ -336,6 +432,53 @@ async def create_user_poll(
     poll_id = res.data[0]["id"]
     logger.info(f"Poll VERIFIED creado | user={current_user['id']} | poll={poll_id} | title={payload.title}")
     return {"success": True, "poll_id": poll_id}
+
+
+@router.get("/polls/by-slug/{slug}", summary="Detalle de encuesta por slug (URL pública)")
+async def get_poll_by_slug(slug: str, access_code: Optional[str] = None):
+    """Lookup por slug canónico — usado por las páginas /encuestas/[slug]."""
+    supabase = get_async_supabase_client()
+    try:
+        res = await (
+            supabase.table("polls")
+            .select("*")
+            .ilike("slug", slug)
+            .single()
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(status_code=404, detail="Encuesta no encontrada")
+
+    poll = res.data
+    stored_code = poll.get("access_code")
+
+    if stored_code:
+        if not access_code or access_code != stored_code:
+            return {
+                "id": poll["id"],
+                "slug": poll.get("slug"),
+                "title": poll["title"],
+                "description": poll.get("description"),
+                "header_image": poll.get("header_image"),
+                "is_open": _is_open(poll),
+                "is_private": True,
+                "requires_auth": poll.get("requires_auth", True),
+                "category": poll.get("category", "general"),
+                "status": poll.get("status", "active"),
+                "total_votes": 0,
+                "results": [],
+            }
+
+    vote_res = await (
+        supabase.table("poll_votes")
+        .select("option_value, voter_rank")
+        .eq("poll_id", poll["id"])
+        .execute()
+    )
+    result = _compute_results(poll, vote_res.data or [])
+    result["is_private"] = bool(stored_code)
+    result.pop("access_code", None)
+    return result
 
 
 @router.get("/polls/{poll_id}", summary="Detalle encuesta con resultados")

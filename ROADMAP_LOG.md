@@ -15,6 +15,30 @@
 
 ---
 
+## 🎯 Decisión Estratégica — 2026-04-12: Encuestas como Feature Principal
+
+### Contexto
+Entities (`/entities`) requiere completitud de datos constante para dar valor, tiene baja viralidad y engagement pasivo. Las encuestas ciudadanas funcionan Day 1, generan interacción activa y tienen alto potencial de viralidad.
+
+### Decisión
+- **`/entities`** pasa a modo **"En Construcción"** indefinidamente (hasta consolidar encuestas).
+- **Encuestas** son el feature principal del producto: hero section, trending, por categoría, y resultados.
+- El home elimina los grids de entities (elimina 4 fetches al backend → mejora cold-start).
+
+### Cambios implementados (2026-04-12)
+- [x] `frontend/src/app/entities/page.tsx` → pantalla "En Construcción" con CTA a encuestas
+- [x] `frontend/src/app/page.tsx` → eliminados grids Personajes/Empresas/Políticos + fetches asociados
+- [x] `frontend/src/components/bunker/NavbarClient.tsx` → badge 🚧 en "Directorio" (desktop + mobile)
+- [x] Home queda: Hero → Por qué Beacon → **Encuesta Hero** → Trending → Por Categoría → Resultados Cerrados → VS del Momento → Stats footer
+
+### Criterio de retorno a entities
+Retomar cuando:
+1. El flujo de encuestas esté consolidado con +500 usuarios activos
+2. Exista un sistema de carga masiva de entities (scraping + curación)
+3. Se defina el modelo de datos final (fusión con polls de instituciones)
+
+---
+
 ## 🔄 Reencuadre Estratégico — 2026-04-06
 
 ### Decisión central

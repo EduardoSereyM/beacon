@@ -22,7 +22,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuthStore } from "@/store";
 import Image from "next/image";
-import logoCian from "@/asset/brand/LogoBeaconCian.png";
+import logoCian from "@/asset/brand/logo.png";
 
 // ═══════════════════════════════════════════
 //  DATOS GEOGRÁFICOS (Cascada País → Región → Comuna)

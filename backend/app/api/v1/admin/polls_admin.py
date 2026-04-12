@@ -54,13 +54,21 @@ class QuestionDef(BaseModel):
     order_index: int = 0
 
 
+VALID_STATUSES = {"draft", "active", "paused", "closed"}
+
+
 class PollCreateIn(BaseModel):
     title: str = Field(..., min_length=1, max_length=300)
+    slug: Optional[str] = Field(None, min_length=2, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     description: Optional[str] = None
+    context: Optional[str] = None          # texto contextual visible en la página pública
+    source_url: Optional[str] = None       # fuente de origen
+    tags: Optional[List[str]] = []
     header_image: Optional[str] = None
-    starts_at: str          # ISO 8601
-    ends_at: str            # ISO 8601
-    is_active: bool = True
+    starts_at: str                          # ISO 8601
+    ends_at: str                            # ISO 8601
+    status: str = "draft"                   # draft | active | paused | closed
+    is_featured: bool = False               # aparece en hero del home
     questions: List[QuestionDef] = Field(..., min_length=1)
     category: str = "general"
     requires_auth: bool = True
@@ -69,11 +77,16 @@ class PollCreateIn(BaseModel):
 
 class PollUpdateIn(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=300)
+    slug: Optional[str] = Field(None, min_length=2, max_length=120, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     description: Optional[str] = None
+    context: Optional[str] = None
+    source_url: Optional[str] = None
+    tags: Optional[List[str]] = None
     header_image: Optional[str] = None
     starts_at: Optional[str] = None
     ends_at: Optional[str] = None
-    is_active: Optional[bool] = None
+    status: Optional[str] = None           # draft | active | paused | closed
+    is_featured: Optional[bool] = None
     questions: Optional[List[QuestionDef]] = None
     category: Optional[str] = None
     requires_auth: Optional[bool] = None
@@ -132,13 +145,26 @@ async def admin_list_polls(admin: dict = Depends(require_admin_role)):
     return {"items": result.data, "total": len(result.data)}
 
 
+def _generate_slug(title: str) -> str:
+    """Genera slug URL-safe desde el título. Ej: '¿Aprueba al Presidente?' → 'aprueba-al-presidente'"""
+    import re
+    import unicodedata
+    # Normalizar y eliminar tildes
+    nfkd = unicodedata.normalize("NFKD", title.lower())
+    ascii_str = nfkd.encode("ascii", "ignore").decode("ascii")
+    # Reemplazar caracteres no-alfanuméricos por guión
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_str).strip("-")
+    return slug[:100]  # máximo 100 chars
+
+
 @router.post("", summary="[ADMIN] Crear encuesta", status_code=201)
 async def admin_create_poll(
     body: PollCreateIn,
     admin: dict = Depends(require_admin_role),
 ):
-    # Validar categoría
+    # Validar categoría y status
     category = body.category if body.category in VALID_CATEGORIES else "general"
+    status   = body.status if body.status in VALID_STATUSES else "draft"
 
     # Validar preguntas
     for q in body.questions:
@@ -158,25 +184,50 @@ async def admin_create_poll(
 
     supabase = get_async_supabase_client()
 
+    # Slug: usar el provisto o generarlo desde el título
+    slug_base = body.slug or _generate_slug(body.title)
+
+    # Garantizar unicidad añadiendo sufijo si hay colisión
+    slug = slug_base
+    for attempt in range(10):
+        existing_slug = await (
+            supabase.table("polls")
+            .select("id")
+            .ilike("slug", slug)
+            .maybe_single()
+            .execute()
+        )
+        if not existing_slug.data:
+            break
+        slug = f"{slug_base}-{attempt + 2}"
+    else:
+        slug = f"{slug_base}-{uuid.uuid4().hex[:6]}"
+
     questions_json = [q.model_dump() for q in body.questions]
 
     payload = {
-        "title": body.title,
-        "description": body.description,
+        "title":        body.title,
+        "slug":         slug,
+        "description":  body.description,
+        "context":      body.context,
+        "source_url":   body.source_url,
+        "tags":         body.tags or [],
         "header_image": body.header_image,
-        "starts_at": body.starts_at,
-        "ends_at": body.ends_at,
-        "is_active": body.is_active,
-        "created_by": admin["user_id"],
-        "questions": questions_json,
-        "category": category,
+        "starts_at":    body.starts_at,
+        "ends_at":      body.ends_at,
+        "status":       status,
+        "is_active":    status == "active",   # retrocompatibilidad
+        "is_featured":  body.is_featured,
+        "created_by":   admin["user_id"],
+        "questions":    questions_json,
+        "category":     category,
         "requires_auth": body.requires_auth,
-        "access_code": body.access_code or None,
+        "access_code":  body.access_code or None,
         # poll_type refleja el tipo de la primera pregunta (retrocompat.)
-        "poll_type": body.questions[0].type,
-        "options": body.questions[0].options if body.questions[0].type == "multiple_choice" else None,
-        "scale_min": body.questions[0].scale_min or 1,
-        "scale_max": body.questions[0].scale_max or 5,
+        "poll_type":    body.questions[0].type,
+        "options":      body.questions[0].options if body.questions[0].type == "multiple_choice" else None,
+        "scale_min":    body.questions[0].scale_min or 1,
+        "scale_max":    body.questions[0].scale_max or 5,
     }
 
     result = await supabase.table("polls").insert(payload).execute()
@@ -236,16 +287,28 @@ async def admin_update_poll(
     patch: dict[str, Any] = {}
     if body.title is not None:
         patch["title"] = body.title
+    if body.slug is not None:
+        patch["slug"] = body.slug
     if body.description is not None:
         patch["description"] = body.description
+    if body.context is not None:
+        patch["context"] = body.context
+    if body.source_url is not None:
+        patch["source_url"] = body.source_url
+    if body.tags is not None:
+        patch["tags"] = body.tags
     if body.header_image is not None:
         patch["header_image"] = body.header_image
     if body.starts_at is not None:
         patch["starts_at"] = body.starts_at
     if body.ends_at is not None:
         patch["ends_at"] = body.ends_at
-    if body.is_active is not None:
-        patch["is_active"] = body.is_active
+    if body.status is not None:
+        new_status = body.status if body.status in VALID_STATUSES else "draft"
+        patch["status"]    = new_status
+        patch["is_active"] = new_status == "active"   # mantener retrocompat.
+    if body.is_featured is not None:
+        patch["is_featured"] = body.is_featured
     if body.requires_auth is not None:
         patch["requires_auth"] = body.requires_auth
     if body.access_code is not None:
