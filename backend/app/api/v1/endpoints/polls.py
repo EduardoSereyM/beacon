@@ -13,8 +13,9 @@ POST /polls/{id}/vote    → emitir voto (JWT requerido o anónimo si requires_a
 import asyncio
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Any, Optional, List, Dict, Union
 import logging
 
 from app.core.database import get_async_supabase_client
@@ -35,13 +36,14 @@ class PollVotePayload(BaseModel):
 
 class UserQuestionIn(BaseModel):
     text: str
-    type: str                        # "multiple_choice" | "scale"
+    type: str                         # "multiple_choice" | "scale" | "ranking"
     options: Optional[List[str]] = None
-    scale_points: Optional[int] = None  # 2–10
-    allow_multiple: bool = False     # True = checkboxes, False = radio (solo multiple_choice)
-    scale_min_label: Optional[str] = None  # ej: "Muy confusa" (legado, usar scale_labels)
-    scale_max_label: Optional[str] = None  # ej: "Muy clara"   (legado, usar scale_labels)
-    scale_labels: Optional[List[str]] = None  # etiqueta para cada punto (índice 0 = punto 1)
+    scale_points: Optional[int] = None   # 2–10 (ciudadanos)
+    allow_multiple: bool = False          # True = checkboxes, False = radio
+    scale_min_label: Optional[str] = None # legado
+    scale_max_label: Optional[str] = None # legado
+    scale_labels: Optional[Any] = None    # List[str] o Dict[str,str] (protocolo BEACON)
+    metadata: Optional[Dict[str, Any]] = None  # BEACON: campos anidados (options, scale_min, scale_max, scale_labels)
 
 
 VALID_CATEGORIES = {
@@ -53,37 +55,86 @@ VALID_CATEGORIES = {
 _QUESTION_TYPE_MAP = {
     "likert_scale":    "scale",
     "multiple_choice": "multiple_choice",
-    "open_text":       "multiple_choice",  # no soportado aún — tratado como MC sin opciones
     "ranking":         "ranking",
 }
 
 
 class ConfidenceMetadata(BaseModel):
-    beacon_idea_id:  Optional[str] = None
-    confidence_score: int = 0          # 0–100; debe ser ≥ 70 para pasar validación
-    source_ids:      Optional[List[str]] = None
-    verifier_notes:  Optional[str] = None
+    beacon_idea_id:   Optional[str] = None
+    confidence_score: int = 0               # 0–100; debe ser ≥ 70 para pasar validación
+    source_ids:       Optional[List[str]] = None
+    verifier_notes:   Optional[str] = None
+    # Campos extendidos del protocolo BEACON (preservados, no validados)
+    generated_by:     Optional[str] = None
+    variant_selected: Optional[str] = None
+    integrity_hash:   Optional[str] = None
 
 
 class AuditTrailEntry(BaseModel):
-    agent:     str
-    status:    str
-    timestamp: Optional[str] = None
+    agent:            str
+    status:           str
+    timestamp:        Optional[str] = None
+    notes:            Optional[str] = None
+    confidence_score: Optional[int] = None
+    variant:          Optional[str] = None
+    checkpoint:       Optional[int] = None
 
 
 class AuditTrail(BaseModel):
-    approval_chain: List[AuditTrailEntry] = []
+    approval_chain:    List[AuditTrailEntry] = []
+    # Campos extendidos del protocolo BEACON
+    created_at:        Optional[str] = None
+    published_by:      Optional[str] = None
+    publication_reason: Optional[str] = None
 
 
 class UserPollCreateIn(BaseModel):
     title: str
-    description: Optional[str] = None
-    category: str = "general"
-    ends_in_days: int = 7                          # 1–30
-    questions: List[UserQuestionIn]                # máx 4
+    description:      Optional[str] = None
+    category:         str = "general"
+    ends_in_days:     int = 7                  # 1–30 (ciudadanos). Ignorado si se proveen start_date/end_date
+    start_date:       Optional[datetime] = None  # ISO8601 — protocolo BEACON
+    end_date:         Optional[datetime] = None  # ISO8601 — protocolo BEACON
+    questions:        List[UserQuestionIn]       # máx 4
     confidence_metadata: Optional[ConfidenceMetadata] = None
     audit_trail:         Optional[AuditTrail] = None
     internal_notes:      Optional[str] = None
+    # Campos BEACON adicionales (mapeados internamente)
+    requires_login:   Optional[bool] = None   # BEACON: False → requires_auth=True, True → requires_auth=False
+    header_image_url: Optional[str] = None    # alias de header_image
+    is_public:        Optional[bool] = None   # reservado (siempre público por ahora)
+
+
+# ─── Helper: normalizar scale_labels ──────────────────────────────────────────
+
+def _normalize_scale_labels(
+    raw: Any,
+    scale_min: int,
+    scale_max: int,
+) -> Optional[List[str]]:
+    """
+    Convierte scale_labels a List[str] indexado desde scale_min.
+    Acepta:
+      - List[str]       → devuelve tal cual si longitud == rango
+      - Dict[str, str]  → {"2": "Mala", ..., "10": "Óptima"} → array
+    """
+    size = scale_max - scale_min + 1
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        result = [""] * size
+        for k, v in raw.items():
+            idx = int(k) - scale_min
+            if 0 <= idx < size:
+                result[idx] = str(v).strip()
+        return result
+    if isinstance(raw, list):
+        if len(raw) == size:
+            return [str(l).strip() for l in raw]
+        # longitud parcial (solo min/max, como en Ejemplo 2 ajuste) — expandir
+        if len(raw) == 2:
+            return [str(raw[0]).strip()] + [""] * (size - 2) + [str(raw[-1]).strip()]
+    return None
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -406,68 +457,100 @@ async def create_user_poll(
     for i, q in enumerate(payload.questions):
         if not q.text.strip():
             raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: texto obligatorio")
+
         # Normalizar tipo: acepta mayúsculas y alias del protocolo BEACON
         q_type = _QUESTION_TYPE_MAP.get(q.type.lower(), q.type.lower())
         if q_type != q.type:
             q = q.model_copy(update={"type": q_type})
+
+        # Extraer campos anidados en metadata (formato BEACON)
+        meta = q.metadata or {}
+        opts_src    = q.options if q.options is not None else meta.get("options")
+        allow_multi = q.allow_multiple or meta.get("allow_multiple", False)
+        labels_raw  = q.scale_labels if q.scale_labels is not None else meta.get("scale_labels")
+        sc_min      = int(meta.get("scale_min", 1))
+        sc_max_meta = meta.get("scale_max")
+        sc_pts      = q.scale_points or (int(sc_max_meta) - sc_min + 1 if sc_max_meta else 5)
+        sc_max      = sc_min + sc_pts - 1
+
         if q.type == "multiple_choice":
-            opts = [o.strip() for o in (q.options or []) if o.strip()]
+            opts = [o.strip() for o in (opts_src or []) if str(o).strip()]
             if len(opts) < 2:
                 raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: mínimo 2 opciones")
-            questions_clean.append({"text": q.text.strip(), "type": "multiple_choice", "options": opts, "allow_multiple": q.allow_multiple, "order_index": i})
+            questions_clean.append({"text": q.text.strip(), "type": "multiple_choice", "options": opts, "allow_multiple": allow_multi, "order_index": i})
+
         elif q.type == "scale":
-            sp = q.scale_points or 5
-            if not 2 <= sp <= 10:
+            if not 2 <= sc_pts <= 10:
                 raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: escala debe ser 2–10 puntos")
-            # Normalizar etiquetas: si vienen scale_labels úsalas; si no, construir desde min/max legados
-            labels: Optional[List[str]] = None
-            if q.scale_labels and len(q.scale_labels) == sp:
-                labels = [lbl.strip() for lbl in q.scale_labels]
-            elif q.scale_min_label or q.scale_max_label:
-                labels = [q.scale_min_label.strip() if q.scale_min_label else ""] + [""] * (sp - 2) + [q.scale_max_label.strip() if q.scale_max_label else ""]
-            questions_clean.append({"text": q.text.strip(), "type": "scale", "scale_min": 1, "scale_max": sp, "scale_labels": labels, "order_index": i})
+            # Normalizar etiquetas (acepta List o Dict; legado min/max como fallback)
+            labels: Optional[List[str]] = _normalize_scale_labels(labels_raw, sc_min, sc_max)
+            if labels is None and (q.scale_min_label or q.scale_max_label):
+                labels = [q.scale_min_label.strip() if q.scale_min_label else ""] + [""] * (sc_pts - 2) + [q.scale_max_label.strip() if q.scale_max_label else ""]
+            questions_clean.append({"text": q.text.strip(), "type": "scale", "scale_min": sc_min, "scale_max": sc_max, "scale_labels": labels, "order_index": i})
+
         elif q.type == "ranking":
-            opts = [o.strip() for o in (q.options or []) if o.strip()]
+            opts = [o.strip() for o in (opts_src or []) if str(o).strip()]
             if len(opts) < 3:
                 raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: ranking requiere mínimo 3 opciones")
             if len(opts) > 6:
                 raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: ranking permite máximo 6 opciones")
             questions_clean.append({"text": q.text.strip(), "type": "ranking", "options": opts, "order_index": i})
+
         else:
             raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: tipo inválido (multiple_choice | scale | ranking)")
 
     now = datetime.now(timezone.utc)
+
+    # Calcular starts_at / ends_at
+    # Protocolo BEACON envía start_date/end_date absolutos; ciudadanos usan ends_in_days
+    if payload.start_date and payload.end_date:
+        starts_at = payload.start_date.astimezone(timezone.utc)
+        ends_at   = payload.end_date.astimezone(timezone.utc)
+        if ends_at <= starts_at:
+            raise HTTPException(status_code=400, detail="end_date debe ser posterior a start_date")
+    else:
+        if not 1 <= payload.ends_in_days <= 30:
+            raise HTTPException(status_code=400, detail="La duración debe ser entre 1 y 30 días")
+        starts_at = now
+        ends_at   = now + timedelta(days=payload.ends_in_days)
+
+    # requires_auth: ciudadanos = siempre True; BEACON puede enviarlo como requires_login=False
+    requires_auth = True
+    if payload.requires_login is not None:
+        requires_auth = not payload.requires_login  # BEACON: requires_login=False → requires_auth=True
+
     # Determinar poll_type y options desde la primera pregunta (retrocompatibilidad)
     first_q = questions_clean[0]
     if first_q["type"] in ("multiple_choice", "ranking"):
         poll_type = first_q["type"]
-        options = first_q["options"]
+        options   = first_q["options"]
         scale_min, scale_max = 1, 5
     else:
         poll_type = "scale"
-        options = None
+        options   = None
         scale_min = first_q.get("scale_min", 1)
         scale_max = first_q.get("scale_max", 5)
 
     supabase = get_async_supabase_client()
     row = {
-        "title": payload.title.strip(),
+        "title":       payload.title.strip(),
         "description": payload.description,
-        "category": category,
-        "poll_type": poll_type,
-        "options": options,
-        "scale_min": scale_min,
-        "scale_max": scale_max,
-        "questions": questions_clean,
-        "is_active": True,
-        "requires_auth": True,
-        "starts_at": now.isoformat(),
-        "ends_at": (now + timedelta(days=payload.ends_in_days)).isoformat(),
-        "created_by": current_user["id"],
-        # BEACON protocol metadata (opcionales)
+        "category":    category,
+        "poll_type":   poll_type,
+        "options":     options,
+        "scale_min":   scale_min,
+        "scale_max":   scale_max,
+        "questions":   questions_clean,
+        "is_active":   True,
+        "requires_auth": requires_auth,
+        "starts_at":   starts_at.isoformat(),
+        "ends_at":     ends_at.isoformat(),
+        "created_by":  current_user["id"],
+        # BEACON protocol metadata (opcionales — append-only)
         "confidence_metadata": payload.confidence_metadata.model_dump() if payload.confidence_metadata else None,
         "audit_trail":         payload.audit_trail.model_dump() if payload.audit_trail else None,
         "internal_notes":      payload.internal_notes,
+        **({"header_image": payload.header_image_url} if payload.header_image_url else {}),
     }
 
     try:
@@ -479,9 +562,19 @@ async def create_user_poll(
     if not res.data:
         raise HTTPException(status_code=500, detail="Error al crear encuesta")
 
-    poll_id = res.data[0]["id"]
-    logger.info(f"Poll VERIFIED creado | user={current_user['id']} | poll={poll_id} | title={payload.title}")
-    return {"success": True, "poll_id": poll_id}
+    created = res.data[0]
+    poll_id  = created["id"]
+    slug     = created.get("slug") or poll_id
+    logger.info(f"Poll creado | user={current_user['id']} | poll={poll_id} | title={payload.title}")
+    return JSONResponse(
+        status_code=201,
+        content={
+            "success":  True,
+            "id":       poll_id,
+            "poll_id":  poll_id,
+            "live_url": f"https://www.beaconchile.cl/encuestas/{slug}",
+        },
+    )
 
 
 @router.get("/polls/by-slug/{slug}", summary="Detalle de encuesta por slug (URL pública)")
