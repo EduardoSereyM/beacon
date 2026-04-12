@@ -1452,9 +1452,77 @@ public.config_params (standalone — configuración dinámica)
 
 > Requiere rol admin. Auth: Bearer JWT con `role = admin`.
 
+### POST `/admin/polls/ingest` ✅
+
+**Endpoint nativo para el pipeline de agentes (AGENTE_05 / PUBLISHER).** Acepta el schema del agente directamente — sin transformación externa. El backend normaliza internamente y registra el audit trail del pipeline.
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | Admin |
+| **Tabla DB** | `polls` + `audit_log` |
+| **Estado** | ✅ |
+
+**Request body (`AgentPollIn`):**
+```json
+{
+  "title": "¿Cómo ves la economía chilena en abril?",
+  "context": "Texto contextual neutral...",
+  "category": "economia",
+  "duration_days": 7,
+  "tags": ["inflacion", "costo-de-vida"],
+  "is_active": true,
+  "header_image_query": "Gasoline pump rising prices",
+  "questions": [
+    {
+      "text": "¿Cómo describes la situación económica?",
+      "question_type": "single_choice",
+      "options": ["Mejora", "Igual", "Empeora"]
+    },
+    {
+      "text": "Expectativa para los próximos 3 meses (1-7)",
+      "question_type": "scale",
+      "scale_points": 7,
+      "scale_labels": ["Muy pesimista", "Pesimista", "Algo pesimista", "Neutral", "Algo optimista", "Optimista", "Muy optimista"]
+    },
+    {
+      "text": "¿Qué factores afectan tu percepción? (hasta 3)",
+      "question_type": "multiple_choice",
+      "options": ["Combustibles", "Inflación en alimentos", "Salarios", "Empleo"]
+    }
+  ],
+  "metadata": {
+    "idea_id": "IDEA-003",
+    "confidence_score": 96,
+    "variante_generator": "A",
+    "sources": ["CADEM (05/04/2026)", "Cooperativa.cl (11/04/2026)"],
+    "curated_by": "CURATOR AGENTE_02",
+    "verified_by": "VERIFIER AGENTE_03",
+    "generated_by": "GENERATOR AGENTE_04",
+    "overlord_selection": "VARIANTE A"
+  }
+}
+```
+
+**Transformaciones internas:**
+| Campo agente | → | Campo interno |
+|---|---|---|
+| `question_type: "single_choice"` | → | `type: "multiple_choice"`, `allow_multiple: false` |
+| `question_type: "multiple_choice"` | → | `type: "multiple_choice"`, `allow_multiple: true` |
+| `question_type: "scale"` | → | `type: "scale"` |
+| `duration_days: 7` | → | `starts_at: now`, `ends_at: now + 7d` |
+| `is_active: true` | → | `status: "active"` |
+| `metadata` | → | `audit_log` (acción `AGENT_PIPELINE_INGEST_POLL`) |
+
+**Response 201:**
+```json
+{ "poll": { "id": "uuid", "slug": "como-ves-la-economia-...", ... }, "ingested_from": "agent_pipeline" }
+```
+
+---
+
 ### POST `/admin/polls` ✅
 
-Crea una encuesta. Usado también por el pipeline de agentes vía `publish_polls.py`.
+Crea una encuesta desde la UI admin (schema del formulario web).
 
 | Campo | Valor |
 |-------|-------|
@@ -1558,25 +1626,14 @@ Ranking de usuarios por votos en encuestas, filtrable por período.
 
 ---
 
-## Pipeline de Agentes — publish_polls.py
+## Pipeline de Agentes
 
-Script en raíz del repo para publicar payloads generados por AGENTE_05 (PUBLISHER).
+**Flujo de publicación nativo:** AGENTE_05 (PUBLISHER) hace un `POST /api/v1/admin/polls/ingest` con su payload directamente. El backend transforma, valida y persiste sin intermediarios.
 
-```bash
-# Dry-run (sin publicar)
-python publish_polls.py --file PAYLOADS.md --dry-run
-
-# Publicar en producción
-python publish_polls.py --file PAYLOADS.md --token <JWT_ADMIN>
-
-# Con variables de entorno
-BEACON_ADMIN_TOKEN=<jwt> BEACON_API_URL=https://beaconchile.cl \
-  python publish_polls.py --file PAYLOADS.md
+```
+SCRAPER → CURATOR → VERIFIER → GENERATOR → [Overlord aprueba] → PUBLISHER → POST /admin/polls/ingest
 ```
 
-**Transformaciones automáticas del script:**
-- `question_type: "single_choice"` → `type: "multiple_choice"`, `allow_multiple: false`
-- `question_type: "multiple_choice"` → `type: "multiple_choice"`, `allow_multiple: true`
-- `duration_days` → `starts_at` (now) + `ends_at` (now + N días)
-- `is_active: true` → `status: "active"`
-- Categorías inválidas → `"general"` con advertencia
+El endpoint `/ingest` registra el `metadata` del pipeline en `audit_log` con acción `AGENT_PIPELINE_INGEST_POLL` para trazabilidad forense completa.
+
+> `publish_polls.py` (raíz del repo) existe como utilidad de emergencia/fallback para publicación manual desde archivo `.md`.

@@ -6,7 +6,8 @@ Schema real: tabla `polls` con `questions` JSONB y `poll_votes`.
 
 Endpoints:
   GET    /admin/polls              → Lista todas las encuestas
-  POST   /admin/polls              → Crear encuesta
+  POST   /admin/polls              → Crear encuesta (schema UI admin)
+  POST   /admin/polls/ingest       → Ingestar encuesta desde pipeline de agentes (schema AGENTE_05)
   PATCH  /admin/polls/{id}         → Editar encuesta
   DELETE /admin/polls/{id}         → Eliminar encuesta
   POST   /admin/polls/upload-image → Subir imagen cabecera al bucket 'encuestas'
@@ -96,6 +97,142 @@ class PollUpdateIn(BaseModel):
     category: Optional[str] = None
     requires_auth: Optional[bool] = None
     access_code: Optional[str] = Field(None, min_length=4, max_length=20)
+
+
+# ── Schema pipeline de agentes ─────────────────────────
+
+class AgentQuestionIn(BaseModel):
+    """Pregunta en el formato que genera AGENTE_05 (PUBLISHER)."""
+    text: str = Field(..., min_length=1, max_length=500)
+    question_type: str = Field(..., pattern="^(single_choice|multiple_choice|scale)$")
+    options: Optional[List[str]] = None
+    scale_points: Optional[int] = Field(None, ge=2, le=10)
+    scale_labels: Optional[List[str]] = None
+    order_index: int = 0
+
+
+class AgentPollMetadata(BaseModel):
+    """Metadatos de trazabilidad generados por el pipeline (audit trail)."""
+    idea_id: Optional[str] = None
+    confidence_score: Optional[float] = None
+    variante_generator: Optional[str] = None
+    sources: Optional[List[str]] = None
+    curated_by: Optional[str] = None
+    verified_by: Optional[str] = None
+    generated_by: Optional[str] = None
+    approved_at_checkpoint_2: Optional[str] = None
+    overlord_selection: Optional[str] = None
+    publish_schedule: Optional[str] = None
+    created_timestamp: Optional[str] = None
+
+    model_config = {"extra": "allow"}  # tolerar campos futuros del pipeline
+
+
+class AgentPollIn(BaseModel):
+    """
+    Payload generado por AGENTE_05 (PUBLISHER) del pipeline BEACON.
+    El endpoint /ingest transforma este schema al formato interno QuestionDef.
+    """
+    title: str = Field(..., min_length=1, max_length=300)
+    context: Optional[str] = None
+    category: str = "general"
+    duration_days: int = Field(default=7, ge=1, le=365)
+    tags: Optional[List[str]] = []
+    is_active: bool = True
+    header_image_query: Optional[str] = None   # solo para referencia; imagen se sube manualmente
+    questions: List[AgentQuestionIn] = Field(..., min_length=1)
+    metadata: Optional[AgentPollMetadata] = None
+
+
+def _agent_question_to_def(q: AgentQuestionIn) -> QuestionDef:
+    """Transforma una pregunta del schema de agente al schema interno QuestionDef."""
+    if q.question_type == "scale":
+        return QuestionDef(
+            text=q.text,
+            type="scale",
+            scale_points=q.scale_points,
+            scale_labels=q.scale_labels,
+            order_index=q.order_index,
+        )
+    return QuestionDef(
+        text=q.text,
+        type="multiple_choice",
+        allow_multiple=(q.question_type == "multiple_choice"),
+        options=q.options or [],
+        order_index=q.order_index,
+    )
+
+
+# ── Ingest desde pipeline de agentes ───────────────────
+
+@router.post("/ingest", summary="[ADMIN] Ingestar encuesta desde pipeline de agentes", status_code=201)
+async def admin_ingest_poll(
+    body: AgentPollIn,
+    admin: dict = Depends(require_admin_role),
+):
+    """
+    Endpoint para el pipeline automático de agentes (AGENTE_05 / PUBLISHER).
+    Acepta el schema nativo del agente y lo transforma al formato interno.
+
+    Diferencias con POST /admin/polls:
+    - `question_type` en lugar de `type` (single_choice|multiple_choice|scale)
+    - `duration_days` en lugar de `starts_at`/`ends_at`
+    - `is_active` en lugar de `status`
+    - `metadata` con audit trail del pipeline (se guarda en audit_log, no en polls)
+    """
+    from datetime import datetime, timedelta, timezone
+
+    # Transformar preguntas al schema interno
+    questions = [_agent_question_to_def(q) for q in body.questions]
+
+    # Calcular fechas desde duration_days
+    now = datetime.now(timezone.utc)
+    starts_at = now.isoformat()
+    ends_at = (now + timedelta(days=body.duration_days)).isoformat()
+
+    # Normalizar categoría
+    category = body.category if body.category in VALID_CATEGORIES else "general"
+    if category != body.category:
+        logger.warning(f"ingest: categoría '{body.category}' no válida → 'general' | poll='{body.title}'")
+
+    status = "active" if body.is_active else "draft"
+
+    # Reusar PollCreateIn para validación y creación unificada
+    poll_body = PollCreateIn(
+        title=body.title,
+        context=body.context,
+        tags=body.tags or [],
+        category=category,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        status=status,
+        questions=questions,
+    )
+
+    # Delegar al handler de creación
+    result = await admin_create_poll(poll_body, admin)
+    poll = result["poll"]
+
+    # Guardar audit trail del pipeline en audit_log
+    metadata_details: dict = {}
+    if body.metadata:
+        metadata_details = body.metadata.model_dump()
+    await audit_bus.alog_event(
+        actor_id=admin["user_id"],
+        action="AGENT_PIPELINE_INGEST_POLL",
+        entity_type="POLL",
+        entity_id=poll["id"],
+        details={
+            "title": body.title,
+            "category": category,
+            "questions": len(questions),
+            "duration_days": body.duration_days,
+            "pipeline_metadata": metadata_details,
+        },
+    )
+
+    logger.info(f"ingest: poll creada vía pipeline | id={poll['id']} | title='{body.title}'")
+    return {"poll": poll, "ingested_from": "agent_pipeline"}
 
 
 # ── Upload imagen ──────────────────────────────────────
