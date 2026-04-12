@@ -78,6 +78,8 @@ interface CrossTabBreakdown {
   count: number;
   pct?: number;
   average?: number;
+  avg_position?: number;    // ranking: posición promedio (1-based)
+  first_place_pct?: number; // ranking: % de veces en primer lugar
 }
 
 interface CrossTabGroup {
