@@ -128,9 +128,9 @@ Sort: `reputation_score DESC` (PR fix ya aplicado).
 
 | Rol | Email | Contraseña | Rango |
 |---|---|---|---|
-| ADMIN | `overlord2026@beacon.com` | `OverlordPassword2026*` | DIAMOND |
-| USER | `ciudadano2026@beacon.com` | `CiudadanoPassword2026*` | BRONZE |
-| USER | `beacon@testdesarrollo.cl` | `Password#2026` | BRONZE |
+| ADMIN | `overlord2026@beacon.com` | `OverlordPassword2026*` | VERIFICADO |
+| USER | `ciudadano2026@beacon.com` | `CiudadanoPassword2026*` | BASICO |
+| USER | `beacon@testdesarrollo.cl` | `Password#2026` | BASICO |
 
 > Si algún usuario da 400 al login → confirmar manualmente en Supabase Dashboard → Auth → Users → "Confirm email".
 
@@ -154,7 +154,7 @@ config_params     → Configuración dinámica (VOTE_WEIGHT_*, DECAY_HALF_LIFE_D
 ### Sistema de Rangos
 
 ```
-ANONYMOUS → BRONZE (registro) → SILVER (verificación RUT SMS) → GOLD → DIAMOND
+ANONYMOUS → BÁSICO (registro) → VERIFICADO (verificación RUT)
 ```
 
 ### Fórmula Bayesiana de Reputación (con pesos por rango — PR-1 ✅)
@@ -252,7 +252,7 @@ frontend/
 ### P4 — Páginas de Sección con Filtros
 - `/politicos`, `/empresas`, `/periodistas` — filtros propios por región/partido
 
-### P5 — Verificación RUT (BRONZE → SILVER)
+### P5 — Verificación RUT (BASICO → VERIFICADO)
 - `POST /api/v1/user/auth/verify-identity` ya existe — falta el formulario en el perfil del usuario
 
 ### Recovery Flow

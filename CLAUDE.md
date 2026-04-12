@@ -41,7 +41,7 @@ Respetar este árbol:
 - `backend/app/core/security/`: defensas, validadores, rate limit, hashing.
 - `backend/app/core/valuation/`: cálculo de valor, pricing, monetización.
 - `backend/app/forensics/displaced/`: shadow logs, análisis de desplazados.
-- `frontend/src/components/bunker/`: UI élite (Gold/Diamond).
+- `frontend/src/components/bunker/`: UI élite REGISTRADO.
 - `frontend/src/components/outskirts/`: UI degradada (Displaced/Suspicious).
 
 ## 6) Protocolo de respuesta (cómo debes razonar)

@@ -104,6 +104,13 @@ Se llama desde:
 
 ## 6. Normalización de rangos legacy
 
+NO USAR: `BRONZE / SILVER / GOLD / DIAMOND` Y QUITARLOS DE TODO LUGAR
+
+# IMPORTANTE, PARA EL PROYECTO SOLO EXISTE : 
+- VERIFIED  REGISTRADO CON RUT VERIFICADO
+- BASIC      REGISTRADO **SIN** RUT VERIFICADO
+- ANONYMOUS (VOTACIONES QUE NO REQUIEREN AUTENTICACION - CASOS EXTRAORDINARIOS)
+
 Los rangos del sistema anterior (`BRONZE / SILVER / GOLD / DIAMOND`) se normalizan automáticamente en el frontend:
 
 ```typescript

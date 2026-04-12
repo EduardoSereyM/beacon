@@ -21,8 +21,7 @@ interface PollQuestion {
   allow_multiple?: boolean;      // solo multiple_choice: true = checkboxes, false = radio
   options?: string[];
   scale_points?: number;
-  scale_min_label?: string;      // ej: "Muy confusa"
-  scale_max_label?: string;      // ej: "Muy clara"
+  scale_labels?: string[];       // etiqueta por cada punto (length == scale_points)
 }
 
 interface PollItem {
@@ -65,9 +64,18 @@ const EMPTY_SCALE_QUESTION = (): PollQuestion => ({
   type: "scale",
   options: undefined,
   scale_points: 5,
-  scale_min_label: "",
-  scale_max_label: "",
+  scale_labels: Array(5).fill(""),
 });
+
+/** Redimensiona scale_labels al nuevo número de puntos preservando primer y último valor */
+function resizeLabels(current: string[], newSize: number): string[] {
+  if (current.length === newSize) return current;
+  if (current.length < newSize) return [...current, ...Array(newSize - current.length).fill("")];
+  // Al reducir: preservar primero y último, descartar intermedios
+  const first = current[0] ?? "";
+  const last  = current[current.length - 1] ?? "";
+  return [first, ...Array(newSize - 2).fill(""), last];
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -341,7 +349,11 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
               <button
                 key={pts}
                 type="button"
-                onClick={() => onChange({ ...question, scale_points: pts })}
+                onClick={() => onChange({
+                  ...question,
+                  scale_points: pts,
+                  scale_labels: resizeLabels(question.scale_labels ?? Array(question.scale_points ?? 5).fill(""), pts),
+                })}
                 style={{
                   width: 36,
                   height: 36,
@@ -361,31 +373,34 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
           </div>
           <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", fontFamily: "monospace", marginTop: 6 }}>
             Escala de 1 a {question.scale_points ?? 5} puntos
+            {(question.scale_points ?? 5) === 6 && <span style={{ color: "rgba(0,229,255,0.5)", marginLeft: 8 }}>— sin punto neutral (fuerza postura)</span>}
           </p>
-          {/* Etiquetas semánticas de extremos */}
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: "block", fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
-                1 = Etiqueta mínimo
-              </label>
-              <input
-                style={{ ...inputStyle }}
-                value={question.scale_min_label ?? ""}
-                onChange={(e) => onChange({ ...question, scale_min_label: e.target.value })}
-                placeholder="ej: Muy confusa"
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: "block", fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
-                {question.scale_points ?? 5} = Etiqueta máximo
-              </label>
-              <input
-                style={{ ...inputStyle }}
-                value={question.scale_max_label ?? ""}
-                onChange={(e) => onChange({ ...question, scale_max_label: e.target.value })}
-                placeholder="ej: Muy clara"
-              />
-            </div>
+          {/* Etiquetas semánticas — un campo por punto */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 10 }}>
+            <label style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Etiquetas por punto (opcional)
+            </label>
+            {Array.from({ length: question.scale_points ?? 5 }, (_, pi) => (
+              <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(57,255,20,0.5)", width: 20, textAlign: "right", flexShrink: 0 }}>
+                  {pi + 1}
+                </span>
+                <input
+                  style={{ ...inputStyle, fontSize: 11 }}
+                  value={(question.scale_labels ?? [])[pi] ?? ""}
+                  onChange={(e) => {
+                    const next = [...(question.scale_labels ?? Array(question.scale_points ?? 5).fill(""))];
+                    next[pi] = e.target.value;
+                    onChange({ ...question, scale_labels: next });
+                  }}
+                  placeholder={
+                    pi === 0 ? "ej: Muy insatisfecho/a" :
+                    pi === (question.scale_points ?? 5) - 1 ? "ej: Muy satisfecho/a" :
+                    `Punto ${pi + 1}`
+                  }
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -643,8 +658,14 @@ export default function AdminPollsPage() {
     const cleanQuestions = questions.map((q) => ({
       text: q.text.trim(),
       type: q.type,
-      ...(q.type === "multiple_choice" ? { options: (q.options || []).filter((o) => o.trim()) } : {}),
-      ...(q.type === "scale" ? { scale_points: q.scale_points } : {}),
+      ...(q.type === "multiple_choice" ? {
+        options: (q.options || []).filter((o) => o.trim()),
+        allow_multiple: q.allow_multiple ?? false,
+      } : {}),
+      ...(q.type === "scale" ? {
+        scale_points: q.scale_points,
+        scale_labels: (q.scale_labels ?? []).map((l) => l.trim()),
+      } : {}),
     }));
 
     setSaving(true); setFormError(null);

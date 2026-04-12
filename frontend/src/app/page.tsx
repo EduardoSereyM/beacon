@@ -54,7 +54,7 @@ const jsonLd = {
     "@type": "SearchAction",
     target: {
       "@type": "EntryPoint",
-      urlTemplate: "https://www.beaconchile.cl/entities?q={search_term_string}",
+      urlTemplate: "https://www.beaconchile.cl/encuestas?q={search_term_string}",
     },
     "query-input": "required name=search_term_string",
   },

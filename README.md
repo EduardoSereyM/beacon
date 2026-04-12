@@ -256,7 +256,7 @@ Este proyecto se rige por las **Technical Directives 2026 v1.0**:
   - [x] Despliegue producción: `www.beaconchile.cl` (Render + Vercel)
 - [x] **P3 — Versus**: `/versus` head-to-head — código implementado (`versus.py`, `versus_admin.py`)
 - [ ] **P4 — Filtros geográficos**: /politicos, /empresas, /periodistas con filtros propios
-- [ ] **P5 — Verificación RUT BRONZE→SILVER**: formulario en perfil
+- [ ] **P5 — Verificación RUT BRONZE→SILVER**: formulario en perfil  (ya no se usa BRONZE→SILVER) 
 - [ ] **P6 — Scrapers**: BCN, Cámara, Senado, Wikipedia (Playwright)
 - [ ] **Fase 3**: Artillería Forense (Metadata, Fingerprint, ISP, 2FA SMS)
 - [ ] **Fase 4**: Capa de Juicio (DNA Analyzer, Spatial Logic, vote_engine.py)

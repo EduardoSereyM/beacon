@@ -44,15 +44,46 @@ class UserQuestionIn(BaseModel):
     scale_labels: Optional[List[str]] = None  # etiqueta para cada punto (índice 0 = punto 1)
 
 
-VALID_CATEGORIES = {"general", "politica", "economia", "salud", "educacion", "espectaculos", "deporte", "cultura"}
+VALID_CATEGORIES = {
+    "general", "politica", "economia", "salud", "educacion",
+    "espectaculos", "deporte", "cultura", "seguridad", "ambiente",
+}
+
+# Mapa de tipos BEACON externos → tipos internos
+_QUESTION_TYPE_MAP = {
+    "likert_scale":    "scale",
+    "multiple_choice": "multiple_choice",
+    "open_text":       "multiple_choice",  # no soportado aún — tratado como MC sin opciones
+    "ranking":         "ranking",
+}
+
+
+class ConfidenceMetadata(BaseModel):
+    beacon_idea_id:  Optional[str] = None
+    confidence_score: int = 0          # 0–100; debe ser ≥ 70 para pasar validación
+    source_ids:      Optional[List[str]] = None
+    verifier_notes:  Optional[str] = None
+
+
+class AuditTrailEntry(BaseModel):
+    agent:     str
+    status:    str
+    timestamp: Optional[str] = None
+
+
+class AuditTrail(BaseModel):
+    approval_chain: List[AuditTrailEntry] = []
 
 
 class UserPollCreateIn(BaseModel):
     title: str
     description: Optional[str] = None
     category: str = "general"
-    ends_in_days: int = 7     # 1–30
-    questions: List[UserQuestionIn]  # máx 3
+    ends_in_days: int = 7                          # 1–30
+    questions: List[UserQuestionIn]                # máx 4
+    confidence_metadata: Optional[ConfidenceMetadata] = None
+    audit_trail:         Optional[AuditTrail] = None
+    internal_notes:      Optional[str] = None
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -356,14 +387,29 @@ async def create_user_poll(
         raise HTTPException(status_code=400, detail="Máximo 4 preguntas permitidas")
     if not 1 <= payload.ends_in_days <= 30:
         raise HTTPException(status_code=400, detail="La duración debe ser entre 1 y 30 días")
-    if payload.category not in VALID_CATEGORIES:
+
+    # Normalizar categoría (acepta mayúsculas del protocolo BEACON)
+    category = payload.category.lower()
+    if category not in VALID_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Categoría inválida: {payload.category}")
+
+    # Validar umbral de confianza BEACON
+    if payload.confidence_metadata is not None:
+        if payload.confidence_metadata.confidence_score < 70:
+            raise HTTPException(
+                status_code=422,
+                detail=f"confidence_score={payload.confidence_metadata.confidence_score} no alcanza el umbral BEACON (mínimo 70)",
+            )
 
     # Validar cada pregunta
     questions_clean = []
     for i, q in enumerate(payload.questions):
         if not q.text.strip():
             raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: texto obligatorio")
+        # Normalizar tipo: acepta mayúsculas y alias del protocolo BEACON
+        q_type = _QUESTION_TYPE_MAP.get(q.type.lower(), q.type.lower())
+        if q_type != q.type:
+            q = q.model_copy(update={"type": q_type})
         if q.type == "multiple_choice":
             opts = [o.strip() for o in (q.options or []) if o.strip()]
             if len(opts) < 2:
@@ -407,7 +453,7 @@ async def create_user_poll(
     row = {
         "title": payload.title.strip(),
         "description": payload.description,
-        "category": payload.category,
+        "category": category,
         "poll_type": poll_type,
         "options": options,
         "scale_min": scale_min,
@@ -418,6 +464,10 @@ async def create_user_poll(
         "starts_at": now.isoformat(),
         "ends_at": (now + timedelta(days=payload.ends_in_days)).isoformat(),
         "created_by": current_user["id"],
+        # BEACON protocol metadata (opcionales)
+        "confidence_metadata": payload.confidence_metadata.model_dump() if payload.confidence_metadata else None,
+        "audit_trail":         payload.audit_trail.model_dump() if payload.audit_trail else None,
+        "internal_notes":      payload.internal_notes,
     }
 
     try:
