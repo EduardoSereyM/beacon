@@ -486,7 +486,7 @@ function SortableItem({ id, position, label }: { id: string; position: number; l
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
-        transition,
+        transition: transition ?? "box-shadow 0.15s",
         display: "flex",
         alignItems: "center",
         gap: 10,
@@ -499,7 +499,6 @@ function SortableItem({ id, position, label }: { id: string; position: number; l
         touchAction: "none",
         zIndex: isDragging ? 10 : 1,
         boxShadow: isDragging ? "0 8px 24px rgba(0,0,0,0.5)" : "none",
-        transition: transition ?? "box-shadow 0.15s",
       }}
       {...attributes}
       {...listeners}
