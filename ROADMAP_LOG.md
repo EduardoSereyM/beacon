@@ -67,8 +67,35 @@
 
 ### Pendiente (próxima iteración)
 - [ ] Backend de comentarios persistidos (`POST /api/v1/polls/{id}/comments`)
-- [ ] Admin UI para carga de encuestas JSON desde agentes
-- [ ] Cargar primeras encuestas reales de agentes de cowork
+- [x] Admin UI para carga de encuestas JSON desde agentes → `publish_polls.py`
+- [x] Cargar primeras encuestas reales de agentes de cowork → cargadas 12/04/2026
+
+---
+
+## 🚀 Sprint 2026-04-12 — Pipeline de Agentes + Nuevas Categorías
+
+### Implementado
+
+#### Backend — `QuestionDef` extendido
+- `scale_points` (int 2–10): número de puntos de escala por pregunta
+- `scale_labels` (array): etiqueta por cada punto (antes se perdían silenciosamente)
+- Retrocompatibilidad: `scale_min_label`/`scale_max_label` siguen funcionando
+- Categorías nuevas: `seguridad`, `justicia` (backend + ambos frontends)
+
+#### Script `publish_polls.py`
+- Lee payloads `.md` del pipeline AGENTE_05 y los publica en `POST /admin/polls`
+- Transforma automáticamente: `single_choice → multiple_choice`, `duration_days → starts_at/ends_at`, `is_active → status`
+- Dry-run mode, manejo de errores por poll, audit trail en consola
+
+#### Encuestas publicadas (primera carga real de agentes)
+| ID | Tema | Categoría | Score |
+|----|------|-----------|-------|
+| POLL-003-A | Economía chilena abril 2026 | economia | 96% |
+| POLL-005-A | Seguridad pública | seguridad | 84% |
+| POLL-014-C | Corrupción institucional | justicia | 86% |
+
+#### Documentación
+- `docs/apis.md` → sección 13 "Admin — Polls" + pipeline publish_polls.py
 
 ---
 

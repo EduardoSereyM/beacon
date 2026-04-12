@@ -49,6 +49,8 @@ const POLL_CATEGORIES: { value: string; label: string }[] = [
   { value: "espectaculos", label: "Espectáculos" },
   { value: "deporte",      label: "Deporte" },
   { value: "cultura",      label: "Cultura" },
+  { value: "seguridad",    label: "Seguridad" },
+  { value: "justicia",     label: "Justicia" },
 ];
 
 const EMPTY_QUESTION = (): PollQuestion => ({

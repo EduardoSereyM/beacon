@@ -33,6 +33,7 @@
 10. [Admin — AUM](#10-admin--aum)
 11. [Admin — Audit Logs](#11-admin--audit-logs)
 12. [Mecánica de Votos y Pesos](#12-mecánica-de-votos-y-pesos)
+13. [Admin — Polls](#13-admin--polls)
 
 ---
 
@@ -1443,3 +1444,139 @@ public.config_params (standalone — configuración dinámica)
 | `RUT_DUPLICATE_ATTEMPT` | `verify-identity POST` | `existing_user_id`, `alert: POSSIBLE_MULTI_ACCOUNT` |
 | `VOTE_SUBMITTED` | `entities/{id}/vote POST` | `vote_avg`, `scores`, `new_score`, `total_reviews` |
 | `PROFILE_DEMOGRAPHIC_UPDATED` | `profile PUT` | `fields_updated`, `fields_count` |
+
+
+---
+
+## 13. Admin — Polls
+
+> Requiere rol admin. Auth: Bearer JWT con `role = admin`.
+
+### POST `/admin/polls` ✅
+
+Crea una encuesta. Usado también por el pipeline de agentes vía `publish_polls.py`.
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | Admin |
+| **Tabla DB** | `polls` |
+| **Estado** | ✅ |
+
+**Request body (`PollCreateIn`):**
+```json
+{
+  "title": "string (1–300)",
+  "context": "string | null",
+  "description": "string | null",
+  "tags": ["string"],
+  "category": "general|politica|economia|salud|educacion|espectaculos|deporte|cultura|seguridad|justicia",
+  "starts_at": "ISO 8601",
+  "ends_at": "ISO 8601",
+  "status": "draft|active|paused|closed",
+  "is_featured": false,
+  "requires_auth": true,
+  "header_image": "URL | null",
+  "questions": [
+    {
+      "text": "string",
+      "type": "multiple_choice|scale",
+      "allow_multiple": false,
+      "options": ["string"],
+      "scale_points": 5,
+      "scale_labels": ["Muy malo", "", "", "", "Muy bueno"]
+    }
+  ]
+}
+```
+
+**Tipos de pregunta:**
+
+| `type` | `allow_multiple` | UI label | Descripción |
+|--------|-----------------|----------|-------------|
+| `multiple_choice` | `false` | Única | Radio (selección única) |
+| `multiple_choice` | `true` | Múltiple | Checkboxes (varias opciones) |
+| `scale` | — | Escala | Escala numérica 2–10 puntos |
+
+**Escala — campos:**
+- `scale_points` (int 2–10): número de puntos de la escala
+- `scale_labels` (array, len == scale_points): etiqueta por punto. Vacío permitido.
+- `scale_min_label` / `scale_max_label`: alternativa legacy (solo extremos).
+
+**Response 201:**
+```json
+{ "poll": { "id": "uuid", "slug": "auto-generado", ... } }
+```
+
+**Categorías válidas (backend + frontend):**
+`general`, `politica`, `economia`, `salud`, `educacion`, `espectaculos`, `deporte`, `cultura`, `seguridad`, `justicia`
+
+---
+
+### GET `/admin/polls` ✅
+
+Lista todas las encuestas (todas las categorías, sin filtro de status).
+
+---
+
+### PATCH `/admin/polls/{id}` ✅
+
+Actualiza campos parciales. Acepta los mismos campos que POST excepto `questions` completo.
+
+---
+
+### DELETE `/admin/polls/{id}` ✅
+
+Elimina encuesta. Genera audit log `OVERLORD_ACTION_DELETE_POLL`.
+
+---
+
+### POST `/admin/polls/upload-image` ✅
+
+Sube imagen de cabecera al bucket `encuestas` en Supabase Storage.
+
+| Campo | Valor |
+|-------|-------|
+| **Content-Type** | `multipart/form-data` |
+| **Formatos** | JPEG, PNG, WEBP |
+| **Límite** | 5 MB |
+
+**Response 200:**
+```json
+{ "url": "https://...supabase.../encuestas/covers/abc123.jpg", "path": "covers/abc123.jpg" }
+```
+
+---
+
+### GET `/admin/polls/analytics/voters` ✅
+
+Ranking de usuarios por votos en encuestas, filtrable por período.
+
+| Query param | Tipo | Descripción |
+|-------------|------|-------------|
+| `from_date` | ISO 8601 | Fecha inicio (opcional) |
+| `to_date`   | ISO 8601 | Fecha fin (opcional) |
+
+---
+
+## Pipeline de Agentes — publish_polls.py
+
+Script en raíz del repo para publicar payloads generados por AGENTE_05 (PUBLISHER).
+
+```bash
+# Dry-run (sin publicar)
+python publish_polls.py --file PAYLOADS.md --dry-run
+
+# Publicar en producción
+python publish_polls.py --file PAYLOADS.md --token <JWT_ADMIN>
+
+# Con variables de entorno
+BEACON_ADMIN_TOKEN=<jwt> BEACON_API_URL=https://beaconchile.cl \
+  python publish_polls.py --file PAYLOADS.md
+```
+
+**Transformaciones automáticas del script:**
+- `question_type: "single_choice"` → `type: "multiple_choice"`, `allow_multiple: false`
+- `question_type: "multiple_choice"` → `type: "multiple_choice"`, `allow_multiple: true`
+- `duration_days` → `starts_at` (now) + `ends_at` (now + N días)
+- `is_active: true` → `status: "active"`
+- Categorías inválidas → `"general"` con advertencia

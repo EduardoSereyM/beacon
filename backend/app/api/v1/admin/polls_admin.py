@@ -35,6 +35,7 @@ MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 VALID_CATEGORIES = {
     "general", "politica", "economia", "salud",
     "educacion", "espectaculos", "deporte", "cultura",
+    "seguridad", "justicia",
 }
 
 
@@ -47,10 +48,14 @@ class QuestionDef(BaseModel):
     type: str = Field(..., pattern="^(multiple_choice|scale)$")
     options: Optional[List[str]] = None   # solo multiple_choice
     allow_multiple: bool = False          # True = checkboxes, False = radio (solo multiple_choice)
+    # Escala por puntos (frontend admin)
+    scale_points: Optional[int] = Field(None, ge=2, le=10)
+    scale_labels: Optional[List[str]] = None  # etiqueta por cada punto (len == scale_points)
+    # Escala por extremos (legacy / retrocompat)
     scale_min: Optional[int] = Field(None, ge=1, le=9)
     scale_max: Optional[int] = Field(None, ge=2, le=10)
-    scale_min_label: Optional[str] = Field(None, max_length=80)  # ej: "Muy confusa"
-    scale_max_label: Optional[str] = Field(None, max_length=80)  # ej: "Muy clara"
+    scale_min_label: Optional[str] = Field(None, max_length=80)
+    scale_max_label: Optional[str] = Field(None, max_length=80)
     order_index: int = 0
 
 
@@ -174,13 +179,25 @@ async def admin_create_poll(
                 detail=f"Pregunta '{q.text}' requiere al menos 2 opciones.",
             )
         if q.type == "scale":
-            mn = q.scale_min or 1
-            mx = q.scale_max or 5
-            if mn >= mx:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"scale_min ({mn}) debe ser menor que scale_max ({mx}).",
-                )
+            if q.scale_points is not None:
+                if not (2 <= q.scale_points <= 10):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Pregunta '{q.text}': scale_points debe ser entre 2 y 10.",
+                    )
+                if q.scale_labels and len(q.scale_labels) != q.scale_points:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Pregunta '{q.text}': scale_labels debe tener exactamente {q.scale_points} etiquetas.",
+                    )
+            else:
+                mn = q.scale_min or 1
+                mx = q.scale_max or 5
+                if mn >= mx:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"scale_min ({mn}) debe ser menor que scale_max ({mx}).",
+                    )
 
     supabase = get_async_supabase_client()
 
@@ -227,7 +244,7 @@ async def admin_create_poll(
         "poll_type":    body.questions[0].type,
         "options":      body.questions[0].options if body.questions[0].type == "multiple_choice" else None,
         "scale_min":    body.questions[0].scale_min or 1,
-        "scale_max":    body.questions[0].scale_max or 5,
+        "scale_max":    body.questions[0].scale_max or (body.questions[0].scale_points or 5),
     }
 
     result = await supabase.table("polls").insert(payload).execute()

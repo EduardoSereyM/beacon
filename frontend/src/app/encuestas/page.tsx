@@ -39,6 +39,8 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "",             label: "Todas" },
   { value: "politica",     label: "Política" },
   { value: "economia",     label: "Economía" },
+  { value: "seguridad",    label: "Seguridad" },
+  { value: "justicia",     label: "Justicia" },
   { value: "salud",        label: "Salud" },
   { value: "educacion",    label: "Educación" },
   { value: "espectaculos", label: "Espectáculos" },
