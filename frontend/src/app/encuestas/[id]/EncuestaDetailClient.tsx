@@ -53,6 +53,7 @@ interface QuestionDef {
   options: string[] | null;
   scale_min?: number;
   scale_max?: number;
+  scale_points?: number;        // 2-10: número de puntos en la escala
   scale_min_label?: string;
   scale_max_label?: string;
   scale_labels?: string[];      // etiquetas para cada punto de la escala
