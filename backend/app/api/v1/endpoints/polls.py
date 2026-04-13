@@ -247,7 +247,7 @@ def _compute_results(poll: dict, votes: list) -> dict:
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
-POLL_PUBLIC_FIELDS = "id, slug, title, description, context, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, questions, category, requires_auth, is_featured, tags, status"
+POLL_PUBLIC_FIELDS = "id, slug, title, description, context, header_image, starts_at, ends_at, questions, category, requires_auth, is_featured, tags, status"
 
 
 @router.get("/polls/featured", summary="Encuesta destacada para el hero del home")
@@ -405,7 +405,7 @@ async def my_polls(current_user: dict = Depends(get_current_user)):
 
     result = await (
         supabase.table("polls")
-        .select("id, title, description, header_image, poll_type, options, scale_min, scale_max, starts_at, ends_at, category, requires_auth, is_active")
+        .select("id, title, description, header_image, starts_at, ends_at, category, requires_auth, is_active, questions")
         .in_("id", poll_ids)
         .order("created_at", desc=True)
         .execute()
