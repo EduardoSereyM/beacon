@@ -187,7 +187,20 @@ async def require_pipeline_key(request: Request) -> dict:
     if not hmac.compare_digest(token, expected):
         raise HTTPException(status_code=401, detail="Pipeline API key inválida")
 
-    return {"actor": "agent_pipeline", "user_id": "SYSTEM_PIPELINE"}
+    # Obtener el primer admin como created_by para cumplir FK uuid
+    supabase = get_async_supabase_client()
+    admin_result = await (
+        supabase.table("users")
+        .select("id")
+        .eq("role", "admin")
+        .limit(1)
+        .execute()
+    )
+    admin_id = admin_result.data[0]["id"] if admin_result.data else None
+    if not admin_id:
+        raise HTTPException(status_code=500, detail="No hay usuario admin en la tabla users")
+
+    return {"actor": "agent_pipeline", "user_id": admin_id}
 
 
 # ── Ingest desde pipeline de agentes ───────────────────
@@ -268,7 +281,7 @@ async def admin_ingest_poll(
         "status":       status,
         "is_active":    status == "active",
         "is_featured":  False,
-        "created_by":   "SYSTEM_PIPELINE",
+        "created_by":   pipeline["user_id"],
         "questions":    questions_json,
         "category":     category,
         "requires_auth": True,
@@ -289,7 +302,7 @@ async def admin_ingest_poll(
     if body.metadata:
         metadata_details = body.metadata.model_dump()
     await audit_bus.alog_event(
-        actor_id="SYSTEM_PIPELINE",
+        actor_id=pipeline["user_id"],
         action="AGENT_PIPELINE_INGEST_POLL",
         entity_type="POLL",
         entity_id=poll["id"],
