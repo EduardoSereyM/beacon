@@ -147,6 +147,14 @@ ALTER TABLE polls DROP COLUMN options;
 ```
 
 ### Pendiente (próxima iteración)
+- [ ] **UI: Sección comparativa "Encuestadoras Tradicionales vs Beacon"** en landing page
+  - Ubicación: entre hero completo y cards de diferenciadores (3 cards existentes)
+  - Estructura: 2 columnas lado a lado, separador visual central
+  - Columna izquierda: "ENCUESTADORAS TRADICIONALES" con 4 ítems negados (✗ rojo apagado)
+  - Columna derecha: "BEACON" con 4 ítems afirmados (✓ color accent)
+  - Responsive: apilado vertical en mobile, Beacon arriba
+  - Detalles de contenido y estilos en `docs/LANDING_PAGE_PENDING.md`
+  
 - [ ] Backend de comentarios persistidos (`POST /api/v1/polls/{id}/comments`)
 - [x] Admin UI para carga de encuestas JSON desde agentes → `publish_polls.py`
 - [x] Cargar primeras encuestas reales de agentes de cowork → cargadas 12/04/2026
