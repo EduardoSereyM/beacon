@@ -20,6 +20,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface PollItem {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   header_image: string | null;
@@ -69,7 +70,7 @@ function PollCard({ poll }: { poll: PollItem }) {
       : `Escala ${poll.scale_min}–${poll.scale_max}`;
 
   return (
-    <Link href={`/encuestas/${poll.id}`} style={{ textDecoration: "none" }}>
+    <Link href={`/encuestas/${poll.slug}`} style={{ textDecoration: "none" }}>
       <div
         style={{
           background: "rgba(17,17,17,0.9)",

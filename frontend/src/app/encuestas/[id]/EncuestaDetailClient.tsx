@@ -55,6 +55,7 @@ interface QuestionDef {
   scale_max?: number;
   scale_min_label?: string;
   scale_max_label?: string;
+  scale_labels?: string[];      // etiquetas para cada punto de la escala
   order_index?: number;
 }
 
@@ -704,24 +705,24 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
 
             {q.type === "scale" && (
               <div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                  {Array.from({ length: (q.scale_max ?? 5) - (q.scale_min ?? 1) + 1 }, (_, i) => (q.scale_min ?? 1) + i).map((n) => {
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, justifyContent: "center" }}>
+                  {Array.from({ length: (q.scale_max ?? 5) - (q.scale_min ?? 1) + 1 }, (_, i) => (q.scale_min ?? 1) + i).map((n, idx) => {
                     const sel = answers[q.id] === String(n);
+                    const label = q.scale_labels?.[idx] || "";
                     return (
-                      <button key={n} onClick={() => setAnswers((p) => ({ ...p, [q.id]: String(n) }))}
-                        style={{ width: 44, height: 44, borderRadius: 10, border: `1.5px solid ${sel ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(57,255,20,0.18)" : "rgba(255,255,255,0.02)", color: sel ? "#39FF14" : "rgba(255,255,255,0.5)", fontSize: 14, fontFamily: "monospace", fontWeight: sel ? 800 : 400, cursor: "pointer", transition: "all 0.15s" }}>
-                        {n}
-                      </button>
+                      <div key={n} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                        <button onClick={() => setAnswers((p) => ({ ...p, [q.id]: String(n) }))}
+                          style={{ width: 48, height: 48, borderRadius: 10, border: `1.5px solid ${sel ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(57,255,20,0.18)" : "rgba(255,255,255,0.02)", color: sel ? "#39FF14" : "rgba(255,255,255,0.6)", fontSize: 15, fontFamily: "monospace", fontWeight: sel ? 800 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                          {n}
+                        </button>
+                        {label && (
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center", maxWidth: 70, lineHeight: 1.2 }}>
+                            {label}
+                          </span>
+                        )}
+                      </div>
                     );
                   })}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                  <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.35)" }}>
-                    {q.scale_min ?? 1} {q.scale_min_label ? `— ${q.scale_min_label}` : ""}
-                  </span>
-                  <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.35)" }}>
-                    {q.scale_max_label ? `${q.scale_max_label} —` : ""} {q.scale_max ?? 5}
-                  </span>
                 </div>
               </div>
             )}
@@ -776,22 +777,22 @@ function SingleQuestionVote({ poll, onVote, voting }: { poll: Poll; onVote: (v: 
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18, justifyContent: "center" }}>
         {Array.from({ length: (poll.scale_max ?? 5) - (poll.scale_min ?? 1) + 1 }, (_, i) => (poll.scale_min ?? 1) + i).map((n) => {
           const sel = scaleVal === n;
           return (
             <button key={n} onClick={() => setScaleVal(n)}
-              style={{ width: 46, height: 46, borderRadius: 10, border: `1.5px solid ${sel ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(57,255,20,0.18)" : "rgba(255,255,255,0.02)", color: sel ? "#39FF14" : "rgba(255,255,255,0.5)", fontSize: 15, fontFamily: "monospace", fontWeight: sel ? 800 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+              style={{ width: 50, height: 50, borderRadius: 10, border: `1.5px solid ${sel ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(57,255,20,0.18)" : "rgba(255,255,255,0.02)", color: sel ? "#39FF14" : "rgba(255,255,255,0.6)", fontSize: 16, fontFamily: "monospace", fontWeight: sel ? 800 : 400, cursor: "pointer", transition: "all 0.15s" }}>
               {n}
             </button>
           );
         })}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-        <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.4)" }}>
+        <span style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}>
           {poll.scale_min ?? 1}{poll.scale_min_label ? ` — ${poll.scale_min_label}` : " — Mínimo"}
         </span>
-        <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.4)" }}>
+        <span style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}>
           {poll.scale_max_label ? `${poll.scale_max_label} — ` : "Máximo — "}{poll.scale_max ?? 5}
         </span>
       </div>
@@ -1279,18 +1280,74 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
           <div className="px-4 sm:px-7" style={{ paddingTop: 22, paddingBottom: 30 }}>
             {/* Título */}
-            <h1 className="text-xl sm:text-2xl" style={{ fontWeight: 900, color: "#f5f5f5", marginBottom: 8, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
+            <h1 className="text-2xl sm:text-3xl" style={{ fontWeight: 900, color: "#f5f5f5", marginBottom: 8, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
               {poll.title}
             </h1>
             {poll.description && (
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", marginBottom: 6, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginBottom: 8, lineHeight: 1.6, fontWeight: 500 }}>
                 {poll.description}
               </p>
             )}
             {/* Fecha con hora */}
-            <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", marginBottom: 16 }}>
+            <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.35)", marginBottom: 20 }}>
               {poll.is_open ? "⏳ Cierra" : "🔒 Cerró"} el {formatDateHour(poll.ends_at)} hrs
             </p>
+
+            {/* ══════════════════════════════════════════
+             *  CONTEXTO — información de la encuesta
+             * ══════════════════════════════════════════ */}
+            {(poll.context || poll.source_url || (poll.tags && poll.tags.length > 0)) && (
+              <div
+                style={{
+                  marginBottom: 22,
+                  borderRadius: 16,
+                  border: "1px solid rgba(0,229,255,0.1)",
+                  background: "rgba(0,229,255,0.03)",
+                  padding: "20px 24px",
+                }}
+              >
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                  <span style={{ fontSize: 13 }}>🔍</span>
+                  <span style={{ fontSize: 11, fontFamily: "monospace", letterSpacing: "0.15em", color: "rgba(0,229,255,0.7)", textTransform: "uppercase", fontWeight: 700 }}>
+                    Contexto
+                  </span>
+                </div>
+
+                {/* Texto de contexto */}
+                {poll.context && (
+                  <p style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.7, marginBottom: poll.source_url || poll.tags?.length ? 14 : 0 }}>
+                    {poll.context}
+                  </p>
+                )}
+
+                {/* Fuente */}
+                {poll.source_url && (
+                  <a
+                    href={poll.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontFamily: "monospace", color: "#00E5FF", textDecoration: "none", marginBottom: poll.tags?.length ? 12 : 0 }}
+                  >
+                    🔗 Ver fuente →
+                  </a>
+                )}
+
+                {/* Tags */}
+                {poll.tags && poll.tags.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    {poll.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        style={{ fontSize: 10, fontFamily: "monospace", padding: "3px 12px", borderRadius: 20, background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.2)", color: "rgba(0,229,255,0.6)" }}
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Share social */}
             <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -1382,7 +1439,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
             ) : (
               <div>
                 {poll.questions?.[0]?.text && (
-                  <p style={{ fontSize: 15, fontWeight: 700, color: "#f5f5f5", marginBottom: 18, lineHeight: 1.5 }}>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: "#f5f5f5", marginBottom: 22, lineHeight: 1.5 }}>
                     {poll.questions[0].text}
                   </p>
                 )}
@@ -1522,61 +1579,6 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════
-         *  CONTEXTO — información de la encuesta
-         * ══════════════════════════════════════════ */}
-        {(poll.context || poll.source_url || (poll.tags && poll.tags.length > 0)) && (
-          <div
-            style={{
-              marginTop: 16,
-              borderRadius: 16,
-              border: "1px solid rgba(0,229,255,0.1)",
-              background: "rgba(0,229,255,0.03)",
-              padding: "20px 24px",
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <span style={{ fontSize: 13 }}>🔍</span>
-              <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", color: "rgba(0,229,255,0.6)", textTransform: "uppercase" }}>
-                Contexto
-              </span>
-            </div>
-
-            {/* Texto de contexto */}
-            {poll.context && (
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.7, marginBottom: poll.source_url || poll.tags?.length ? 14 : 0 }}>
-                {poll.context}
-              </p>
-            )}
-
-            {/* Fuente */}
-            {poll.source_url && (
-              <a
-                href={poll.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, fontFamily: "monospace", color: "#00E5FF", textDecoration: "none", marginBottom: poll.tags?.length ? 12 : 0 }}
-              >
-                🔗 Ver fuente →
-              </a>
-            )}
-
-            {/* Tags */}
-            {poll.tags && poll.tags.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                {poll.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    style={{ fontSize: 9, fontFamily: "monospace", padding: "2px 10px", borderRadius: 20, background: "rgba(0,229,255,0.07)", border: "1px solid rgba(0,229,255,0.15)", color: "rgba(0,229,255,0.5)" }}
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ══════════════════════════════════════════
          *  COMENTARIOS / REACCIONES CIUDADANAS
