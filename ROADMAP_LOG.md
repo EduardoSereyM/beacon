@@ -15,6 +15,85 @@
 
 ---
 
+## 🎨 Landing Page — Redesign Home Hero & Cards — 2026-04-13 (commits 4cb0c89, 3e9f7b7)
+
+### Implementado
+
+#### CAMBIO 1 — Consolidación de Cards (6 → 3)
+**Archivo:** `frontend/src/app/page.tsx`
+
+| Aspecto | Antes | Después |
+|---|---|---|
+| Grid | 3x2 (6 cards totales) | 3x1 (3 cards totales) |
+| Icono | size 24 | size 28 |
+| Padding | p-5 | p-6 |
+| Gap | gap-4 | gap-6 |
+| Body text | text-xs | text-sm |
+| Max-width container | max-w-4xl | max-w-5xl |
+
+**Nuevas Cards:**
+1. **"Tu voz, sin filtros"** (Icon: Users, #00E5FF)
+   - Content: No existe panel de 1.000 personas elegidas; cualquier ciudadano puede votar, proponer preguntas y definir la agenda.
+
+2. **"Cada voto, una persona real"** (Icon: ShieldCheck, #D4AF37)
+   - Content: Tu voto cuenta porque eres real. Verificamos identidad una sola vez, sin bots ni multicuentas.
+
+3. **"Datos de Chile, para todos"** (Icon: BarChart3, #39FF14)
+   - Content: Resultados públicos y gratuitos siempre. No trabajamos para empresas, partidos ni gobiernos.
+
+#### CAMBIO 2 — Hero Claims Horizontales
+**Archivo:** `frontend/src/components/home/HomeHeroClient.tsx`
+
+**Cambio:** Reemplazo del segundo párrafo ("Los datos de opinión pública...") por 3 claims separados por "|"
+
+**Antes:**
+```
+Párrafo: "Los datos de opinión pública pertenecen a todos, no a quien los encarga. Por eso publicamos todo, gratis, siempre."
+```
+
+**Después:**
+```
+Sin clientes ocultos | Datos públicos siempre | Gratis para todos
+```
+
+**Estilos:**
+- `text-sm tracking-wider font-mono`
+- Color: `rgba(255,255,255,0.5)` (gris muted)
+- Separadores: `<span className="mx-2">|</span>`
+- Posición: Entre párrafo hero principal y CTA buttons
+
+#### CAMBIO 3 — EN VIVO Badge & Stats (Sin cambios)
+✅ EN VIVO badge: Sin modificaciones  
+✅ Stats footer: Sin modificaciones
+
+### QA/Testing
+- ✅ Build sin errores
+- ✅ Responsive: desktop (2 cols), mobile (stacked)
+- ✅ Visual hierarchy: cards más destacadas, spacing mejorado
+- ✅ Typography: 28px icons, improved body text size
+
+### Commits
+- **4cb0c89**: `feat(frontend): redesign home page layout — consolidate cards and claims`
+- **3e9f7b7**: `docs: document pending comparison section for landing page`
+
+---
+
+## 📚 Documentation — Pending Features
+**Archivo nuevo:** `docs/LANDING_PAGE_PENDING.md`
+
+Especificación completa para implementación futura (P3):
+- **Sección Comparativa:** "Encuestadoras Tradicionales vs Beacon"
+- **Layout:** 2 columnas lado a lado, responsive mobile
+- **Contenido:** 4 ítems negados (✗) vs 4 ítems afirmados (✓)
+- **Ubicación:** Entre hero y cards de diferenciadores
+- **Estilos:** Especificados (colores, bordes, fondos)
+
+Actualizado también:
+- `ROADMAP_LOG.md` → Agregado en sección "Pendiente"
+- Memory personal → Referencia `pending_comparison_section.md`
+
+---
+
 ## 🏗️ Architecture Refactor — Polls Table Cleanup — 2026-04-13 (commit 9be4797)
 
 ### Implementado
