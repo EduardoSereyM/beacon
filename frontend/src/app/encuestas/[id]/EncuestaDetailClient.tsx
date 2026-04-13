@@ -360,8 +360,9 @@ function PollResults({
 }) {
   const results    = overrideResults    ?? poll.results;
   const totalVotes = overrideTotalVotes ?? poll.total_votes;
+  const pollType = poll.questions?.[0]?.type ?? "multiple_choice";
 
-  if (poll.poll_type === "scale") {
+  if (pollType === "scale") {
     const r = results[0];
     return (
       <div style={{ textAlign: "center", padding: "20px 0" }}>
@@ -380,7 +381,7 @@ function PollResults({
     );
   }
 
-  if (poll.poll_type === "ranking") {
+  if (pollType === "ranking") {
     // Mostrar posición promedio (columna principal) + frecuencia #1
     const maxBorda = results[0]?.borda_score ?? 1;
     return (
@@ -706,7 +707,7 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
             {q.type === "scale" && (
               <div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, justifyContent: "center" }}>
-                  {Array.from({ length: (q.scale_max ?? 5) - (q.scale_min ?? 1) + 1 }, (_, i) => (q.scale_min ?? 1) + i).map((n, idx) => {
+                  {Array.from({ length: (q.scale_points ?? q.scale_max ?? 5) - 1 + 1 }, (_, i) => 1 + i).map((n, idx) => {
                     const sel = answers[q.id] === String(n);
                     const label = q.scale_labels?.[idx] || "";
                     return (
@@ -748,13 +749,18 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
 
 function SingleQuestionVote({ poll, onVote, voting }: { poll: Poll; onVote: (v: string) => void; voting: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const [scaleVal, setScaleVal] = useState(poll.scale_min ?? 1);
+  // Get first question to determine poll type and scale
+  const firstQuestion = poll.questions?.[0];
+  const pollType = firstQuestion?.type ?? "multiple_choice";
+  const scalePoints = firstQuestion?.scale_points ?? 5;
+  const [scaleVal, setScaleVal] = useState(1);
 
-  if (poll.poll_type === "multiple_choice") {
+  if (pollType === "multiple_choice") {
+    const options = firstQuestion?.options || [];
     return (
       <div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-          {(poll.options || []).map((opt) => {
+          {options.map((opt) => {
             const sel = selected === opt;
             return (
               <button key={opt} onClick={() => setSelected(opt)} disabled={voting}
@@ -778,23 +784,23 @@ function SingleQuestionVote({ poll, onVote, voting }: { poll: Poll; onVote: (v: 
   return (
     <div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18, justifyContent: "center" }}>
-        {Array.from({ length: (poll.scale_max ?? 5) - (poll.scale_min ?? 1) + 1 }, (_, i) => (poll.scale_min ?? 1) + i).map((n) => {
+        {Array.from({ length: scalePoints }, (_, i) => 1 + i).map((n, idx) => {
           const sel = scaleVal === n;
+          const label = firstQuestion?.scale_labels?.[idx] || "";
           return (
-            <button key={n} onClick={() => setScaleVal(n)}
-              style={{ width: 50, height: 50, borderRadius: 10, border: `1.5px solid ${sel ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(57,255,20,0.18)" : "rgba(255,255,255,0.02)", color: sel ? "#39FF14" : "rgba(255,255,255,0.6)", fontSize: 16, fontFamily: "monospace", fontWeight: sel ? 800 : 400, cursor: "pointer", transition: "all 0.15s" }}>
-              {n}
-            </button>
+            <div key={n} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <button onClick={() => setScaleVal(n)}
+                style={{ width: 50, height: 50, borderRadius: 10, border: `1.5px solid ${sel ? "rgba(57,255,20,0.6)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(57,255,20,0.18)" : "rgba(255,255,255,0.02)", color: sel ? "#39FF14" : "rgba(255,255,255,0.6)", fontSize: 16, fontFamily: "monospace", fontWeight: sel ? 800 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                {n}
+              </button>
+              {label && (
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center", maxWidth: 70, lineHeight: 1.2 }}>
+                  {label}
+                </span>
+              )}
+            </div>
           );
         })}
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-        <span style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}>
-          {poll.scale_min ?? 1}{poll.scale_min_label ? ` — ${poll.scale_min_label}` : " — Mínimo"}
-        </span>
-        <span style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)" }}>
-          {poll.scale_max_label ? `${poll.scale_max_label} — ` : "Máximo — "}{poll.scale_max ?? 5}
-        </span>
       </div>
       <button onClick={() => onVote(String(scaleVal))} disabled={voting}
         style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 13, fontFamily: "monospace", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", border: "none", background: voting ? "rgba(57,255,20,0.3)" : "linear-gradient(135deg, #39FF14 0%, #00E5FF 100%)", color: "#0A0A0A", cursor: voting ? "wait" : "pointer", transition: "all 0.2s", boxShadow: !voting ? "0 4px 24px rgba(57,255,20,0.25)" : "none" }}>
@@ -1543,7 +1549,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
                     {/* ── Card 3: Análisis Demográfico (solo admins) ── */}
                     {isAdmin && poll.verified_votes > 0 && (
-                      <CrossTabsPanel pollId={poll.id} pollType={poll.poll_type} />
+                      <CrossTabsPanel pollId={poll.id} pollType={(poll.questions?.[0]?.type as any) ?? "multiple_choice"} />
                     )}
 
                   </div>
