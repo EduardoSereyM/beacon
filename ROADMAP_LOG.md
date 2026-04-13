@@ -42,25 +42,59 @@
    - Content: Resultados públicos y gratuitos siempre. No trabajamos para empresas, partidos ni gobiernos.
 
 #### CAMBIO 2 — Hero Claims Horizontales
-**Archivo:** `frontend/src/components/home/HomeHeroClient.tsx`
+**Archivo:** `frontend/src/components/home/HomeHeroClient.tsx` (lines 60-84)
 
-**Cambio:** Reemplazo del segundo párrafo ("Los datos de opinión pública...") por 3 claims separados por "|"
+**Cambio:** Reemplazo del segundo párrafo por nueva sección con 3 claims horizontales
 
-**Antes:**
-```
-Párrafo: "Los datos de opinión pública pertenecen a todos, no a quien los encarga. Por eso publicamos todo, gratis, siempre."
+**Antes (líneas 60-75):**
+```jsx
+{/* Subtítulo */}
+<div className={`mx-auto leading-relaxed transition-all ${...}`}>
+    <p className="mb-4">
+        Beacon es la plataforma...
+    </p>
+    <p>
+        Los datos de opinión pública pertenecen a todos, no a quien los encarga. 
+        Por eso publicamos todo, gratis, siempre.
+    </p>
+</div>
 ```
 
-**Después:**
-```
-Sin clientes ocultos | Datos públicos siempre | Gratis para todos
+**Después (líneas 60-84):**
+```jsx
+{/* Subtítulo */}
+<div className={`mx-auto leading-relaxed transition-all ${...}`}>
+    <p className="mb-6">
+        Beacon es la plataforma de opinión ciudadana abierta y verificada de Chile. 
+        Las encuestadoras tradicionales eligen quién habla por ti — nosotros no. 
+        No necesitas que te elijan para que te escuchen. Cada voto cuenta porque 
+        cada persona es real. Sin bots, sin multicuentas, sin panel.
+    </p>
+</div>
+
+{/* 3 Claims Horizontales */}
+<div className={`mx-auto transition-all ${
+    isAuthenticated ? "mb-8" : "mb-10"
+}`} style={{ color: "rgba(255,255,255,0.5)" }}>
+    <p className="text-sm tracking-wider font-mono">
+        Sin clientes votantes ocultos 🙈 <span className="mx-2">|</span> 
+        Datos públicos siempre <span className="mx-2">|</span> 
+        Gratis para las personas
+    </p>
+</div>
 ```
 
-**Estilos:**
-- `text-sm tracking-wider font-mono`
-- Color: `rgba(255,255,255,0.5)` (gris muted)
-- Separadores: `<span className="mx-2">|</span>`
-- Posición: Entre párrafo hero principal y CTA buttons
+**Cambios específicos:**
+1. Eliminado segundo párrafo ("Los datos de opinión pública...")
+2. Aumentado spacing del primer párrafo: `mb-4` → `mb-6`
+3. Reducido márgenes inferiores del contenedor: `mb-10` → `mb-8` para authenticated
+4. Agregada nueva sección "3 Claims Horizontales" con:
+   - Styling: `text-sm tracking-wider font-mono` (monospace, compacto)
+   - Color: `rgba(255,255,255,0.5)` (gris muted)
+   - Separadores: `<span className="mx-2">|</span>` con spacing
+   - Responsive margins: `mb-8` (authenticated) / `mb-10` (no authenticated)
+5. Claims: "Sin clientes votantes ocultos 🙈 | Datos públicos siempre | Gratis para las personas"
+6. Posición: Entre párrafo hero principal y bloque de CTA buttons
 
 #### CAMBIO 3 — EN VIVO Badge & Stats (Sin cambios)
 ✅ EN VIVO badge: Sin modificaciones  
