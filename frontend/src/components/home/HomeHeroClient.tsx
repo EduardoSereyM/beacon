@@ -49,13 +49,13 @@ export default function HomeHeroClient() {
                             : "text-4xl sm:text-5xl md:text-6xl mb-6"
                     }`}
                 >
-                    <span className="text-foreground">Por fin, </span>
+                    <span className="text-beacon-red">Otros eligen quién opina por ti..., </span>
                     <br className="sm:hidden" />
                     <span
                         className="bg-clip-text text-transparent"
-                        style={{ backgroundImage: "linear-gradient(135deg, #00E5FF, #8A2BE2)" }}
+                        style={{ backgroundImage: "linear-gradient(135deg, #00E5FF, #00FF41)" }}
                     >
-                        alguien te pregunta.
+                        Aquí opinas tú.
                     </span>
                 </h1>
 
@@ -68,8 +68,17 @@ export default function HomeHeroClient() {
                     }`}
                 >
                     Beacon es la plataforma de opinión ciudadana abierta y verificada de Chile.
-                    Sin panelistas seleccionados, sin agenda oculta.
-                    Vota, ve los resultados y propón preguntas. Siempre gratis.
+                    Sin panelistas seleccionados, Las encuestadoras tradicionales eligen quién habla por ti, aqui votas tu.
+                    No necesitas que te elijan para que te escuchen. Chile no cabe en 1.000 panelistas.
+                    <br />
+                    
+                </p>
+
+                <p className="py-8">
+                    Las encuestadoras tradicionales trabajan para sus clientes. Nosotros publicamos todo, gratis, porque los datos de opinión pública pertenecen a todos
+                </p>
+                <p>
+                    Cada voto cuenta porque cada persona es real. Sin bots. Sin multicuentas. Sin panel de escritorio.
                 </p>
 
                 {/* CTAs */}

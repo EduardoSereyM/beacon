@@ -52,6 +52,8 @@
   --foreground-muted: #a8a8a8;
   --foreground-subtle: #717171;
   --background: var(--beacon-black);
+  --foreground-red-muted: #ee3131c0;
+  /* Panic Flash — Emergencia total */
 }
 
 @theme inline {

@@ -15,6 +15,7 @@ import PollsHeroSection from "@/components/polls/PollsHeroSection";
 import TrendingPollsSection from "@/components/polls/TrendingPollsSection";
 import PollsByCategorySection from "@/components/polls/PollsByCategorySection";
 import ClosedPollsSection from "@/components/polls/ClosedPollsSection";
+import VotingWeightDisclaimer from "@/components/home/VotingWeightDisclaimer";
 
 export const revalidate = 10;
 
@@ -154,6 +155,48 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* Second row of 3 cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            {[
+              {
+                Icon: Users,
+                title: "Tú decides, no ellos",
+                body: "En las otras encuestas, alguien elige quién tiene voz. Aquí no hay panel de 1.000 personas seleccionadas por nosotros. Cualquier ciudadano puede votar y proponer preguntas.",
+                color: "#00E5FF",
+              },
+              {
+                Icon: ShieldCheck,
+                title: "Real, no seleccionado",
+                body: "Verificado no es lo mismo que elegido. Tu voto cuenta en los informes porque eres una persona real, no porque alguien te incluyó en una lista. Sin filtros, sin criterios de admisión.",
+                color: "#D4AF37",
+              },
+              {
+                Icon: BarChart3,
+                title: "Los datos son de Chile",
+                body: "Los resultados son públicos y gratuitos, siempre. No trabajamos para empresas, partidos ni gobiernos. Los datos de opinión ciudadana pertenecen a todos, no a quien los encarga.",
+                color: "#39FF14",
+              },
+            ].map(({ Icon, title, body, color }) => (
+              <div
+                key={title}
+                className="rounded-xl p-5"
+                style={{
+                  background: "rgba(17,17,17,0.6)",
+                  border: `1px solid ${color}20`,
+                }}
+              >
+                <Icon size={24} style={{ color }} strokeWidth={1.5} />
+                <h3
+                  className="text-sm font-bold uppercase tracking-wider mt-3 mb-2"
+                  style={{ color }}
+                >
+                  {title}
+                </h3>
+                <p className="text-xs text-foreground-muted leading-relaxed">{body}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -234,6 +277,15 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <SectionDivider />
+
+      {/* ═══════════════════════════════════════════
+       *  VOTING WEIGHT & RUT PRIVACY DISCLAIMER
+       * ═══════════════════════════════════════════ */}
+      <VotingWeightDisclaimer />
+
+      <SectionDivider />
 
       {/* ═══════════════════════════════════════════
        *  STATS FOOTER
