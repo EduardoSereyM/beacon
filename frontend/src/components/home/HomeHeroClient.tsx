@@ -79,7 +79,7 @@ export default function HomeHeroClient() {
                     style={{ color: "rgba(255,255,255,0.5)" }}
                 >
                     <p className="text-sm tracking-wider font-mono">
-                        Sin clientes ocultos <span className="mx-2">|</span> Datos públicos siempre <span className="mx-2">|</span> Gratis para todos
+                        Sin clientes votantes ocultos 🙈 <span className="mx-2">|</span> Datos públicos siempre <span className="mx-2">|</span> Gratis para las personas
                     </p>
                 </div>
 
