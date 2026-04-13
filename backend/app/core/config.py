@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # Mínimo 16 caracteres. Cambia esta salt y todos los rut_hash quedan huérfanos.
     RUT_HASH_SALT: str
 
+    # ─── Pipeline de Agentes ───
+    # API key para el endpoint /admin/polls/ingest. El pipeline se autentica con esta key.
+    # Generar con: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    PIPELINE_API_KEY: str = ""
+
     # ─── Aplicación ───
     APP_NAME: str = "Beacon Protocol"
     APP_VERSION: str = "0.1.0"

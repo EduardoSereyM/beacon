@@ -13,10 +13,11 @@ Endpoints:
   POST   /admin/polls/upload-image → Subir imagen cabecera al bucket 'encuestas'
 """
 
+import hmac
 import logging
 import uuid
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query
+from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File, Query
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any
 
@@ -163,18 +164,45 @@ def _agent_question_to_def(q: AgentQuestionIn) -> QuestionDef:
     )
 
 
+# ── Auth pipeline de agentes ───────────────────────────
+
+async def require_pipeline_key(request: Request) -> dict:
+    """
+    Autentica llamadas del pipeline de agentes usando PIPELINE_API_KEY.
+    No requiere JWT de usuario — el pipeline se autentica con su propia key.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Pipeline API key requerida")
+
+    token = auth_header.replace("Bearer ", "")
+    expected = settings.PIPELINE_API_KEY
+
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="PIPELINE_API_KEY no configurada en el backend",
+        )
+
+    if not hmac.compare_digest(token, expected):
+        raise HTTPException(status_code=401, detail="Pipeline API key inválida")
+
+    return {"actor": "agent_pipeline", "user_id": "SYSTEM_PIPELINE"}
+
+
 # ── Ingest desde pipeline de agentes ───────────────────
 
-@router.post("/ingest", summary="[ADMIN] Ingestar encuesta desde pipeline de agentes", status_code=201)
+@router.post("/ingest", summary="Ingestar encuesta desde pipeline de agentes", status_code=201)
 async def admin_ingest_poll(
     body: AgentPollIn,
-    admin: dict = Depends(require_admin_role),
+    pipeline: dict = Depends(require_pipeline_key),
 ):
     """
     Endpoint para el pipeline automático de agentes (AGENTE_05 / PUBLISHER).
-    Acepta el schema nativo del agente y lo transforma al formato interno.
+    Se autentica con PIPELINE_API_KEY — no requiere JWT de usuario.
 
     Diferencias con POST /admin/polls:
+    - Auth: PIPELINE_API_KEY en vez de JWT admin
     - `question_type` en lugar de `type` (single_choice|multiple_choice|scale)
     - `duration_days` en lugar de `starts_at`/`ends_at`
     - `is_active` en lugar de `status`
@@ -197,28 +225,71 @@ async def admin_ingest_poll(
 
     status = "active" if body.is_active else "draft"
 
-    # Reusar PollCreateIn para validación y creación unificada
-    poll_body = PollCreateIn(
-        title=body.title,
-        context=body.context,
-        tags=body.tags or [],
-        category=category,
-        starts_at=starts_at,
-        ends_at=ends_at,
-        status=status,
-        questions=questions,
+    # Construir payload interno y crear directamente (sin delegar a admin_create_poll
+    # que requiere admin auth)
+    for q in questions:
+        if q.type == "multiple_choice" and (not q.options or len(q.options) < 2):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Pregunta '{q.text}' requiere al menos 2 opciones.",
+            )
+        if q.type == "scale":
+            if q.scale_points is not None:
+                if not (2 <= q.scale_points <= 10):
+                    raise HTTPException(status_code=400, detail=f"Pregunta '{q.text}': scale_points debe ser entre 2 y 10.")
+                if q.scale_labels and len(q.scale_labels) != q.scale_points:
+                    raise HTTPException(status_code=400, detail=f"Pregunta '{q.text}': scale_labels debe tener {q.scale_points} etiquetas.")
+
+    supabase = get_async_supabase_client()
+
+    # Generar slug
+    slug = _generate_slug(body.title)
+    existing_slug = await (
+        supabase.table("polls")
+        .select("id")
+        .ilike("slug", slug)
+        .maybe_single()
+        .execute()
     )
+    if existing_slug.data:
+        slug = f"{slug}-{uuid.uuid4().hex[:6]}"
 
-    # Delegar al handler de creación
-    result = await admin_create_poll(poll_body, admin)
-    poll = result["poll"]
+    questions_json = [q.model_dump() for q in questions]
 
-    # Guardar audit trail del pipeline en audit_log
+    payload = {
+        "title":        body.title,
+        "slug":         slug,
+        "description":  None,
+        "context":      body.context,
+        "tags":         body.tags or [],
+        "header_image": None,
+        "starts_at":    starts_at,
+        "ends_at":      ends_at,
+        "status":       status,
+        "is_active":    status == "active",
+        "is_featured":  False,
+        "created_by":   "SYSTEM_PIPELINE",
+        "questions":    questions_json,
+        "category":     category,
+        "requires_auth": True,
+        "poll_type":    questions[0].type,
+        "options":      questions[0].options if questions[0].type == "multiple_choice" else None,
+        "scale_min":    questions[0].scale_min or 1,
+        "scale_max":    questions[0].scale_max or (questions[0].scale_points or 5),
+    }
+
+    result = await supabase.table("polls").insert(payload).execute()
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Error creando encuesta.")
+
+    poll = result.data[0]
+
+    # Audit trail del pipeline
     metadata_details: dict = {}
     if body.metadata:
         metadata_details = body.metadata.model_dump()
     await audit_bus.alog_event(
-        actor_id=admin["user_id"],
+        actor_id="SYSTEM_PIPELINE",
         action="AGENT_PIPELINE_INGEST_POLL",
         entity_type="POLL",
         entity_id=poll["id"],

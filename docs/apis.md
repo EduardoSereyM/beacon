@@ -1458,9 +1458,19 @@ public.config_params (standalone — configuración dinámica)
 
 | Campo | Valor |
 |-------|-------|
-| **Auth** | Admin |
+| **Auth** | `PIPELINE_API_KEY` (Bearer token, no JWT de usuario) |
 | **Tabla DB** | `polls` + `audit_log` |
 | **Estado** | ✅ |
+
+**Auth M2M (machine-to-machine):** Este endpoint NO usa JWT de usuario. Se autentica con `PIPELINE_API_KEY` definida en `.env` del backend. El pipeline envía `Authorization: Bearer <PIPELINE_API_KEY>`.
+
+```bash
+# Ejemplo de llamada desde el pipeline
+curl -X POST https://beaconchile.cl/api/v1/admin/polls/ingest \
+  -H "Authorization: Bearer $PIPELINE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @payload.json
+```
 
 **Request body (`AgentPollIn`):**
 ```json
