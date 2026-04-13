@@ -689,7 +689,7 @@ async def vote_poll(
     try:
         poll_res = await (
             supabase.table("polls")
-            .select("id, poll_type, options, scale_min, scale_max, starts_at, ends_at, is_active, requires_auth, access_code")
+            .select("id, questions, starts_at, ends_at, is_active, requires_auth, access_code")
             .eq("id", poll_id)
             .single()
             .execute()
@@ -732,16 +732,25 @@ async def vote_poll(
         if not anon_id:
             raise HTTPException(status_code=400, detail="Se requiere anon_session_id para votar en esta encuesta")
 
+    # Extraer tipo y opciones de la PRIMERA pregunta
+    questions = poll.get("questions") or []
+    if not questions:
+        raise HTTPException(status_code=400, detail="Encuesta sin preguntas configuradas")
+
+    first_q = questions[0]
+    q_type = first_q.get("type", "scale")
+    q_options = first_q.get("options") or []
+    q_scale_min = first_q.get("scale_min", 1)
+    q_scale_max = first_q.get("scale_max") or first_q.get("scale_points", 5)
+
     # Validar opción
-    if poll["poll_type"] == "multiple_choice":
-        options = poll.get("options") or []
-        if payload.option_value not in options:
-            raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones: {options}")
-    elif poll["poll_type"] == "ranking":
+    if q_type == "multiple_choice":
+        if payload.option_value not in q_options:
+            raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones: {q_options}")
+    elif q_type == "ranking":
         # Ranking completo obligatorio: todas las opciones exactamente una vez
-        options = poll.get("options") or []
         submitted = [s.strip() for s in payload.option_value.split("||") if s.strip()]
-        if sorted(submitted) != sorted(options):
+        if sorted(submitted) != sorted(q_options):
             raise HTTPException(
                 status_code=400,
                 detail="Ranking incompleto: debes ordenar todas las opciones exactamente una vez"
@@ -749,12 +758,12 @@ async def vote_poll(
     else:  # scale
         try:
             val = float(payload.option_value)
-            if not (poll["scale_min"] <= val <= poll["scale_max"]):
+            if not (q_scale_min <= val <= q_scale_max):
                 raise ValueError
         except (ValueError, TypeError):
             raise HTTPException(
                 status_code=400,
-                detail=f"Valor fuera de rango [{poll['scale_min']}-{poll['scale_max']}]"
+                detail=f"Valor fuera de rango [{q_scale_min}-{q_scale_max}]"
             )
 
     # Anti-brigada: 1 voto por usuario/sesión por encuesta
@@ -968,23 +977,24 @@ async def get_poll_crosstabs(
 
     # 1. Verificar que la encuesta existe
     try:
-        poll_res = await supabase.table("polls").select("id, poll_type, options, questions").eq("id", poll_id).single().execute()
+        poll_res = await supabase.table("polls").select("id, questions").eq("id", poll_id).single().execute()
     except Exception:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada")
     poll = poll_res.data
 
     # Resolver tipo, opciones y rango de escala para question_index
     questions = poll.get("questions") or []
-    if questions and question_index < len(questions):
+    if not questions:
+        raise HTTPException(status_code=400, detail="Encuesta sin preguntas configuradas")
+
+    if question_index < len(questions):
         q = questions[question_index]
-        q_type    = q.get("type", poll["poll_type"])
-        q_options = q.get("options") or poll.get("options") or []
+        q_type    = q.get("type", "scale")
+        q_options = q.get("options") or []
         q_scale_min = int(q.get("scale_min", 1))
-        q_scale_max = int(q.get("scale_max", 5))
+        q_scale_max = int(q.get("scale_max") or q.get("scale_points", 5))
     else:
-        q_type      = poll["poll_type"]
-        q_options   = poll.get("options") or []
-        q_scale_min = int(poll.get("scale_min", 1))
+        raise HTTPException(status_code=400, detail=f"question_index {question_index} fuera de rango")
         q_scale_max = int(poll.get("scale_max", 5))
     poll_meta = {"poll_type": q_type, "options": q_options, "scale_min": q_scale_min, "scale_max": q_scale_max}
 

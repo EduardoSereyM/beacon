@@ -285,10 +285,6 @@ async def admin_ingest_poll(
         "questions":    questions_json,
         "category":     category,
         "requires_auth": True,
-        "poll_type":    questions[0].type,
-        "options":      questions[0].options if questions[0].type == "multiple_choice" else None,
-        "scale_min":    questions[0].scale_min or 1,
-        "scale_max":    questions[0].scale_max or (questions[0].scale_points or 5),
     }
 
     result = await supabase.table("polls").insert(payload).execute()
@@ -461,11 +457,6 @@ async def admin_create_poll(
         "category":     category,
         "requires_auth": body.requires_auth,
         "access_code":  body.access_code or None,
-        # poll_type refleja el tipo de la primera pregunta (retrocompat.)
-        "poll_type":    body.questions[0].type,
-        "options":      body.questions[0].options if body.questions[0].type == "multiple_choice" else None,
-        "scale_min":    body.questions[0].scale_min or 1,
-        "scale_max":    body.questions[0].scale_max or (body.questions[0].scale_points or 5),
     }
 
     result = await supabase.table("polls").insert(payload).execute()
