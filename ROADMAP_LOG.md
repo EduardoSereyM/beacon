@@ -15,6 +15,47 @@
 
 ---
 
+## 🏗️ Architecture Refactor — Polls Table Cleanup — 2026-04-13 (commit 9be4797)
+
+### Implementado
+
+#### Problem
+La tabla `polls` tenía columnas redundantes que pertenecían a PREGUNTAS, no a encuestas:
+- `scale_min`, `scale_max` → Configuración de escala (por pregunta)
+- `poll_type`, `options` → Tipo y opciones (por pregunta)
+
+**Razon del problema:**
+- Una encuesta PUEDE tener MÚLTIPLES preguntas
+- Cada pregunta tiene su propia config (type, options, scale_min, scale_max, scale_labels)
+- Esas columnas eran solo cache/retrocompatibilidad de la PRIMERA pregunta
+- Arquitectura confusa = múltiples fuentes de verdad
+
+#### Solución: Eliminadas columnas redundantes
+**Migration 021**
+```sql
+ALTER TABLE polls DROP COLUMN scale_min;
+ALTER TABLE polls DROP COLUMN scale_max;
+ALTER TABLE polls DROP COLUMN poll_type;
+ALTER TABLE polls DROP COLUMN options;
+```
+- Sin pérdida de datos (todo preservado en `questions[]` JSONB)
+- Admin ya leía correctamente de `questions` → No afectado
+
+**Backend updates**
+- `polls_admin.py`: Removidos INSERT de scale_*/poll_type/options
+- `endpoints/polls.py`:
+  - `vote_poll()`: Lee type/options/scale de `questions[0]`
+  - `get_poll_crosstabs()`: Lee de `questions[question_index]`
+  - Eliminados fallbacks a `poll["poll_type"]`, `poll["options"]`, etc.
+
+#### Resultado
+✅ Polls table = container de metadatos solamente  
+✅ Questions JSONB = single source of truth para config  
+✅ Preparado para multi-question polls futuro  
+✅ Admin funciona sin cambios (ya leía de questions)
+
+---
+
 ## 🎨 UX/Navigation Hotfix — 2026-04-13 (commit a5cdfc1)
 
 ### Implementado
