@@ -28,10 +28,6 @@ interface PollItem {
   title: string;
   description: string | null;
   header_image: string | null;
-  poll_type: "multiple_choice" | "scale";
-  options: string[] | null;
-  scale_min: number;
-  scale_max: number;
   starts_at: string;
   ends_at: string;
   total_votes: number;
@@ -39,6 +35,13 @@ interface PollItem {
   is_active: boolean;
   category: string;
   results: PollResult[];
+  questions: Array<{
+    type: "multiple_choice" | "scale" | "ranking";
+    options?: string[];
+    scale_min?: number;
+    scale_max?: number;
+    scale_points?: number;
+  }> | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -68,14 +71,15 @@ function categoryLabel(cat: string): string {
 // ─── MiPollCard ───────────────────────────────────────────────────────────────
 
 function MiPollCard({ poll }: { poll: PollItem }) {
+  const qType = poll.questions?.[0]?.type || "scale";
   const topResult =
-    poll.poll_type === "multiple_choice"
+    qType === "multiple_choice"
       ? (poll.results as { option: string; count: number; pct: number }[]).sort(
           (a, b) => (b.pct ?? 0) - (a.pct ?? 0)
         )[0]
       : null;
   const scaleResult =
-    poll.poll_type === "scale"
+    qType === "scale"
       ? (poll.results as { average: number; count: number }[])[0]
       : null;
 
@@ -201,7 +205,7 @@ function MiPollCard({ poll }: { poll: PollItem }) {
             >
               Promedio:{" "}
               <span style={{ color: "#00E5FF", fontWeight: 600 }}>
-                {scaleResult.average} / {poll.scale_max}
+                {scaleResult.average} / {poll.questions?.[0]?.scale_max || poll.questions?.[0]?.scale_points || 5}
               </span>
             </div>
           )}

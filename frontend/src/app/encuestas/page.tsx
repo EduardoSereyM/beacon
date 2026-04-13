@@ -24,16 +24,19 @@ interface PollItem {
   title: string;
   description: string | null;
   header_image: string | null;
-  poll_type: "multiple_choice" | "scale";
-  options: string[] | null;
-  scale_min: number;
-  scale_max: number;
   starts_at: string;
   ends_at: string;
   total_votes: number;
   is_open: boolean;
   category: string;
   requires_auth: boolean;
+  questions: Array<{
+    type: "multiple_choice" | "scale" | "ranking";
+    options?: string[];
+    scale_min?: number;
+    scale_max?: number;
+    scale_points?: number;
+  }> | null;
 }
 
 const CATEGORIES: { value: string; label: string }[] = [
@@ -64,10 +67,8 @@ function formatDate(iso: string): string {
 // ─── PollCard ─────────────────────────────────────────────────────────────────
 
 function PollCard({ poll }: { poll: PollItem }) {
-  const typeLabel =
-    poll.poll_type === "multiple_choice"
-      ? "Opción múltiple"
-      : `Escala ${poll.scale_min}–${poll.scale_max}`;
+  const numQuestions = poll.questions?.length || 1;
+  const typeLabel = numQuestions === 1 ? "1 pregunta" : `${numQuestions} preguntas`;
 
   return (
     <Link href={`/encuestas/${poll.slug}`} style={{ textDecoration: "none" }}>
