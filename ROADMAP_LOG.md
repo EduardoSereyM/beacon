@@ -15,6 +15,46 @@
 
 ---
 
+## 🎨 UX/Navigation Hotfix — 2026-04-13 (commit a5cdfc1)
+
+### Implementado
+
+#### Frontend — Mejoras de legibilidad y contexto
+| Cambio | Antes | Después |
+|---|---|---|
+| Título principal (h1) | `text-xl sm:text-2xl` | `text-2xl sm:text-3xl` |
+| Descripción | fontSize 13, opacity 0.45 | fontSize 14, opacity 0.55, fontWeight 500 |
+| Fecha cierre | fontSize 10, opacity 0.2 | fontSize 11, opacity 0.35 |
+| Pregunta individual | fontSize 15 | fontSize 16 |
+| Botones escala | 44-46px | 48-50px (mejor para touch) |
+| Espaciado escala | gap 6-8px | gap 8-10px |
+
+#### Contexto repositionado
+- **Antes:** Al final de la página (debajo de resultados)
+- **Después:** Debajo de la fecha de cierre (usuario lo ve primero)
+- Mejor legibilidad: fontSize 13→14, headers más prominentes
+
+#### Scale labels (etiquetas multi-punto)
+- Agregado campo `scale_labels?: string[]` a interfaz `QuestionDef`
+- Renderización debajo de cada botón numérico:
+  - MultiQuestionForm: labels centrados bajo cada punto
+  - SingleQuestionVote: misma lógica visual
+- Ejemplo: escala 1-7 con ["Muy pesimista", "Pesimista", "Algo pesimista", "Neutral", "Algo optimista", "Optimista", "Muy optimista"]
+
+#### Bugfix — Navegación en /encuestas
+- **Problema:** Links desde `/encuestas` usaban UUID (`/encuestas/[id]`) → "no encontrada"
+- **Causa:** PollItem interface no tenía `slug`, href usaba `poll.id`
+- **Fix:** Agregué `slug` a interfaz + cambié href a `${poll.slug}`
+- Ahora consistente con home page (ambas navegan por slug humanizado)
+
+### QA/Testing
+- ✅ Build sin errores
+- ✅ Navigation funcional: `/encuestas` → `/encuestas/{slug}`
+- ✅ Consistencia visual en escalas multi-opción
+- ⏳ Testing en production: [beaconchile.cl/encuestas](https://www.beaconchile.cl/encuestas)
+
+---
+
 ## 🚀 Sprint 2026-04-12 — Polls como entidades propias (commit a403295)
 
 ### Implementado y desplegado
