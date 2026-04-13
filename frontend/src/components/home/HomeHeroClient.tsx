@@ -23,18 +23,19 @@ export default function HomeHeroClient() {
             <div className="max-w-4xl mx-auto text-center relative z-10">
                 {/* Live badge */}
                 <div
-                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full glass transition-all ${
-                        isAuthenticated ? "mb-4 scale-90" : "mb-6"
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full glass transition-all ${
+                        isAuthenticated ? "mb-3 scale-90" : "mb-4"
                     }`}
                     style={{
                         animation: "beaconPulse 3s ease-in-out infinite",
-                        border: "1px solid rgba(255,7,58,0.7)",
-                        boxShadow: "0 0 8px rgba(255, 7, 57, 0.81)",
+                        border: "1px solid rgba(255,7,58,0.8)",
+                        boxShadow: "0 0 20px rgba(255, 7, 57, 1)",
+                        background: "rgba(255, 7, 58, 0.05)",
                     }}
                 >
-                    <div className="w-1.5 h-1.5 rounded-full bg-beacon-neon pulse-live" />
+                    <div className="w-2 h-2 rounded-full bg-beacon-neon pulse-live" />
                     <span
-                        className="text-[10px] tracking-[0.2em] uppercase font-mono"
+                        className="text-[11px] sm:text-[12px] tracking-[0.2em] uppercase font-mono font-bold"
                         style={{ color: "#FF073A" }}
                     >
                         En vivo — Chile opina en tiempo real
@@ -45,64 +46,56 @@ export default function HomeHeroClient() {
                 <h1
                     className={`font-extrabold tracking-tight leading-tight transition-all ${
                         isAuthenticated
-                            ? "text-3xl sm:text-4xl md:text-5xl mb-3"
-                            : "text-4xl sm:text-5xl md:text-6xl mb-6"
+                            ? "text-3xl sm:text-4xl md:text-5xl mb-2"
+                            : "text-4xl sm:text-5xl md:text-6xl mb-4"
                     }`}
+                    style={{ color: "#f5f5f5" }}
                 >
-                    <span className="text-beacon-red">Otros eligen quién opina por ti..., </span>
+                    En otros lugares eligen quién opina por ti.
                     <br className="sm:hidden" />
-                    <span
-                        className="bg-clip-text text-transparent"
-                        style={{ backgroundImage: "linear-gradient(135deg, #00E5FF, #00FF41)" }}
-                    >
-                        Aquí opinas tú.
-                    </span>
+                    <br />
+                    <span style={{ color: "#00E5FF" }}>Aquí opinas tú.</span>
                 </h1>
 
                 {/* Subtítulo */}
-                <p
-                    className={`text-foreground-muted mx-auto leading-relaxed transition-all ${
+                <div
+                    className={`mx-auto leading-relaxed transition-all ${
                         isAuthenticated
-                            ? "text-sm max-w-lg mb-6"
-                            : "text-base sm:text-lg max-w-2xl mb-10"
+                            ? "text-sm max-w-lg mb-8"
+                            : "text-base sm:text-lg max-w-3xl mb-10"
                     }`}
+                    style={{ color: "rgba(255,255,255,0.75)" }}
                 >
-                    Beacon es la plataforma de opinión ciudadana abierta y verificada de Chile.
-                    Sin panelistas seleccionados, Las encuestadoras tradicionales eligen quién habla por ti, aqui votas tu.
-                    No necesitas que te elijan para que te escuchen. Chile no cabe en 1.000 panelistas.
-                    <br />
-                    
-                </p>
-
-                <p className="py-8">
-                    Las encuestadoras tradicionales trabajan para sus clientes. Nosotros publicamos todo, gratis, porque los datos de opinión pública pertenecen a todos
-                </p>
-                <p>
-                    Cada voto cuenta porque cada persona es real. Sin bots. Sin multicuentas. Sin panel de escritorio.
-                </p>
+                    <p className="mb-4">
+                        Beacon es la plataforma de opinión ciudadana abierta y verificada de Chile. Las encuestadoras tradicionales eligen quién habla por ti — nosotros no. No necesitas que te elijan para que te escuchen. Cada voto cuenta porque cada persona es real. Sin bots, sin multicuentas, sin panel.
+                    </p>
+                    <p>
+                        Los datos de opinión pública pertenecen a todos, no a quien los encarga. Por eso publicamos todo, gratis, siempre.
+                    </p>
+                </div>
 
                 {/* CTAs */}
-                <div className="flex items-center justify-center gap-4 flex-wrap">
+                <div className="flex items-center justify-center gap-4 flex-wrap mt-2">
                     {!isAuthenticated ? (
                         <>
                             <button
                                 onClick={() => window.dispatchEvent(new CustomEvent("beacon:open-auth-modal"))}
-                                className="px-6 py-3 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all duration-300 hover:scale-105"
+                                className="px-8 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:opacity-90 hover:scale-105"
                                 style={{
-                                    background: "linear-gradient(135deg, rgba(212,175,55,0.15), rgba(138,43,226,0.15))",
-                                    border: "1px solid rgba(212,175,55,0.3)",
-                                    color: "#D4AF37",
-                                    boxShadow: "0 0 15px rgba(212,175,55,0.15)",
+                                    background: "#00E5FF",
+                                    border: "none",
+                                    color: "#0A0A0A",
+                                    boxShadow: "0 8px 24px rgba(0,229,255,0.3)",
                                 }}
                             >
                                 Dar mi opinión →
                             </button>
                             <Link
                                 href="/encuestas"
-                                className="px-6 py-3 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all duration-300 hover:scale-105"
+                                className="px-8 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:bg-opacity-10 hover:scale-105"
                                 style={{
                                     background: "transparent",
-                                    border: "1px solid rgba(0,229,255,0.2)",
+                                    border: "1.5px solid rgba(0,229,255,0.4)",
                                     color: "#00E5FF",
                                 }}
                             >
@@ -112,11 +105,12 @@ export default function HomeHeroClient() {
                     ) : (
                         <Link
                             href="/encuestas"
-                            className="px-6 py-3 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all duration-300 hover:scale-105"
+                            className="px-8 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:opacity-90 hover:scale-105"
                             style={{
-                                background: "linear-gradient(135deg, rgba(0,229,255,0.15), rgba(138,43,226,0.15))",
-                                border: "1px solid rgba(0,229,255,0.3)",
-                                color: "#00E5FF",
+                                background: "#00E5FF",
+                                border: "none",
+                                color: "#0A0A0A",
+                                boxShadow: "0 8px 24px rgba(0,229,255,0.3)",
                             }}
                         >
                             Ver encuestas →
