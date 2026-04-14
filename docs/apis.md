@@ -1292,6 +1292,74 @@ Devuelve el poll con `results` (todos los votos) y `results_verified` (solo VERI
 
 ---
 
+### GET `/{poll_id}/comments` — Listar reacciones ciudadanas
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | No |
+| **Tablas DB** | `poll_comments` |
+| **Estado** | ✅ Implementado (2026-04-14) |
+
+**Query params:** `limit` (int, 1–100, default 50), `offset` (int, default 0)
+
+**Response 200:**
+```json
+[
+  {
+    "id": "uuid",
+    "poll_id": "uuid",
+    "user_id": "uuid",
+    "reaction": "👍",
+    "text": "Excelente encuesta, muy relevante.",
+    "rank": "VERIFIED",
+    "created_at": "2026-04-14T12:00:00Z"
+  }
+]
+```
+
+---
+
+### POST `/{poll_id}/comments` — Publicar reacción ciudadana
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | Sí (Bearer JWT) |
+| **Tablas DB** | `poll_comments` |
+| **Estado** | ✅ Implementado (2026-04-14) |
+
+**Regla:** un usuario puede publicar exactamente UN comentario activo por encuesta.
+
+**Body:**
+```json
+{
+  "text": "Mi opinión sobre esta encuesta (10–500 chars)",
+  "reaction": "👍"
+}
+```
+
+**Responses:**
+- `201` — comentario creado
+- `409` — el usuario ya publicó un comentario en esta encuesta
+- `401` — token inválido o ausente
+
+---
+
+### DELETE `/{poll_id}/comments/{comment_id}` — Borrar propio comentario
+
+| Campo | Valor |
+|-------|-------|
+| **Auth** | Sí (Bearer JWT) |
+| **Tablas DB** | `poll_comments` |
+| **Estado** | ✅ Implementado (2026-04-14) |
+
+Soft-delete: marca `deleted_at`. El registro permanece para audit.
+
+**Responses:**
+- `204` — borrado
+- `404` — no encontrado o no es del usuario
+
+---
+
 ## 8. Versus (VS Head-to-Head)
 
 Base path: `/api/v1/versus`

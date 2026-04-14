@@ -319,7 +319,7 @@ ALTER TABLE polls DROP COLUMN options;
 - `PollsHeroSection` — consume `/polls/featured` (lógica mixta)
 - `PollCard`, `TrendingPollsSection`, `PollsByCategorySection`, `ClosedPollsSection` — usan `slug || id`
 - Sección **Contexto** en detalle: muestra `context`, `source_url` y `tags`
-- `PollCommentsSection` — UI completa con reacciones (👍 👎 🤔); backend de persistencia pendiente
+- `PollCommentsSection` — ✅ Implementado (2026-04-14): tabla `poll_comments` + RLS, endpoints GET/POST/DELETE `/api/v1/polls/{id}/comments`, frontend conectado al backend real. Un comentario activo por usuario/encuesta; soft-delete para moderación; rank snapshot inmutable.
 
 #### Brand
 - Nuevo logo `logo.png` + favicon actualizados en Navbar y AuthModal

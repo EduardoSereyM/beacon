@@ -2,24 +2,24 @@
  * PollCommentsSection
  * ────────────────────
  * Sección de reacciones ciudadanas en la página de encuesta.
- * Fase inicial: comentarios con reacciones (👍 👎 🤔).
- * Requiere autenticación para comentar.
- *
- * Arquitectura preparada para conectar a backend en iteración siguiente.
- * Por ahora: UI completa con estado local (demo-ready).
+ * Conectada a POST/GET /api/v1/polls/{pollId}/comments
  */
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import usePermissions from "@/hooks/usePermissions";
+import { useAuthStore } from "@/store";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Comment {
   id: string;
-  author: string;
-  rank: "VERIFIED" | "BASIC";
-  text: string;
+  poll_id: string;
+  user_id: string;
   reaction: "👍" | "👎" | "🤔" | null;
+  text: string;
+  rank: string;
   created_at: string;
 }
 
@@ -34,6 +34,10 @@ const RANK_COLORS: Record<string, string> = {
   BASIC:    "#FF8C00",
 };
 
+function rankColor(rank: string): string {
+  return RANK_COLORS[rank] || "#888";
+}
+
 interface PollCommentsSectionProps {
   pollId: string;
   pollSlug: string;
@@ -41,42 +45,90 @@ interface PollCommentsSectionProps {
 }
 
 export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSectionProps) {
-  const { isAuthenticated, isVerified, user } = usePermissions();
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [text, setText] = useState("");
-  const [reaction, setReaction] = useState<"👍" | "👎" | "🤔" | null>(null);
+  const { isAuthenticated } = usePermissions();
+  const { token, user } = useAuthStore();
+
+  const [comments, setComments]     = useState<Comment[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [text, setText]             = useState("");
+  const [reaction, setReaction]     = useState<"👍" | "👎" | "🤔" | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [submitted, setSubmitted]   = useState(false);
 
-  // Solo usuarios autenticados pueden comentar
-  const canComment = isAuthenticated;
+  // ─── Cargar comentarios al montar ─────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `${API_URL}/api/v1/polls/${pollId}/comments?limit=50&offset=0`
+        );
+        if (!res.ok) throw new Error("fetch failed");
+        const data: Comment[] = await res.json();
+        if (!cancelled) setComments(data);
+      } catch {
+        // silencioso — la sección sigue funcional para nuevos comentarios
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [pollId]);
 
-  function handleSubmit() {
-    if (!text.trim() || text.trim().length < 10) {
+  // ─── Detectar si el usuario ya comentó ────────────────────────────────────
+  const alreadyCommented = user
+    ? comments.some((c) => c.user_id === user.id)
+    : false;
+
+  // ─── Publicar comentario ───────────────────────────────────────────────────
+  async function handleSubmit() {
+    const trimmed = text.trim();
+    if (trimmed.length < 10) {
       setError("El comentario debe tener al menos 10 caracteres.");
+      return;
+    }
+    if (!token) {
+      setError("Debes iniciar sesión para comentar.");
       return;
     }
     setSubmitting(true);
     setError(null);
-
-    // TODO: conectar a POST /api/v1/polls/{pollId}/comments en iteración backend
-    setTimeout(() => {
-      const newComment: Comment = {
-        id:         crypto.randomUUID(),
-        author:     user?.full_name || user?.email || "Ciudadano",
-        rank:       isVerified ? "VERIFIED" : "BASIC",
-        text:       text.trim(),
-        reaction,
-        created_at: new Date().toISOString(),
-      };
-      setComments((prev) => [newComment, ...prev]);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/polls/${pollId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type":  "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text: trimmed, reaction }),
+      });
+      if (res.status === 409) {
+        setError("Ya publicaste un comentario en esta encuesta.");
+        setSubmitted(true);
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.detail || "Error al publicar. Intenta de nuevo.");
+        return;
+      }
+      const created: Comment = await res.json();
+      setComments((prev) => [created, ...prev]);
       setText("");
       setReaction(null);
-      setSubmitting(false);
       setSubmitted(true);
-    }, 600);
+    } catch {
+      setError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
   }
+
+  const canComment    = isAuthenticated && !alreadyCommented && !submitted;
+  const showSubmitted = submitted || alreadyCommented;
 
   return (
     <div
@@ -103,8 +155,8 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
         )}
       </div>
 
-      {/* Formulario */}
-      {canComment && !submitted ? (
+      {/* Formulario / estado */}
+      {canComment ? (
         <div style={{ marginBottom: 20 }}>
           {/* Reacciones rápidas */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -145,7 +197,7 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
               outline: "none",
             }}
             onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(138,43,226,0.4)"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
+            onBlur={(e)  => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
           />
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
@@ -174,7 +226,7 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
             </div>
           </div>
         </div>
-      ) : !canComment ? (
+      ) : !isAuthenticated ? (
         <div
           style={{
             marginBottom: 18, padding: "12px 16px", borderRadius: 10,
@@ -193,16 +245,20 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
             </button>
           </p>
         </div>
-      ) : (
+      ) : showSubmitted ? (
         <div style={{ marginBottom: 18, padding: "10px 14px", borderRadius: 10, background: "rgba(57,255,20,0.05)", border: "1px solid rgba(57,255,20,0.15)" }}>
           <p style={{ fontSize: 11, fontFamily: "monospace", color: "#39FF14" }}>
-            ✓ Comentario publicado
+            ✓ Ya publicaste tu reacción en esta encuesta
           </p>
         </div>
-      )}
+      ) : null}
 
       {/* Lista de comentarios */}
-      {comments.length === 0 ? (
+      {loading ? (
+        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.15)", textAlign: "center", paddingTop: 8 }}>
+          Cargando reacciones…
+        </p>
+      ) : comments.length === 0 ? (
         <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.15)", textAlign: "center", paddingTop: 8 }}>
           Sé el primero en reaccionar
         </p>
@@ -213,24 +269,32 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
               key={c.id}
               style={{
                 padding: "12px 16px", borderRadius: 12,
-                background: "rgba(255,255,255,0.02)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                background: user && c.user_id === user.id
+                  ? "rgba(138,43,226,0.06)"
+                  : "rgba(255,255,255,0.02)",
+                border: user && c.user_id === user.id
+                  ? "1px solid rgba(138,43,226,0.2)"
+                  : "1px solid rgba(255,255,255,0.06)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 {c.reaction && <span style={{ fontSize: 14 }}>{c.reaction}</span>}
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#f5f5f5" }}>{c.author}</span>
                 <span
                   style={{
                     fontSize: 8, fontFamily: "monospace", padding: "1px 7px",
                     borderRadius: 20, fontWeight: 700,
-                    background: `${RANK_COLORS[c.rank]}15`,
-                    border: `1px solid ${RANK_COLORS[c.rank]}30`,
-                    color: RANK_COLORS[c.rank],
+                    background: `${rankColor(c.rank)}15`,
+                    border: `1px solid ${rankColor(c.rank)}30`,
+                    color: rankColor(c.rank),
                   }}
                 >
                   {c.rank}
                 </span>
+                {user && c.user_id === user.id && (
+                  <span style={{ fontSize: 8, fontFamily: "monospace", color: "rgba(138,43,226,0.6)" }}>
+                    tú
+                  </span>
+                )}
                 <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", marginLeft: "auto" }}>
                   {new Date(c.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </span>

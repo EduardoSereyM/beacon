@@ -255,6 +255,15 @@ app.include_router(
     tags=["Encuestas — Detalle"],
 )
 
+# ─── Poll Comments (Reacciones Ciudadanas) ────────────────────────────────────
+from app.api.v1.endpoints.poll_comments import router as poll_comments_router  # noqa: E402
+
+app.include_router(
+    poll_comments_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Poll Comments"],
+)
+
 # ─── P3 Versus ───────────────────────────────────────────────────────────────
 from app.api.v1.endpoints.versus import router as versus_router          # noqa: E402
 from app.api.v1.admin.versus_admin import router as admin_versus_router  # noqa: E402
