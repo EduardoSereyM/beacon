@@ -236,6 +236,12 @@ async def login(request: Request):
                 "verification_level": 2 if user_db.get("is_rut_verified") else 1,
                 "is_verified": user_db.get("is_rut_verified", False),
                 "role": user_db.get("role", "user"),
+                "birth_year": user_db.get("birth_year"),
+                "gender": user_db.get("gender"),
+                "country": user_db.get("country"),
+                "region": user_db.get("region"),
+                "commune": user_db.get("commune"),
+                "age_range": user_db.get("age_range"),
             },
         }
     except Exception as e:
