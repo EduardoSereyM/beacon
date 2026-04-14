@@ -15,6 +15,51 @@
 
 ---
 
+## 🔧 Fixes Críticos de Auth & UI — 2026-04-14 (commits 27941d6, 840a268, c95d8b4)
+
+### Problemas Resueltos
+
+#### 1️⃣ **Usuarios Huérfanos en Registro** (Backend)
+- **Problema:** Nuevos usuarios creados en `auth.users` pero SIN perfil en `public.users` → login imposible
+- **Causa:** `supabase.auth.sign_up()` en cliente service_role sobrescribía sesión interna
+- **Fix:** Cliente anon separado para `sign_up()` + service_role intacto para insert
+- **Archivos:** `backend/app/core/database.py` (new `get_supabase_anon_async()`), `backend/app/services/auth_service.py`
+- **Commit:** `27941d6`
+
+#### 2️⃣ **Flujo de Confirmación de Email Confuso** (Frontend)
+- **Problema:** Submit registro → navega inmediatamente a login con "sesión expirada"
+- **Causa:** `setTimeout(() => setMode("login"), 4000)` sin discriminar modo de confirmación
+- **Fix:** 
+  - Registro: queda en formulario mostrando "revisa tu correo" (no navega)
+  - Callback: guarda `sessionStorage` flag antes de redirigir
+  - Home: NavbarClient detecta flag y abre modal de login limpiamente
+- **Archivos:** `frontend/src/components/bunker/AuthModal.tsx`, `frontend/src/app/auth/callback/page.tsx`, `frontend/src/components/bunker/NavbarClient.tsx`
+- **Commit:** `840a268`
+
+#### 3️⃣ **Banner de Verificación Invisible/Comprimido** (UI/UX)
+- **Problema Desktop:** Banner oculto detrás de navbar (z-index 40 < navbar z-50)
+- **Problema Mobile:** Texto comprimido, falta padding, difícil de leer
+- **Fix:** 
+  - Z-index aumentado: 40 → 45
+  - Responsive design con `useEffect` (detecta mobile sin hydration mismatch)
+  - Desktop: padding optimizado, layout horizontal
+  - Mobile: padding aumentado, font-size +1px, layout vertical stack, botones más grandes
+- **Archivos:** `frontend/src/components/shared/BasicUserBanner.tsx`
+- **Commit:** `c95d8b4`
+
+### Impacto
+
+- ✅ Nuevos registros crean perfil correctamente
+- ✅ Email confirmation flow sin confusión de UX
+- ✅ Banner verificación visible en desktop y legible en mobile
+- ✅ Sin usuarios huérfanos (requiere migration SQL manual para caso previo)
+- ✅ Zero regressions en otros flujos
+
+### Documentación
+Detalles técnicos completos: `docs/FIXES_AUTH_UI_2026_04_14.md`
+
+---
+
 ## 🎨 Landing Page — Redesign Home Hero & Cards — 2026-04-13 (commits 4cb0c89, 3e9f7b7)
 
 ### Implementado
