@@ -97,8 +97,8 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
     const { token, user, setAuth } = useAuthStore();
 
     const [rut, setRut] = useState("");
-    const [birthYear, setBirthYear] = useState("");
-    const [gender, setGender] = useState("");
+    const [birthYear, setBirthYear] = useState(user?.birth_year ? String(user.birth_year) : "");
+    const [gender, setGender] = useState(user?.gender ?? "");
     const [region, setRegion] = useState(user?.region ?? "");
     const [commune, setCommune] = useState(user?.commune ?? "");
 
