@@ -51,41 +51,28 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
             role="banner"
             style={{
                 position: "fixed",
-                top: "68px",   /* justo bajo la navbar fixed */
+                top: "68px",
                 left: 0,
                 right: 0,
-                zIndex: 45,    /* encima de elementos (40) pero bajo navbar menu (50) */
+                zIndex: 45,
                 background: `linear-gradient(90deg, rgba(255,140,0,0.15), rgba(212,175,55,0.15), rgba(255,140,0,0.15))`,
                 borderBottom: `1px solid ${AMBER}40`,
                 backdropFilter: "blur(8px)",
-                padding: isMobile ? "10px 12px" : "14px 24px",
+                padding: "8px 16px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: isMobile ? "8px" : "20px",
+                gap: "12px",
                 flexWrap: "wrap",
-                flexDirection: "row",
             }}
         >
             {/* Mensaje principal */}
-            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px", flex: 1, minWidth: isMobile ? "auto" : "200px" }}>
-                <span style={{ fontSize: isMobile ? "16px" : "18px", flexShrink: 0 }}>🔒</span>
-                <span style={{ color: "#E0E0E0", fontSize: isMobile ? "12px" : "13px", lineHeight: isMobile ? "1.3" : "1.4", wordBreak: "break-word" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: "auto" }}>
+                <span style={{ fontSize: "16px", flexShrink: 0 }}>🔒</span>
+                <span style={{ color: "#E0E0E0", fontSize: "12px", lineHeight: "1.3" }}>
                     <strong style={{ color: AMBER }}>Tu voto aparece en el conteo público</strong>
-                    {isMobile ? (
-                        <>
-                            {" — "}
-                            <strong style={{ color: GOLD }}>verifica RUT al 100%</strong>
-                        </>
-                    ) : (
-                        <>
-                            {", pero solo los votos verificados cuentan en los informes oficiales. "}
-                            <span style={{ color: "#BDBDBD" }}>
-                                Verifica tu identidad con RUT y tu voz contará{" "}
-                                <strong style={{ color: GOLD }}>al 100%</strong>.
-                            </span>
-                        </>
-                    )}
+                    {" — "}
+                    <strong style={{ color: GOLD }}>verifica RUT al 100%</strong>
                 </span>
             </div>
 
@@ -98,8 +85,8 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                         color: "#000",
                         border: "none",
                         borderRadius: "4px",
-                        padding: isMobile ? "6px 12px" : "8px 18px",
-                        fontSize: isMobile ? "11px" : "12px",
+                        padding: "6px 12px",
+                        fontSize: "11px",
                         fontWeight: "700",
                         cursor: "pointer",
                         letterSpacing: "0.3px",
@@ -109,7 +96,7 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                     onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
                     onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                 >
-                    {isMobile ? "Verificar" : "Verificar identidad"} →
+                    Verificar →
                 </button>
 
                 <button
@@ -120,14 +107,11 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                         color: "#757575",
                         border: "none",
                         cursor: "pointer",
-                        fontSize: isMobile ? "18px" : "20px",
+                        fontSize: "18px",
                         lineHeight: "1",
                         padding: "2px 6px",
                         borderRadius: "4px",
                         transition: "color 0.2s",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
                     }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#E0E0E0")}
                     onMouseLeave={e => (e.currentTarget.style.color = "#757575")}
