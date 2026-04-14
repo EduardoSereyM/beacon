@@ -179,7 +179,7 @@ export default function NavbarClient() {
                                                 border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.3)" : rank === "ADMIN" ? "rgba(212,175,55,0.3)" : "rgba(255,140,0,0.3)"}`,
                                             }}
                                         >
-                                            {rank === "VERIFIED" ? "🟢" : rank === "ADMIN" ? "🛡️" : "🟡"} {rank}
+                                            {rank === "VERIFIED" ? "🟢 USUARIO VERIFIED" : rank === "ADMIN" ? "🛡️ ADMIN" : "🟡 USUARIO BASIC"}
                                         </span>
                                     </div>
                                 </div>
@@ -206,7 +206,7 @@ export default function NavbarClient() {
                                             style={{ color: "#FF8C00" }}
                                             title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
                                         >
-                                            ✅ Verificar cuenta
+                                            ⚠️ Verificar cuenta
                                         </button>
                                         <span className="text-white/10 text-sm select-none">·</span>
                                     </>
@@ -216,7 +216,7 @@ export default function NavbarClient() {
                                     href="/profile"
                                     className="flex items-center gap-1 text-xs text-foreground-muted hover:text-white transition-colors font-mono"
                                 >
-                                    👤 Mi Perfil
+                                    🪪 Mi Perfil
                                 </a>
 
                                 <span className="text-white/10 text-sm select-none">·</span>
@@ -225,7 +225,7 @@ export default function NavbarClient() {
                                     onClick={logout}
                                     className="flex items-center gap-1 text-xs text-foreground-muted hover:text-red-400 transition-colors font-mono"
                                 >
-                                    ✕ Salir
+                                    ❌ Salir
                                 </button>
                             </>
                         ) : (
