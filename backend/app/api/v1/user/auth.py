@@ -339,25 +339,23 @@ async def reset_password(request: Request):
                 raise HTTPException(status_code=400, detail="Token inválido o expirado")
             user_id = user_response.user.id
         else:
-            # Flujo Recovery: intercambiar token por sesión
-            # Para password recovery, Supabase usa exchange_code_for_session, no verify_otp
+            # Flujo Recovery: verificar token_hash con cliente ANON
+            # verify_otp es operación de cliente (anon), no de service_role
+            # El token_hash no se consume al cargar la página, solo aquí al enviar el form
+            from app.core.database import get_supabase_anon_async
+            anon_client = get_supabase_anon_async()
             try:
-                auth_response = await supabase.auth.exchange_code_for_session(token_hash)
+                auth_response = await anon_client.auth.verify_otp({
+                    "token_hash": token_hash,
+                    "type": "recovery",
+                })
                 if not auth_response.user:
                     raise HTTPException(status_code=400, detail="Token inválido o expirado")
                 user_id = auth_response.user.id
+            except HTTPException:
+                raise
             except Exception as e:
-                # Si exchange_code_for_session falla, intentar verify_otp como fallback
-                try:
-                    auth_response = await supabase.auth.verify_otp({
-                        "token_hash": token_hash,
-                        "type": "recovery",
-                    })
-                    if not auth_response.user:
-                        raise HTTPException(status_code=400, detail="Token inválido o expirado")
-                    user_id = auth_response.user.id
-                except Exception as verify_err:
-                    raise HTTPException(status_code=400, detail=f"Token inválido o expirado: {str(verify_err)}")
+                raise HTTPException(status_code=400, detail=f"Token inválido o expirado: {str(e)}")
 
         # 2. Actualizar contraseña via REST directo con service_role
         # (evita contaminación de sesión del cliente singleton post-verify_otp)
