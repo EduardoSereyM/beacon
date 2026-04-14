@@ -51,7 +51,7 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
             role="banner"
             style={{
                 position: "fixed",
-                top: "120px",
+                top: "220px",
                 left: 0,
                 right: 0,
                 zIndex: 45,
@@ -68,11 +68,13 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
         >
             {/* Mensaje principal */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: "auto" }}>
-                <span style={{ fontSize: "16px", flexShrink: 0 }}>🔒</span>
-                <span style={{ color: "#E0E0E0", fontSize: "12px", lineHeight: "1.3" }}>
-                    <strong style={{ color: AMBER }}>Tu voto aparece en el conteo público</strong>
-                    {" — "}
-                    <strong style={{ color: GOLD }}>verifica RUT al 100%</strong>
+                <span style={{ fontSize: isMobile ? "20px" : "16px", flexShrink: 0 }}>🔒</span>
+                <span style={{ color: "#E0E0E0", fontSize: isMobile ? "14px" : "13px", lineHeight: isMobile ? "1.6" : "1.4" }}>
+                    <strong style={{ color: AMBER }}>Tu voto solo aparece en el conteo público</strong>
+                    {", pero solo los votos de usuarios verificados cuentan en los informes oficiales. "}
+                    <strong style={{ color: GOLD }}>Verifica tu identidad con RUT</strong>
+                    {" y tu voz contará "}
+                    <strong style={{ color: GOLD }}>al 100%.</strong>
                 </span>
             </div>
 
