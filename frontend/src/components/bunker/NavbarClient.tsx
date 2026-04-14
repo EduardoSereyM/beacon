@@ -92,7 +92,7 @@ export default function NavbarClient() {
                                     Beacon
                                 </h1>
                                 <p className="text-[10px] sm:text-[10px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden sm:block mt-0.5" style={{ lineHeight: "1" }}>
-                                    Opinión ciudadana verificada
+                                    Opinión ciudadana REAL
                                 </p>
                             </div>
                         </Link>
@@ -149,91 +149,90 @@ export default function NavbarClient() {
                             <>
                                 {isAdmin && <NotificationBell />}
 
-                                {/* ─── Avatar con inicial + info usuario ─── */}
+                                {/* ─── Bloque 1: Avatar + Email + Badge ─── */}
                                 <div className="flex items-center gap-2.5">
-                                    {/* Círculo avatar — color según rango */}
+                                    {/* Círculo avatar */}
                                     <div
                                         className="flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-black flex-shrink-0"
                                         style={{
-                                            background: rank === "VERIFIED"
-                                                ? "rgba(77,255,131,0.15)"
-                                                : rank === "ADMIN"
+                                            background: isAdmin
                                                 ? "rgba(212,175,55,0.20)"
+                                                : rank === "VERIFIED"
+                                                ? "rgba(77,255,131,0.15)"
                                                 : "rgba(255,140,0,0.15)",
-                                            border: `1.5px solid ${rank === "VERIFIED" ? "#4DFF83" : rank === "ADMIN" ? "#D4AF37" : "#FF8C00"}`,
-                                            color: rank === "VERIFIED" ? "#4DFF83" : rank === "ADMIN" ? "#D4AF37" : "#FF8C00",
+                                            border: `1.5px solid ${isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00"}`,
+                                            color: isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
                                         }}
                                     >
                                         {(user.full_name || user.email || "?")[0].toUpperCase()}
                                     </div>
 
-                                    {/* Email + badge rango */}
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.02em" }}>
-                                            {user.email || user.full_name}
-                                        </span>
-                                        <span
-                                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                                            style={{
-                                                backgroundColor: rank === "VERIFIED" ? "rgba(77,255,131,0.12)" : rank === "ADMIN" ? "rgba(212,175,55,0.12)" : "rgba(255,140,0,0.12)",
-                                                color: rank === "VERIFIED" ? "#4DFF83" : rank === "ADMIN" ? "#D4AF37" : "#FF8C00",
-                                                border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.3)" : rank === "ADMIN" ? "rgba(212,175,55,0.3)" : "rgba(255,140,0,0.3)"}`,
-                                            }}
-                                        >
-                                            {rank === "VERIFIED"
-                                                ? <ShieldCheck size={11} strokeWidth={2} />
-                                                : rank === "ADMIN"
-                                                ? <Shield size={11} strokeWidth={2} />
-                                                : <ShieldAlert size={11} strokeWidth={2} />}
-                                            {rank === "VERIFIED" ? "VERIFIED" : rank === "ADMIN" ? "ADMIN" : "BASIC"}
-                                        </span>
-                                    </div>
+                                    {/* Email */}
+                                    <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.02em" }}>
+                                        {user.email || user.full_name}
+                                    </span>
+
+                                    {/* Badge de rango */}
+                                    <span
+                                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                                        style={{
+                                            backgroundColor: isAdmin ? "rgba(212,175,55,0.12)" : rank === "VERIFIED" ? "rgba(77,255,131,0.12)" : "rgba(255,140,0,0.12)",
+                                            color: isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
+                                            border: `1px solid ${isAdmin ? "rgba(212,175,55,0.3)" : rank === "VERIFIED" ? "rgba(77,255,131,0.3)" : "rgba(255,140,0,0.3)"}`,
+                                        }}
+                                    >
+                                        {isAdmin
+                                            ? <Shield size={11} strokeWidth={2} />
+                                            : rank === "VERIFIED"
+                                            ? <ShieldCheck size={11} strokeWidth={2} />
+                                            : <ShieldAlert size={11} strokeWidth={2} />}
+                                        {isAdmin ? "ADMIN" : rank === "VERIFIED" ? "VERIFIED" : "BASIC"}
+                                    </span>
                                 </div>
 
-                                {/* ─── Separador ─── */}
-                                <span className="text-white/10 text-sm select-none">·</span>
+                                {/* ─── Barra separadora vertical ─── */}
+                                <div className="h-4 w-px bg-white/15 flex-shrink-0 mx-2" />
 
-                                {/* ─── Acciones ─── */}
+                                {/* ─── Bloque 2: Acciones ─── */}
                                 {isAdmin && (
                                     <Link
                                         href="/admin"
-                                        className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80"
-                                        style={{ color: "#D4AF37" }}
+                                        className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-[#D4AF37] transition-colors duration-200"
                                     >
-                                        🛡️ Admin
+                                        <Shield size={13} strokeWidth={1.5} />
+                                        <span>Admin</span>
                                     </Link>
                                 )}
 
                                 {isBasic && (
-                                    <>
-                                        <button
-                                            onClick={() => setIsVerifyOpen(true)}
-                                            className="flex items-center gap-1.5 text-xs font-mono transition-colors duration-200"
-                                            style={{ color: "#8A8A8A" }}
-                                            onMouseEnter={e => (e.currentTarget.style.color = "#FF8C00")}
-                                            onMouseLeave={e => (e.currentTarget.style.color = "#8A8A8A")}
-                                            title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
-                                        >
-                                            <ShieldAlert size={13} strokeWidth={1.5} />
-                                            <span>Verificar cuenta</span>
-                                        </button>
-                                        <span className="text-white/10 select-none" style={{ fontSize: "16px", lineHeight: 1 }}>·</span>
-                                    </>
+                                    <button
+                                        onClick={() => setIsVerifyOpen(true)}
+                                        className="flex items-center gap-1.5 text-xs font-mono transition-colors duration-200"
+                                        style={{ color: "#8A8A8A" }}
+                                        onMouseEnter={e => (e.currentTarget.style.color = "#FF8C00")}
+                                        onMouseLeave={e => (e.currentTarget.style.color = "#8A8A8A")}
+                                        title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
+                                    >
+                                        <ShieldAlert size={13} strokeWidth={1.5} />
+                                        <span>Verificar cuenta</span>
+                                    </button>
                                 )}
+
+                                <span className="text-white/20 select-none">·</span>
 
                                 <a
                                     href="/profile"
-                                    className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-white transition-colors font-mono"
+                                    className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-white transition-colors duration-200"
                                 >
                                     <UserCircle size={14} strokeWidth={1.5} />
                                     <span>Mi Perfil</span>
                                 </a>
 
-                                <span className="text-white/20 select-none text-sm">·</span>
+                                <span className="text-white/20 select-none">·</span>
 
                                 <button
                                     onClick={logout}
-                                    className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-red-400 transition-colors font-mono"
+                                    className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-red-400 transition-colors duration-200"
                                 >
                                     <LogOut size={13} strokeWidth={1.5} />
                                     <span>Salir</span>

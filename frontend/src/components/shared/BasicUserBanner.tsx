@@ -23,10 +23,8 @@ interface BasicUserBannerProps {
 
 export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps) {
     const { user } = useAuthStore();
-    // Lazy: leer sessionStorage una sola vez en mount para evitar setState-in-effect
-    const [dismissed, setDismissed] = useState(
-        () => typeof window !== "undefined" && sessionStorage.getItem("beacon_banner_dismissed") === "true"
-    );
+    // Solo estado local: el banner reaparece en cada refresh (no persiste en sessionStorage)
+    const [dismissed, setDismissed] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
     // Detectar mobile sin hydration mismatch
@@ -40,7 +38,6 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
     const isBasicUser = !!user && user.rank === "BASIC";
 
     const handleDismiss = () => {
-        sessionStorage.setItem("beacon_banner_dismissed", "true");
         setDismissed(true);
     };
 
