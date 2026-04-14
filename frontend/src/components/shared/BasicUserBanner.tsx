@@ -51,7 +51,7 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
             role="banner"
             style={{
                 position: "fixed",
-                top: "68px",
+                top: "120px",
                 left: 0,
                 right: 0,
                 zIndex: 45,
