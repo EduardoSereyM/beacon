@@ -339,14 +339,25 @@ async def reset_password(request: Request):
                 raise HTTPException(status_code=400, detail="Token inválido o expirado")
             user_id = user_response.user.id
         else:
-            # Flujo OTP: verificar token_hash de recovery
-            auth_response = await supabase.auth.verify_otp({
-                "token_hash": token_hash,
-                "type": "recovery",
-            })
-            if not auth_response.user:
-                raise HTTPException(status_code=400, detail="Token inválido o expirado")
-            user_id = auth_response.user.id
+            # Flujo Recovery: intercambiar token por sesión
+            # Para password recovery, Supabase usa exchange_code_for_session, no verify_otp
+            try:
+                auth_response = await supabase.auth.exchange_code_for_session(token_hash)
+                if not auth_response.user:
+                    raise HTTPException(status_code=400, detail="Token inválido o expirado")
+                user_id = auth_response.user.id
+            except Exception as e:
+                # Si exchange_code_for_session falla, intentar verify_otp como fallback
+                try:
+                    auth_response = await supabase.auth.verify_otp({
+                        "token_hash": token_hash,
+                        "type": "recovery",
+                    })
+                    if not auth_response.user:
+                        raise HTTPException(status_code=400, detail="Token inválido o expirado")
+                    user_id = auth_response.user.id
+                except Exception as verify_err:
+                    raise HTTPException(status_code=400, detail=f"Token inválido o expirado: {str(verify_err)}")
 
         # 2. Actualizar contraseña via REST directo con service_role
         # (evita contaminación de sesión del cliente singleton post-verify_otp)
