@@ -146,45 +146,87 @@ export default function NavbarClient() {
                     <div className="hidden lg:flex justify-end items-center gap-3 mt-1.5 pt-1.5 border-t border-white/[0.06]">
                         {isAuthenticated ? (
                             <>
-                                {isAdmin && (
-                                    <>
-                                        <NotificationBell />
-                                        <Link
-                                            href="/admin"
-                                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
-                                            style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.35)", color: "#D4AF37" }}
-                                        >
-                                            🛡️ Admin
-                                        </Link>
-                                    </>
-                                )}
-                                {isBasic && (
-                                    <button
-                                        onClick={() => setIsVerifyOpen(true)}
-                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105"
-                                        style={{ background: "rgba(255,140,0,0.12)", border: "1px solid rgba(255,140,0,0.35)", color: "#FF8C00" }}
-                                        title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
-                                    >
-                                        🔒 Verificar
-                                    </button>
-                                )}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.03em" }}>
-                                        {user.email || user.full_name}
-                                    </span>
-                                    <span
-                                        className="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider"
+                                {isAdmin && <NotificationBell />}
+
+                                {/* ─── Avatar con inicial + info usuario ─── */}
+                                <div className="flex items-center gap-2.5">
+                                    {/* Círculo avatar — color según rango */}
+                                    <div
+                                        className="flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-black flex-shrink-0"
                                         style={{
-                                            backgroundColor: rank === "VERIFIED" ? "rgba(77,255,131,0.12)" : "rgba(255,140,0,0.12)",
-                                            color: rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
-                                            border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.25)" : "rgba(255,140,0,0.25)"}`,
+                                            background: rank === "VERIFIED"
+                                                ? "rgba(77,255,131,0.15)"
+                                                : rank === "ADMIN"
+                                                ? "rgba(212,175,55,0.20)"
+                                                : "rgba(255,140,0,0.15)",
+                                            border: `1.5px solid ${rank === "VERIFIED" ? "#4DFF83" : rank === "ADMIN" ? "#D4AF37" : "#FF8C00"}`,
+                                            color: rank === "VERIFIED" ? "#4DFF83" : rank === "ADMIN" ? "#D4AF37" : "#FF8C00",
                                         }}
                                     >
-                                        {rank}
-                                    </span>
+                                        {(user.full_name || user.email || "?")[0].toUpperCase()}
+                                    </div>
+
+                                    {/* Email + badge rango */}
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.02em" }}>
+                                            {user.email || user.full_name}
+                                        </span>
+                                        <span
+                                            className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                                            style={{
+                                                backgroundColor: rank === "VERIFIED" ? "rgba(77,255,131,0.12)" : rank === "ADMIN" ? "rgba(212,175,55,0.12)" : "rgba(255,140,0,0.12)",
+                                                color: rank === "VERIFIED" ? "#4DFF83" : rank === "ADMIN" ? "#D4AF37" : "#FF8C00",
+                                                border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.3)" : rank === "ADMIN" ? "rgba(212,175,55,0.3)" : "rgba(255,140,0,0.3)"}`,
+                                            }}
+                                        >
+                                            {rank === "VERIFIED" ? "🟢" : rank === "ADMIN" ? "🛡️" : "🟡"} {rank}
+                                        </span>
+                                    </div>
                                 </div>
-                                <a href="/profile" className="text-xs text-foreground hover:text-white transition-colors font-mono">Mi Perfil</a>
-                                <button onClick={logout} className="text-xs text-foreground hover:text-white transition-colors font-mono">Salir</button>
+
+                                {/* ─── Separador ─── */}
+                                <span className="text-white/10 text-sm select-none">·</span>
+
+                                {/* ─── Acciones ─── */}
+                                {isAdmin && (
+                                    <Link
+                                        href="/admin"
+                                        className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80"
+                                        style={{ color: "#D4AF37" }}
+                                    >
+                                        🛡️ Admin
+                                    </Link>
+                                )}
+
+                                {isBasic && (
+                                    <>
+                                        <button
+                                            onClick={() => setIsVerifyOpen(true)}
+                                            className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80"
+                                            style={{ color: "#FF8C00" }}
+                                            title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
+                                        >
+                                            ✅ Verificar cuenta
+                                        </button>
+                                        <span className="text-white/10 text-sm select-none">·</span>
+                                    </>
+                                )}
+
+                                <a
+                                    href="/profile"
+                                    className="flex items-center gap-1 text-xs text-foreground-muted hover:text-white transition-colors font-mono"
+                                >
+                                    👤 Mi Perfil
+                                </a>
+
+                                <span className="text-white/10 text-sm select-none">·</span>
+
+                                <button
+                                    onClick={logout}
+                                    className="flex items-center gap-1 text-xs text-foreground-muted hover:text-red-400 transition-colors font-mono"
+                                >
+                                    ✕ Salir
+                                </button>
                             </>
                         ) : (
                             <button
