@@ -448,10 +448,15 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                     ? `📧 Registro exitoso. Hemos enviado un email de confirmación a ${email}. Revisa tu bandeja y haz clic en el enlace para activar tu cuenta.`
                     : `✅ Cuenta activada. Ya puedes iniciar sesión.`;
                 setSuccess(successMsg);
-                setTimeout(() => {
-                    setMode("login");
-                    setSuccess("");
-                }, 4000);
+                if (!data.email_confirmation_required) {
+                    // Modo DEBUG (sin email): cambiar a login automáticamente tras 4s
+                    setTimeout(() => {
+                        setMode("login");
+                        setSuccess("");
+                    }, 4000);
+                }
+                // Producción (con email de confirmación): quedarse en el formulario.
+                // El usuario debe ir al correo, confirmar, y volver a iniciar sesión.
             }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Error interno del servidor");

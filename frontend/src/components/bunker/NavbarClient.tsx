@@ -50,6 +50,15 @@ export default function NavbarClient() {
         };
     }, []);
 
+    // Abrir modal de login si el usuario viene del callback de confirmación de email
+    useEffect(() => {
+        const shouldOpen = sessionStorage.getItem("beacon_open_login");
+        if (shouldOpen === "1") {
+            sessionStorage.removeItem("beacon_open_login");
+            setIsModalOpen(true);
+        }
+    }, []);
+
     return (
         <>
             {/* ═══ Navbar Glassmorphism ═══ */}

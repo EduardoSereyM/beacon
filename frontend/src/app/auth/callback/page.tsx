@@ -136,6 +136,8 @@ function CallbackContent() {
             setCountdown((prev) => {
                 if (prev <= 1) {
                     clearInterval(timer);
+                    // Señalizar al Navbar que abra el modal de login al llegar al home
+                    sessionStorage.setItem("beacon_open_login", "1");
                     router.replace("/");
                     return 0;
                 }
