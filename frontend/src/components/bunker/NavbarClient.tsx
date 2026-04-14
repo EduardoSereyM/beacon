@@ -185,7 +185,7 @@ export default function NavbarClient() {
                                                 : rank === "ADMIN"
                                                 ? <Shield size={11} strokeWidth={2} />
                                                 : <ShieldAlert size={11} strokeWidth={2} />}
-                                            {rank === "VERIFIED" ? "USUARIO VERIFIED" : rank === "ADMIN" ? "ADMIN" : "USUARIO BASIC"}
+                                            {rank === "VERIFIED" ? "VERIFIED" : rank === "ADMIN" ? "ADMIN" : "BASIC"}
                                         </span>
                                     </div>
                                 </div>
@@ -208,11 +208,11 @@ export default function NavbarClient() {
                                     <>
                                         <button
                                             onClick={() => setIsVerifyOpen(true)}
-                                            className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80"
-                                            style={{ color: "#FF8C00" }}
+                                            className="flex items-center gap-1.5 text-xs font-medium transition-all duration-200 hover:text-white"
+                                            style={{ color: "#8A8A8A", letterSpacing: "0.02em" }}
                                             title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
                                         >
-                                            <ShieldAlert size={13} strokeWidth={2} />
+                                            <ShieldAlert size={13} strokeWidth={1.5} style={{ color: "#FF8C00" }} />
                                             <span>Verificar cuenta</span>
                                         </button>
                                         <span className="text-white/10 select-none" style={{ fontSize: "16px", lineHeight: 1 }}>·</span>
