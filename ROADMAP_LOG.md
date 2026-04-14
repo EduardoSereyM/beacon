@@ -15,7 +15,7 @@
 
 ---
 
-## 🔧 Fixes Críticos de Auth & UI — 2026-04-14 (commits 27941d6, 840a268, c95d8b4)
+## 🔧 Fixes Críticos de Auth, UI & Password Recovery — 2026-04-14 (commits 27941d6 → cba8f64)
 
 ### Problemas Resueltos
 
@@ -47,11 +47,27 @@
 - **Archivos:** `frontend/src/components/shared/BasicUserBanner.tsx`
 - **Commit:** `c95d8b4`
 
+#### 4️⃣ **Recuperación de Contraseña Inoperante** (Backend + Supabase Config)
+- **Problema:** Enlace del email llegaba con `otp_expired` siempre
+- **Causa 1:** Template usaba `{{ .ConfirmationURL }}` — email clients pre-fetchan el link y **consumen el OTP** antes de que el usuario haga click
+- **Causa 2:** Backend usaba `service_role` client para `verify_otp()` → 403 Forbidden
+- **Fix:**
+  - Template Supabase: `{{ .SiteURL }}/auth/reset-password?token_hash={{ .TokenHash }}&type=recovery`
+  - Backend: `anon_client.auth.verify_otp()` en lugar de `service_role`
+- **Archivos:** `backend/app/api/v1/user/auth.py`
+- **Commits:** `d0899b5`, `155992a`
+
+#### 5️⃣ **Banner UI — Mejoras de Texto y Apariencia** (Frontend)
+- **Cambios:** Texto unificado (mismo mensaje desktop/mobile), apariencia de popup flotante (border-radius, box-shadow, X agrandada), `top: 105px` para alineación con navbar de dos filas
+- **Archivos:** `frontend/src/components/shared/BasicUserBanner.tsx`
+- **Commits:** `bfa6ed2`, `2b0746a`, `cba8f64`
+
 ### Impacto
 
 - ✅ Nuevos registros crean perfil correctamente
 - ✅ Email confirmation flow sin confusión de UX
 - ✅ Banner verificación visible en desktop y legible en mobile
+- ✅ **Recuperación de contraseña funciona en producción** ← nuevo
 - ✅ Sin usuarios huérfanos (requiere migration SQL manual para caso previo)
 - ✅ Zero regressions en otros flujos
 

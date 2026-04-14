@@ -2,8 +2,8 @@
 
 **Autor:** Claude  
 **Fecha:** 2026-04-14  
-**Commits:** `27941d6`, `840a268`, `c95d8b4`  
-**Estado:** ✅ Deployed a main
+**Commits:** `27941d6`, `840a268`, `c95d8b4`, `bfa6ed2`, `2b0746a`, `155992a`, `cba8f64`  
+**Estado:** ✅ Deployed a main y producción
 
 ---
 
@@ -199,7 +199,108 @@ useEffect(() => {
 
 ---
 
-## 4. Testing & Validation
+## 4. Bug: Recuperación de Contraseña Inoperante
+
+### Problema
+
+**En producción y local:** El enlace de "Restablecer Contraseña" del email llegaba con error `otp_expired` o `Email link is invalid or has expired` sin importar cuánto tiempo había pasado.
+
+**Logs de Supabase:**
+```
+GET /auth/v1/verify?token=xxx&type=recovery → 303
+→ Redirige con #error=access_denied&error_code=otp_expired
+Backend: POST /auth/v1/verify "HTTP/2 403 Forbidden"
+```
+
+### Causas Raíz (dos problemas independientes)
+
+#### Causa 1: Email client pre-fetcha el OTP
+El template usaba `{{ .ConfirmationURL }}` que lleva directamente a Supabase:
+```
+https://[supabase]/auth/v1/verify?token=xxx&type=recovery
+```
+Gmail, Outlook y otros clientes de email **pre-cargan los links** para verificar seguridad/preview. Esto **consume el OTP** antes de que el usuario haga click. Cuando el usuario finalmente hace click, el token ya no existe → `otp_expired`.
+
+#### Causa 2: `verify_otp` llamado con `service_role` client
+El backend usaba el cliente `service_role` para llamar `verify_otp()`, que es una operación exclusiva del cliente anon. Resultado: `403 Forbidden`.
+
+### Solución Implementada
+
+**Commits `d0899b5`, `155992a`:**
+
+#### 1. Template del email (Supabase Dashboard)
+```html
+<!-- ❌ ANTES — vulnerable a email pre-fetch -->
+<a href="{{ .ConfirmationURL }}"
+
+<!-- ✅ DESPUÉS — token_hash no se consume con GET requests -->
+<a href="{{ .SiteURL }}/auth/reset-password?token_hash={{ .TokenHash }}&type=recovery"
+```
+
+El `token_hash` en query param solo se consume cuando el backend llama explícitamente a `verify_otp`. Un pre-fetch simple de la URL de nuestra página no lo consume.
+
+#### 2. Backend: usar anon_client para verify_otp
+```python
+# ❌ ANTES — service_role no tiene permiso para verify_otp
+auth_response = await supabase.auth.verify_otp({...})
+
+# ✅ DESPUÉS — anon_client es el cliente correcto
+from app.core.database import get_supabase_anon_async
+anon_client = get_supabase_anon_async()
+auth_response = await anon_client.auth.verify_otp({
+    "token_hash": token_hash,
+    "type": "recovery",
+})
+```
+
+### Flujo Correcto Resultante
+
+```
+1. Usuario solicita reset → POST /forgot-password
+   └─> Backend llama reset_password_for_email() con redirect_to
+
+2. Email llega con token_hash en URL de NUESTRO sitio:
+   └─> https://www.beaconchile.cl/auth/reset-password?token_hash=xxx&type=recovery
+
+3. Usuario hace click → nuestra página carga con token_hash en query params
+   └─> El token_hash NO se consume todavía (es solo un identificador)
+   └─> Email clients que pre-fetchen la URL tampoco lo consumen
+
+4. Usuario ingresa nueva contraseña → POST /reset-password
+   └─> Backend llama anon_client.auth.verify_otp({ token_hash, type: "recovery" })
+   └─> Supabase verifica → devuelve user_id
+   └─> Backend actualiza contraseña via admin API
+
+5. Éxito → mensaje de confirmación + redirect al inicio
+```
+
+### Impacto
+
+- ✅ Reset de contraseña funciona en producción
+- ✅ Token OTP no vulnerable a email pre-fetch
+- ✅ verify_otp usa cliente correcto (anon, no service_role)
+- ✅ Flujo completo validado en producción
+
+---
+
+## 5. Mejoras de UI Banner (commits bfa6ed2, 2b0746a, cba8f64)
+
+### Cambios
+
+1. **Texto unificado** — Banner muestra el mismo mensaje en desktop y mobile:
+   > "🔒 Tu voto solo aparece en el conteo público, pero solo los votos de usuarios verificados cuentan en los informes oficiales. Verifica tu identidad con RUT y tu voz contará al 100%."
+
+2. **Apariencia de popup flotante:**
+   - `border-radius: 12px` — esquinas redondeadas
+   - Centrado con `maxWidth: 600px`
+   - Fondo más transparente (opacidad 0.08)
+   - `box-shadow` dorado para efecto flotante
+   - Botón X agrandado (28px en caja 40×40) con hover effects
+   - `top: 105px` — alineado con doble fila del navbar
+
+---
+
+## 6. Testing & Validation
 
 ### Test Cases
 
@@ -243,13 +344,14 @@ useEffect(() => {
 
 ### Pre-Deploy Checklist
 
-- [x] Código commiteado: `27941d6`, `840a268`, `c95d8b4`
+- [x] Código commiteado: `27941d6`, `840a268`, `c95d8b4`, `bfa6ed2`, `2b0746a`, `155992a`, `cba8f64`
 - [x] Push a `main` completado
 - [x] SQL ejecutado para usuario huérfano
-- [ ] Deploy backend a Render
-- [ ] Deploy frontend a Vercel
-- [ ] Pruebas post-deploy en producción
-- [ ] Validar email delivery
+- [x] Deploy backend a Render ✅
+- [x] Deploy frontend a Vercel ✅
+- [x] Pruebas post-deploy en producción ✅
+- [x] Validar email delivery ✅
+- [x] Validar reset de contraseña en producción ✅
 
 ### Environment Variables (Verificar)
 
@@ -279,6 +381,8 @@ useEffect(() => {
 Error pattern "Perfil de ciudadano no encontrado" → RESUELTO
 Error pattern "tu sesión ha expirado" (after registration) → RESUELTO
 Z-index issues → RESUELTO
+Error pattern "Email link is invalid or has expired" (reset password) → RESUELTO
+Error pattern "403 Forbidden" en verify_otp → RESUELTO
 ```
 
 ---
