@@ -64,3 +64,12 @@ def get_supabase_anon() -> Client:
     Respeta las políticas de Row Level Security (RLS).
     """
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
+
+def get_supabase_anon_async() -> AsyncClient:
+    """
+    Cliente ASÍNCRONO con anon key (respeta RLS).
+    Usar exclusivamente para auth flows (sign_up, sign_in) donde NO se requiere
+    service_role. Evita contaminar la sesión del cliente service_role singleton.
+    """
+    return AsyncClient(settings.SUPABASE_URL, settings.SUPABASE_KEY)

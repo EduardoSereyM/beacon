@@ -15,7 +15,7 @@ Reglas de Oro:
 
 from typing import Optional
 
-from app.core.database import get_async_supabase_client
+from app.core.database import get_async_supabase_client, get_supabase_anon_async
 from app.core.audit_logger import audit_bus
 from app.core.security.dna_scanner import gatekeeper
 from app.core.config import settings
@@ -89,8 +89,13 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         })
     else:
         # Modo producción: sign_up estándar → email de confirmación al usuario.
+        # CRÍTICO: usar cliente anon separado para NO contaminar la sesión del
+        # cliente service_role. Si se llama sign_up() en el cliente service_role,
+        # sobrescribe su sesión interna con el JWT del nuevo usuario (no confirmado),
+        # y el insert posterior a public.users devuelve 403.
+        anon_client = get_supabase_anon_async()
         redirect_url = f"{settings.FRONTEND_URL}/auth/callback"
-        auth_response = await supabase.auth.sign_up({
+        auth_response = await anon_client.auth.sign_up({
             "email": user_data.email,
             "password": user_data.password,
             "options": {
