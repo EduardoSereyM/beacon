@@ -9,9 +9,53 @@
 
 # 🛡️ BEACON: Registro de Blindaje y Hoja de Ruta
 
-> **Estado actual:** `Fase 1: Auth e Identidad — FINALIZADA & BLINDADA`
+> **Estado actual:** `Fase 2: Encuestas Ciudadanas — EN PRODUCCIÓN`
 >
 > **Mantra:** _"Lo que no es íntegro, no existe."_
+
+---
+
+## 💬 Reacciones Ciudadanas (poll_comments) — 2026-04-14 (commits 05d3b9b, ec9d192)
+
+### Implementado y desplegado en producción
+
+#### DB — Migración 022 (ejecutada y verificada en Supabase)
+- **Tabla:** `public.poll_comments` con 8 columnas: `id`, `poll_id`, `user_id`, `reaction`, `text`, `rank`, `created_at`, `deleted_at`
+- **Unicidad:** índice parcial `poll_comments_one_per_user (poll_id, user_id) WHERE deleted_at IS NULL` — un comentario activo por usuario/encuesta
+- **Soft-delete:** `deleted_at` — los registros nunca se borran físicamente (audit trail)
+- **RLS activo:** SELECT público · INSERT solo propio `user_id` · UPDATE solo propio (soft-delete)
+- **Snapshot de rank:** el campo `rank` captura el nivel del ciudadano al momento de publicar (inmutable)
+
+#### Backend
+| Archivo | Descripción |
+|---|---|
+| `backend/app/services/poll_comments_service.py` | `get_comments`, `get_user_comment`, `create_comment`, `soft_delete_comment` |
+| `backend/app/api/v1/endpoints/poll_comments.py` | Router con 3 endpoints, validación Pydantic, 409 en duplicado |
+| `backend/app/main.py` | Router registrado bajo tag `Poll Comments` |
+
+#### Endpoints
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `GET` | `/api/v1/polls/{id}/comments` | No | Lista paginada (limit/offset) |
+| `POST` | `/api/v1/polls/{id}/comments` | JWT | Publica comentario + reacción opcional |
+| `DELETE` | `/api/v1/polls/{id}/comments/{cid}` | JWT | Soft-delete propio comentario |
+
+#### Frontend
+- `PollCommentsSection.tsx` conectada al backend real (antes: `setTimeout` mock)
+- Carga comentarios al montar via GET
+- Detecta si el usuario ya comentó (compara `user_id`)
+- Propio comentario resaltado en la lista con borde violeta
+- Muestra estado `loading`, vacío, o lista paginada
+
+#### Auditoría de migraciones (2026-04-14)
+Verificado: **las 15 migraciones (008–022) están aplicadas en Supabase.** Los checks previos tenían nombres erróneos (`audit_log` vs `audit_logs`, `region_id` vs `region`). Base de datos 100% al día.
+
+### Impacto
+- ✅ Reacciones ciudadanas persistidas en BBDD con trazabilidad completa
+- ✅ Un comentario por usuario/encuesta enforced a nivel DB y servicio
+- ✅ Soft-delete para moderación futura sin pérdida de datos
+- ✅ Rank snapshot: los comentarios reflejan el nivel del ciudadano en el momento exacto
+- ✅ Migraciones 008–022 verificadas y al día en producción
 
 ---
 
@@ -349,8 +393,8 @@ ALTER TABLE polls DROP COLUMN options;
   - Columna derecha: "BEACON" con 4 ítems afirmados (✓ color accent)
   - Responsive: apilado vertical en mobile, Beacon arriba
   - Detalles de contenido y estilos en `docs/LANDING_PAGE_PENDING.md`
-  
-- [ ] Backend de comentarios persistidos (`POST /api/v1/polls/{id}/comments`)
+
+- [x] Backend de comentarios persistidos → ✅ implementado 2026-04-14 (ver sección abajo)
 - [x] Admin UI para carga de encuestas JSON desde agentes → `publish_polls.py`
 - [x] Cargar primeras encuestas reales de agentes de cowork → cargadas 12/04/2026
 
