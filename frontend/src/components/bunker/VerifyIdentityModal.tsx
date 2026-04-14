@@ -123,8 +123,8 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
         if (!validateRut(rut)) newErrors.rut = "RUT inválido. Verifica el dígito verificador.";
 
         const year = parseInt(birthYear);
-        if (!birthYear || isNaN(year) || year < 1920 || year > CURRENT_YEAR - 14) {
-            newErrors.birthYear = `Ingresa un año válido (1920–${CURRENT_YEAR - 14}).`;
+        if (!birthYear || isNaN(year) || year < 1920 || year > CURRENT_YEAR - 18) {
+            newErrors.birthYear = `Ingresa un año válido (1920–${CURRENT_YEAR - 18}).`;
         }
 
         if (!gender) newErrors.gender = "Selecciona tu género.";
