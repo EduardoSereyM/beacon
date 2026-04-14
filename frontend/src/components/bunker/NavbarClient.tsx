@@ -208,11 +208,13 @@ export default function NavbarClient() {
                                     <>
                                         <button
                                             onClick={() => setIsVerifyOpen(true)}
-                                            className="flex items-center gap-1.5 text-xs font-medium transition-all duration-200 hover:text-white"
-                                            style={{ color: "#8A8A8A", letterSpacing: "0.02em" }}
+                                            className="flex items-center gap-1.5 text-xs font-mono transition-colors duration-200"
+                                            style={{ color: "#8A8A8A" }}
+                                            onMouseEnter={e => (e.currentTarget.style.color = "#FF8C00")}
+                                            onMouseLeave={e => (e.currentTarget.style.color = "#8A8A8A")}
                                             title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
                                         >
-                                            <ShieldAlert size={13} strokeWidth={1.5} style={{ color: "#FF8C00" }} />
+                                            <ShieldAlert size={13} strokeWidth={1.5} />
                                             <span>Verificar cuenta</span>
                                         </button>
                                         <span className="text-white/10 select-none" style={{ fontSize: "16px", lineHeight: 1 }}>·</span>
