@@ -388,8 +388,8 @@ function PollResults({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 16, marginBottom: 4 }}>
-          <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", width: 52, textAlign: "right" }}>pos. prom.</span>
-          <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", width: 42, textAlign: "right" }}>#1 frec.</span>
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.55)", width: 52, textAlign: "right" }}>pos. prom.</span>
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.55)", width: 42, textAlign: "right" }}>#1 frec.</span>
         </div>
         {results.map((r, idx) => {
           const barWidth = maxBorda > 0 ? Math.round(((r.borda_score ?? 0) / maxBorda) * 100) : 0;
@@ -422,14 +422,14 @@ function PollResults({
                 <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(0,229,255,0.7)", width: 52, textAlign: "right", flexShrink: 0 }}>
                   {r.avg_position != null ? `${r.avg_position}°` : "–"}
                 </span>
-                <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", width: 42, textAlign: "right", flexShrink: 0 }}>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", width: 42, textAlign: "right", flexShrink: 0 }}>
                   {r.first_place_pct ?? 0}%
                 </span>
               </div>
             </div>
           );
         })}
-        <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 4 }}>
+        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.5)", textAlign: "right", marginTop: 4 }}>
           {totalVotes} {totalVotes === 1 ? "voto" : "votos"} · ordenado por Borda
         </p>
       </div>
@@ -468,14 +468,14 @@ function PollResults({
               <span style={{ fontSize: 13, color: isUser ? "#D4AF37" : "#f5f5f5", fontWeight: isUser ? 700 : 400 }}>
                 {isUser && "✓ "}{r.option}
               </span>
-              <span style={{ fontSize: 12, fontFamily: "monospace", color: isUser ? "#D4AF37" : "rgba(255,255,255,0.3)", fontWeight: isUser ? 700 : 400 }}>
+              <span style={{ fontSize: 12, fontFamily: "monospace", color: isUser ? "#D4AF37" : "rgba(255,255,255,0.65)", fontWeight: isUser ? 700 : 400 }}>
                 {pct}%
               </span>
             </div>
           </div>
         );
       })}
-      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 4 }}>
+      <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.5)", textAlign: "right", marginTop: 4 }}>
         {totalVotes} {totalVotes === 1 ? "voto" : "votos"}
       </p>
     </div>
@@ -546,7 +546,7 @@ function RankingInput({ options, value, onChange }: {
 
   return (
     <div>
-      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", marginBottom: 10, letterSpacing: "0.08em" }}>
+      <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.55)", marginBottom: 10, letterSpacing: "0.08em" }}>
         ARRASTRA para ordenar · 1 = mayor prioridad
       </p>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -628,7 +628,7 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
             }}
           />
         </div>
-        <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap" }}>
           {answered}/{total}
         </span>
       </div>
@@ -672,7 +672,7 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {isMulti && (
-                    <p style={{ fontSize: 9, fontFamily: "monospace", color: "#D4AF37", marginBottom: 2, letterSpacing: "0.08em" }}>
+                    <p style={{ fontSize: 11, fontFamily: "monospace", color: "#D4AF37", marginBottom: 2, letterSpacing: "0.08em" }}>
                       ☑ Puedes elegir varias opciones
                     </p>
                   )}
@@ -718,7 +718,7 @@ function MultiQuestionForm({ questions, onSubmit, submitting }: {
                           {n}
                         </button>
                         {label && (
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center", maxWidth: 70, lineHeight: 1.2 }}>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", textAlign: "center", maxWidth: 70, lineHeight: 1.2 }}>
                             {label}
                           </span>
                         )}
@@ -1432,7 +1432,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                 <p style={{ fontSize: 13, color: "#00E5FF", fontFamily: "monospace", marginBottom: 6 }}>
                   Inicia sesión para participar
                 </p>
-                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", fontFamily: "monospace" }}>
                   Tu voto se pondera: BASIC 0.5× · VERIFIED 1.0×
                 </p>
               </div>
@@ -1482,11 +1482,11 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                     }}>
                       {/* Header */}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
                           Resultados Verificados
                         </p>
                         <span style={{
-                          fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+                          fontSize: 11, fontFamily: "monospace", fontWeight: 700,
                           color: "#D4AF37", background: "rgba(212,175,55,0.12)",
                           border: "1px solid rgba(212,175,55,0.3)",
                           borderRadius: 20, padding: "2px 10px", letterSpacing: "0.06em",
@@ -1509,7 +1509,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                       )}
 
                       {/* Footer */}
-                      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(212,175,55,0.5)", textAlign: "right", marginTop: 10 }}>
+                      <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(212,175,55,0.75)", textAlign: "right", marginTop: 10 }}>
                         {poll.verified_votes} {poll.verified_votes === 1 ? "voto" : "votos"} verificados
                       </p>
                     </div>
@@ -1523,13 +1523,13 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                     }}>
                       {/* Header */}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
                           Resultados Totales
                         </p>
                         <span style={{
                           display: "inline-flex", alignItems: "center", gap: 5,
-                          fontSize: 9, fontFamily: "monospace",
-                          color: poll.is_open ? "#39FF14" : "rgba(255,255,255,0.3)",
+                          fontSize: 11, fontFamily: "monospace",
+                          color: poll.is_open ? "#39FF14" : "rgba(255,255,255,0.5)",
                         }}>
                           {poll.is_open && (
                             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block" }} />
@@ -1541,12 +1541,12 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                       <PollResults poll={poll} userVote={voted ? userVote : null} />
 
                       {/* Footer con breakdown */}
-                      <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 10 }}>
+                      <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.55)", textAlign: "right", marginTop: 10 }}>
                         {poll.total_votes} votos totales
                         {poll.verified_votes > 0 && (
-                          <span style={{ color: "rgba(255,255,255,0.15)" }}>
+                          <span style={{ color: "rgba(255,255,255,0.5)" }}>
                             {" "}·{" "}
-                            <span style={{ color: "rgba(212,175,55,0.5)" }}>{poll.verified_votes} verificados</span>
+                            <span style={{ color: "rgba(212,175,55,0.8)" }}>{poll.verified_votes} verificados</span>
                             {" · "}
                             {poll.basic_votes} básicos
                           </span>
@@ -1586,7 +1586,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
             )}
 
             {/* Footer */}
-            <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.1)", textAlign: "center", marginTop: 22 }}>
+            <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: 22 }}>
               {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"} · BASIC 0.5× · VERIFIED 1.0× · BEACON Protocol
             </p>
           </div>
