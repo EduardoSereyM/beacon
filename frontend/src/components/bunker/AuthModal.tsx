@@ -284,6 +284,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
     const [region, setRegion] = useState("");
     const [commune, setCommune] = useState("");
     const [ageRange, setAgeRange] = useState("");
+    const [gender, setGender] = useState("");
 
     // ─── UI State ───
     const [loading, setLoading] = useState(false);
@@ -337,7 +338,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
         if (mode === "login") {
             return email.length > 0 && password.length >= 8; // En login no bloqueamos por complejidad para evitar revelar reglas a atacantes en cuentas viejas
         }
-        // Registro: email, nombre, password válida, confirmPassword, país, región, comuna, rango etario
+        // Registro: email, nombre, password válida, confirmPassword, país, región, comuna, rango etario, género
         return (
             email.length > 0 &&
             fullName.length >= 2 &&
@@ -348,7 +349,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
             commune.length > 0 &&
             ageRange.length > 0
         );
-    }, [mode, email, password, confirmPassword, fullName, country, region, commune, ageRange, pwdValidations]);
+    }, [mode, email, password, confirmPassword, fullName, country, region, commune, ageRange, gender, pwdValidations]);
 
     // Timestamp de inicio para DNA Scanner (fill_duration)
     const [formStartTime] = useState(() => performance.now());
@@ -430,6 +431,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                         region: region || undefined,
                         commune: commune || undefined,
                         age_range: ageRange || undefined,
+                        gender: gender || undefined,
                     }),
                 });
 
@@ -813,6 +815,28 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
                                         <option value="45-54">45 - 54</option>
                                         <option value="55-64">55 - 64</option>
                                         <option value="65+">65+</option>
+                                    </select>
+                                </div>
+
+                                {/* ─── Género ─── */}
+                                <div>
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-foreground-muted mb-1">
+                                        Género
+                                    </label>
+                                    <select
+                                        value={gender}
+                                        onChange={(e) => setGender(e.target.value)}
+                                        className="w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200 appearance-none"
+                                        style={{
+                                            backgroundColor: "#0F0F0F",
+                                            border: `1px solid ${gender ? `${CYAN}30` : "rgba(255,255,255,0.1)"}`,
+                                        }}
+                                    >
+                                        <option value="">Seleccionar</option>
+                                        <option value="Masculino">Masculino</option>
+                                        <option value="Femenino">Femenino</option>
+                                        <option value="No binario">No binario</option>
+                                        <option value="Prefiero no decir">Prefiero no decir</option>
                                     </select>
                                 </div>
                             </>
