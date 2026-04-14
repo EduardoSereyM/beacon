@@ -16,6 +16,7 @@ import usePermissions from "@/hooks/usePermissions";
 import Image from "next/image";
 import Link from "next/link";
 import logoDorado from "@/asset/brand/logo.png";
+import { ShieldAlert, UserCircle, LogOut, ShieldCheck, Shield } from "lucide-react";
 
 export default function NavbarClient() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -177,13 +178,14 @@ export default function NavbarClient() {
                                                 backgroundColor: rank === "VERIFIED" ? "rgba(77,255,131,0.12)" : rank === "ADMIN" ? "rgba(212,175,55,0.12)" : "rgba(255,140,0,0.12)",
                                                 color: rank === "VERIFIED" ? "#4DFF83" : rank === "ADMIN" ? "#D4AF37" : "#FF8C00",
                                                 border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.3)" : rank === "ADMIN" ? "rgba(212,175,55,0.3)" : "rgba(255,140,0,0.3)"}`,
-                                                lineHeight: 1,
                                             }}
                                         >
-                                            <span style={{ fontSize: "10px", lineHeight: 1 }}>
-                                                {rank === "VERIFIED" ? "🟢" : rank === "ADMIN" ? "🛡️" : "🟡"}
-                                            </span>
-                                            <span>{rank === "VERIFIED" ? "USUARIO VERIFIED" : rank === "ADMIN" ? "ADMIN" : "USUARIO BASIC"}</span>
+                                            {rank === "VERIFIED"
+                                                ? <ShieldCheck size={11} strokeWidth={2} />
+                                                : rank === "ADMIN"
+                                                ? <Shield size={11} strokeWidth={2} />
+                                                : <ShieldAlert size={11} strokeWidth={2} />}
+                                            {rank === "VERIFIED" ? "USUARIO VERIFIED" : rank === "ADMIN" ? "ADMIN" : "USUARIO BASIC"}
                                         </span>
                                     </div>
                                 </div>
@@ -207,10 +209,10 @@ export default function NavbarClient() {
                                         <button
                                             onClick={() => setIsVerifyOpen(true)}
                                             className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80"
-                                            style={{ color: "#FF8C00", lineHeight: 1 }}
+                                            style={{ color: "#FF8C00" }}
                                             title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
                                         >
-                                            <span style={{ fontSize: "13px", lineHeight: 1, display: "flex", alignItems: "center" }}>⚠️</span>
+                                            <ShieldAlert size={13} strokeWidth={2} />
                                             <span>Verificar cuenta</span>
                                         </button>
                                         <span className="text-white/10 select-none" style={{ fontSize: "16px", lineHeight: 1 }}>·</span>
@@ -220,20 +222,18 @@ export default function NavbarClient() {
                                 <a
                                     href="/profile"
                                     className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-white transition-colors font-mono"
-                                    style={{ lineHeight: 1 }}
                                 >
-                                    <span style={{ fontSize: "13px", lineHeight: 1, display: "flex", alignItems: "center" }}>🪪</span>
+                                    <UserCircle size={14} strokeWidth={1.5} />
                                     <span>Mi Perfil</span>
                                 </a>
 
-                                <span className="text-white/10 select-none" style={{ fontSize: "16px", lineHeight: 1 }}>·</span>
+                                <span className="text-white/20 select-none text-sm">·</span>
 
                                 <button
                                     onClick={logout}
                                     className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-red-400 transition-colors font-mono"
-                                    style={{ lineHeight: 1 }}
                                 >
-                                    <span style={{ fontSize: "12px", lineHeight: 1, display: "flex", alignItems: "center" }}>❌</span>
+                                    <LogOut size={13} strokeWidth={1.5} />
                                     <span>Salir</span>
                                 </button>
                             </>
