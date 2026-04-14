@@ -104,7 +104,7 @@ export default function HomeHeroClient() {
                                 className="px-8 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all duration-300 hover:bg-opacity-10 hover:scale-105"
                                 style={{
                                     background: "transparent",
-                                    border: "1.5px solid rgba(0,229,255,0.4)",
+                                    border: "1.5px solid rgba(0, 229, 255, 0.4)",
                                     color: "#00E5FF",
                                 }}
                             >
@@ -119,7 +119,7 @@ export default function HomeHeroClient() {
                                 background: "#00E5FF",
                                 border: "none",
                                 color: "#0A0A0A",
-                                boxShadow: "0 8px 24px rgba(0,229,255,0.3)",
+                                boxShadow: "0 8px 24px rgba(0, 229, 255, 0.3)",
                             }}
                         >
                             Ver encuestas →
