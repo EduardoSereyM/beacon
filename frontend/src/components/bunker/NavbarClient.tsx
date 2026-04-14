@@ -172,14 +172,18 @@ export default function NavbarClient() {
                                             {user.email || user.full_name}
                                         </span>
                                         <span
-                                            className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
                                             style={{
                                                 backgroundColor: rank === "VERIFIED" ? "rgba(77,255,131,0.12)" : rank === "ADMIN" ? "rgba(212,175,55,0.12)" : "rgba(255,140,0,0.12)",
                                                 color: rank === "VERIFIED" ? "#4DFF83" : rank === "ADMIN" ? "#D4AF37" : "#FF8C00",
                                                 border: `1px solid ${rank === "VERIFIED" ? "rgba(77,255,131,0.3)" : rank === "ADMIN" ? "rgba(212,175,55,0.3)" : "rgba(255,140,0,0.3)"}`,
+                                                lineHeight: 1,
                                             }}
                                         >
-                                            {rank === "VERIFIED" ? "🟢 USUARIO VERIFIED" : rank === "ADMIN" ? "🛡️ ADMIN" : "🟡 USUARIO BASIC"}
+                                            <span style={{ fontSize: "10px", lineHeight: 1 }}>
+                                                {rank === "VERIFIED" ? "🟢" : rank === "ADMIN" ? "🛡️" : "🟡"}
+                                            </span>
+                                            <span>{rank === "VERIFIED" ? "USUARIO VERIFIED" : rank === "ADMIN" ? "ADMIN" : "USUARIO BASIC"}</span>
                                         </span>
                                     </div>
                                 </div>
@@ -202,30 +206,35 @@ export default function NavbarClient() {
                                     <>
                                         <button
                                             onClick={() => setIsVerifyOpen(true)}
-                                            className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80"
-                                            style={{ color: "#FF8C00" }}
+                                            className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80"
+                                            style={{ color: "#FF8C00", lineHeight: 1 }}
                                             title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
                                         >
-                                            ⚠️ Verificar cuenta
+                                            <span style={{ fontSize: "13px", lineHeight: 1, display: "flex", alignItems: "center" }}>⚠️</span>
+                                            <span>Verificar cuenta</span>
                                         </button>
-                                        <span className="text-white/10 text-sm select-none">·</span>
+                                        <span className="text-white/10 select-none" style={{ fontSize: "16px", lineHeight: 1 }}>·</span>
                                     </>
                                 )}
 
                                 <a
                                     href="/profile"
-                                    className="flex items-center gap-1 text-xs text-foreground-muted hover:text-white transition-colors font-mono"
+                                    className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-white transition-colors font-mono"
+                                    style={{ lineHeight: 1 }}
                                 >
-                                    🪪 Mi Perfil
+                                    <span style={{ fontSize: "13px", lineHeight: 1, display: "flex", alignItems: "center" }}>🪪</span>
+                                    <span>Mi Perfil</span>
                                 </a>
 
-                                <span className="text-white/10 text-sm select-none">·</span>
+                                <span className="text-white/10 select-none" style={{ fontSize: "16px", lineHeight: 1 }}>·</span>
 
                                 <button
                                     onClick={logout}
-                                    className="flex items-center gap-1 text-xs text-foreground-muted hover:text-red-400 transition-colors font-mono"
+                                    className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-red-400 transition-colors font-mono"
+                                    style={{ lineHeight: 1 }}
                                 >
-                                    ❌ Salir
+                                    <span style={{ fontSize: "12px", lineHeight: 1, display: "flex", alignItems: "center" }}>❌</span>
+                                    <span>Salir</span>
                                 </button>
                             </>
                         ) : (
