@@ -51,19 +51,23 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
             role="banner"
             style={{
                 position: "fixed",
-                top: "220px",
-                left: 0,
-                right: 0,
+                top: "98px",
+                left: "50%",
+                transform: "translateX(-50%)",
                 zIndex: 45,
-                background: `linear-gradient(90deg, rgba(255,140,0,0.15), rgba(212,175,55,0.15), rgba(255,140,0,0.15))`,
-                borderBottom: `1px solid ${AMBER}40`,
-                backdropFilter: "blur(8px)",
-                padding: "8px 16px",
+                maxWidth: isMobile ? "calc(100% - 24px)" : "600px",
+                width: "100%",
+                background: `linear-gradient(90deg, rgba(255,140,0,0.08), rgba(212,175,55,0.08), rgba(255,140,0,0.08))`,
+                border: `1.5px solid ${AMBER}60`,
+                borderRadius: "12px",
+                backdropFilter: "blur(12px)",
+                padding: isMobile ? "16px 14px" : "16px 20px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: "12px",
+                gap: "14px",
                 flexWrap: "wrap",
+                boxShadow: `0 8px 32px rgba(255, 140, 0, 0.15), 0 2px 8px rgba(212, 175, 55, 0.2)`,
             }}
         >
             {/* Mensaje principal */}
@@ -105,18 +109,32 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                     onClick={handleDismiss}
                     aria-label="Cerrar aviso"
                     style={{
-                        background: "transparent",
-                        color: "#757575",
-                        border: "none",
+                        background: "rgba(255, 140, 0, 0.1)",
+                        color: "#A0A0A0",
+                        border: `1px solid ${AMBER}40`,
                         cursor: "pointer",
-                        fontSize: "18px",
+                        fontSize: "28px",
                         lineHeight: "1",
-                        padding: "2px 6px",
-                        borderRadius: "4px",
-                        transition: "color 0.2s",
+                        width: "40px",
+                        height: "40px",
+                        padding: "0",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 0.2s ease",
+                        flexShrink: 0,
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "#E0E0E0")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "#757575")}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.background = `rgba(255, 140, 0, 0.2)`;
+                        e.currentTarget.style.color = "#FF8C00";
+                        e.currentTarget.style.transform = "scale(1.1)";
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.background = "rgba(255, 140, 0, 0.1)";
+                        e.currentTarget.style.color = "#A0A0A0";
+                        e.currentTarget.style.transform = "scale(1)";
+                    }}
                 >
                     ×
                 </button>
