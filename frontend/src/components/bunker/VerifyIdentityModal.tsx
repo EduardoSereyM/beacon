@@ -98,6 +98,7 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
 
     const [rut, setRut] = useState("");
     const [birthYear, setBirthYear] = useState("");
+    const [gender, setGender] = useState("");
     const [region, setRegion] = useState(user?.region ?? "");
     const [commune, setCommune] = useState(user?.commune ?? "");
 
@@ -126,6 +127,7 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
             newErrors.birthYear = `Ingresa un año válido (1920–${CURRENT_YEAR - 14}).`;
         }
 
+        if (!gender) newErrors.gender = "Selecciona tu género.";
         if (!region) newErrors.region = "Selecciona tu región.";
         if (!commune) newErrors.commune = "Selecciona tu comuna.";
 
@@ -156,6 +158,7 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
                 headers,
                 body: JSON.stringify({
                     birth_year: parseInt(birthYear),
+                    gender,
                     country: "Chile",
                     region,
                     commune,
@@ -207,7 +210,7 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
     };
 
     const handleClose = () => {
-        setRut(""); setBirthYear(""); setErrors({}); setServerError(""); setSuccess(null);
+        setRut(""); setBirthYear(""); setGender(""); setErrors({}); setServerError(""); setSuccess(null);
         onClose();
     };
 
@@ -306,9 +309,27 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
                                 {errors.birthYear && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.birthYear}</p>}
                             </div>
 
+                            {/* Género */}
+                            <div>
+                                <label className={labelClass}>Género *</label>
+                                <select
+                                    value={gender}
+                                    onChange={(e) => { setGender(e.target.value); setErrors((err) => ({ ...err, gender: "" })); }}
+                                    className={inputClass}
+                                    style={errors.gender ? INPUT_ERROR_STYLE : INPUT_STYLE}
+                                >
+                                    <option value="" style={{ background: "#0a0a0a", color: "white" }}>Selecciona género</option>
+                                    <option value="Masculino" style={{ background: "#0a0a0a", color: "white" }}>Masculino</option>
+                                    <option value="Femenino" style={{ background: "#0a0a0a", color: "white" }}>Femenino</option>
+                                    <option value="No binario" style={{ background: "#0a0a0a", color: "white" }}>No binario</option>
+                                    <option value="Prefiero no decir" style={{ background: "#0a0a0a", color: "white" }}>Prefiero no decir</option>
+                                </select>
+                                {errors.gender && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.gender}</p>}
+                            </div>
+
                             {/* País */}
                             <div>
-                                <label className={labelClass}>País</label>
+                                <label className={labelClass}>País *</label>
                                 <input
                                     type="text"
                                     value="Chile"

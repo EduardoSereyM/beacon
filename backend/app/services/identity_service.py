@@ -137,21 +137,29 @@ async def verify_rut(user_id: str, rut: str) -> dict:
             },
         )
         raise ValueError(
-            "Este RUT ya está asociado a otra cuenta. "
-            "Si crees que es un error, contacta al Overlord."
+            "Este documento ya está registrado en otra cuenta. "
+            "Si crees que es un error, contacta al soporte."
         )
 
     # ─── Paso 4: Persistir rut_hash ───
-    await (
-        supabase.table("users")
-        .update({
-            "rut_hash": rut_hashed,
-            "is_rut_verified": True,
-            "updated_at": datetime.utcnow().isoformat(),
-        })
-        .eq("id", user_id)
-        .execute()
-    )
+    try:
+        await (
+            supabase.table("users")
+            .update({
+                "rut_hash": rut_hashed,
+                "is_rut_verified": True,
+                "updated_at": datetime.utcnow().isoformat(),
+            })
+            .eq("id", user_id)
+            .execute()
+        )
+    except Exception as e:
+        if "23505" in str(e):
+            raise ValueError(
+                "Este documento ya está registrado en otra cuenta. "
+                "Si crees que es un error, contacta al soporte."
+            )
+        raise
 
     # ─── Paso 5: Evaluar rango post-verificación ───
     new_rank = await _evaluate_rank(supabase, user_id)
