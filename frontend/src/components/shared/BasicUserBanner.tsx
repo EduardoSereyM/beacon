@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store";
 
 const GOLD   = "#D4AF37";
@@ -27,6 +27,15 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
     const [dismissed, setDismissed] = useState(
         () => typeof window !== "undefined" && sessionStorage.getItem("beacon_banner_dismissed") === "true"
     );
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Detectar mobile sin hydration mismatch
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+        return () => window.removeEventListener("resize", checkMobile);
+    }, []);
 
     const isBasicUser = !!user && user.rank === "BASIC";
 
@@ -42,25 +51,26 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
             role="banner"
             style={{
                 position: "fixed",
-                top: "64px",   /* justo bajo la navbar fixed (h-16) */
+                top: "68px",   /* justo bajo la navbar fixed */
                 left: 0,
                 right: 0,
-                zIndex: 40,
+                zIndex: 45,    /* encima de elementos (40) pero bajo navbar menu (50) */
                 background: `linear-gradient(90deg, rgba(255,140,0,0.15), rgba(212,175,55,0.15), rgba(255,140,0,0.15))`,
                 borderBottom: `1px solid ${AMBER}40`,
                 backdropFilter: "blur(8px)",
-                padding: "10px 20px",
+                padding: isMobile ? "16px 16px" : "14px 24px",
                 display: "flex",
-                alignItems: "center",
+                alignItems: isMobile ? "flex-start" : "center",
                 justifyContent: "space-between",
-                gap: "12px",
-                flexWrap: "wrap",
+                gap: isMobile ? "16px" : "20px",
+                flexWrap: isMobile ? "wrap" : "nowrap",
+                flexDirection: isMobile ? "column" : "row",
             }}
         >
             {/* Mensaje principal */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: "200px" }}>
-                <span style={{ fontSize: "18px" }}>🔒</span>
-                <span style={{ color: "#E0E0E0", fontSize: "13px", lineHeight: "1.4" }}>
+            <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", gap: "12px", flex: isMobile ? "1 1 100%" : 1, minWidth: "200px" }}>
+                <span style={{ fontSize: isMobile ? "20px" : "18px", flexShrink: 0, marginTop: isMobile ? "2px" : 0 }}>🔒</span>
+                <span style={{ color: "#E0E0E0", fontSize: isMobile ? "14px" : "13px", lineHeight: "1.5", wordBreak: "break-word" }}>
                     <strong style={{ color: AMBER }}>Tu voto aparece en el conteo público</strong>
                     {", pero solo los votos verificados cuentan en los informes oficiales. "}
                     <span style={{ color: "#BDBDBD" }}>
@@ -71,7 +81,7 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
             </div>
 
             {/* Acciones */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
                 <button
                     onClick={onVerifyClick}
                     style={{
@@ -79,8 +89,8 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                         color: "#000",
                         border: "none",
                         borderRadius: "6px",
-                        padding: "7px 16px",
-                        fontSize: "12px",
+                        padding: isMobile ? "10px 18px" : "8px 18px",
+                        fontSize: isMobile ? "13px" : "12px",
                         fontWeight: "700",
                         cursor: "pointer",
                         letterSpacing: "0.5px",
@@ -101,11 +111,14 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                         color: "#757575",
                         border: "none",
                         cursor: "pointer",
-                        fontSize: "18px",
+                        fontSize: isMobile ? "24px" : "20px",
                         lineHeight: "1",
-                        padding: "2px 6px",
+                        padding: "4px 8px",
                         borderRadius: "4px",
                         transition: "color 0.2s",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                     }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#E0E0E0")}
                     onMouseLeave={e => (e.currentTarget.style.color = "#757575")}
