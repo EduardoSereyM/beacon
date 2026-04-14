@@ -201,7 +201,7 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
           />
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-            <span style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.2)" }}>
+            <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255, 255, 255, 0.53)" }}>
               {text.length}/500
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -259,7 +259,7 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
           Cargando reacciones…
         </p>
       ) : comments.length === 0 ? (
-        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.15)", textAlign: "center", paddingTop: 8 }}>
+        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255, 255, 255, 0.49)", textAlign: "center", paddingTop: 8 }}>
           Sé el primero en reaccionar
         </p>
       ) : (

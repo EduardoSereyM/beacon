@@ -67,7 +67,11 @@ export default function HomeHeroClient() {
                     style={{ color: "rgba(255,255,255,0.75)" }}
                 >
                     <p className="mb-6">
-                        Beacon es la plataforma de opinión ciudadana abierta y verificada de Chile. Las encuestadoras tradicionales eligen quién habla por ti — nosotros no. No necesitas que te elijan para que te escuchen. Cada voto cuenta porque cada persona es real. Sin bots, sin multicuentas, sin panel.
+                        Beacon es la plataforma de opinión ciudadana abierta y verificada de Chile. Las encuestadoras tradicionales eligen quién habla por ti — nosotros NO. 
+                        <br />
+                        No necesitas que te elijan para que te escuchen. 
+                        <br />
+                        Cada voto cuenta porque cada persona es real. Sin bots, sin multicuentas, sin panel desconocido.
                     </p>
                 </div>
 
