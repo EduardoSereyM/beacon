@@ -340,6 +340,125 @@ auth_response = await anon_client.auth.verify_otp({
 
 ---
 
+## 6. Fixes de Verificación de Identidad — 2026-04-14 (commits 1a9bc6e, 866aa80)
+
+### 6.1 Bug: Error 23505 en verificación de RUT muestra "Error de conexión"
+
+#### Problema
+
+Al intentar verificar identidad con un RUT ya registrado en otra cuenta, el backend lanzaba:
+
+```
+postgrest.exceptions.APIError: {'code': '23505', 'details': None, 'hint': None,
+'message': 'duplicate key value violates unique constraint "users_rut_hash_key"'}
+```
+
+Este error no era capturado → llegaba al frontend como 500 → UI mostraba "Error de conexión. Intenta más tarde."
+
+#### Causa Raíz
+
+Dos escenarios posibles:
+1. El pre-check de unicidad (Paso 3) tiene race condition: check pasa, pero el UPDATE en Paso 4 falla por constraint
+2. El propio usuario intenta re-verificar con el mismo RUT ya guardado en su cuenta
+
+#### Solución Implementada
+
+**`backend/app/services/identity_service.py`** — Paso 4 envuelto en try/except:
+
+```python
+try:
+    await (
+        supabase.table("users")
+        .update({ "rut_hash": rut_hashed, "is_rut_verified": True, ... })
+        .eq("id", user_id)
+        .execute()
+    )
+except Exception as e:
+    if "23505" in str(e):
+        raise ValueError(
+            "Este documento ya está registrado en otra cuenta. "
+            "Si crees que es un error, contacta al soporte."
+        )
+    raise
+```
+
+También se unificó el mensaje del Paso 3 (pre-check) con el mismo texto sin mencionar "RUT" explícitamente.
+
+#### Impacto
+
+- ✅ Error 23505 capturado → mensaje claro al usuario
+- ✅ Sin exposición de detalles técnicos de la DB
+- ✅ Mensaje neutro sin revelar si el RUT existe en otra cuenta
+
+---
+
+### 6.2 Bug: Modal de verificación no pedía género → rank nunca subía a VERIFIED
+
+#### Problema
+
+`_evaluate_rank()` exige 6 campos: `rut_hash + birth_year + gender + country + region + commune`.
+
+El modal `VerifyIdentityModal.tsx` solo recolectaba 4: `rut + birth_year + region + commune`. El campo `gender` nunca se enviaba → siempre `null` en DB → `_evaluate_rank` retornaba `BASIC` siempre.
+
+#### Solución Implementada
+
+**`frontend/src/components/bunker/VerifyIdentityModal.tsx`:**
+
+1. Nuevo estado: `const [gender, setGender] = useState("")`
+2. Validación: `if (!gender) newErrors.gender = "Selecciona tu género."`
+3. Payload al `/profile`: incluye `gender`
+4. Select en JSX con opciones: Masculino / Femenino / No binario / Prefiero no decir
+5. Reset en `handleClose`: incluye `setGender("")`
+6. Todos los campos marcados con `*` (obligatorios)
+
+**Commit:** `1a9bc6e`
+
+#### Impacto
+
+- ✅ Usuario que completa el modal sube correctamente a VERIFIED
+- ✅ Formulario consistente: todos los campos requeridos marcados con `*`
+- ✅ género queda persistido en DB para análisis demográfico
+
+---
+
+### 6.3 Fix: Edad mínima de verificación corregida a 18 años
+
+#### Problema
+
+La validación de `birth_year` aceptaba usuarios desde 14 años (`CURRENT_YEAR - 14`).
+
+#### Solución
+
+```typescript
+// ANTES
+year > CURRENT_YEAR - 14
+
+// DESPUÉS
+year > CURRENT_YEAR - 18
+```
+
+**Commit:** `866aa80`
+
+#### Impacto
+
+- ✅ Solo mayores de 18 años pueden verificar identidad
+- ✅ Mensaje de error actualizado: `Ingresa un año válido (1920–${CURRENT_YEAR - 18})`
+
+---
+
+### 6.4 SQL Manual — Usuario pre-fix sin género
+
+El usuario `c238c2da-723d-47ef-b883-70080c4b98bd` verificó RUT antes de que el modal incluyera el campo género. Ejecutar en Supabase:
+
+```sql
+UPDATE public.users
+SET gender = 'Masculino', rank = 'VERIFIED', integrity_score = 0.75, updated_at = now()
+WHERE id = 'c238c2da-723d-47ef-b883-70080c4b98bd'
+  AND is_rut_verified = true;
+```
+
+---
+
 ## 5. Deployment
 
 ### Pre-Deploy Checklist

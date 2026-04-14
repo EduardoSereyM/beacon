@@ -62,13 +62,34 @@
 - **Archivos:** `frontend/src/components/shared/BasicUserBanner.tsx`
 - **Commits:** `bfa6ed2`, `2b0746a`, `cba8f64`
 
+#### 6️⃣ **Error 23505 en verificación de RUT** (Backend)
+- **Problema:** Constraint `users_rut_hash_key` lanzaba excepción no capturada → UI mostraba "Error de conexión"
+- **Fix:** try/except en Paso 4 del `verify_rut()` captura código `23505` y retorna mensaje amigable
+- **Archivos:** `backend/app/services/identity_service.py`
+- **Commit:** `1a9bc6e`
+
+#### 7️⃣ **Modal de verificación no pedía género → rank nunca subía a VERIFIED** (Frontend)
+- **Problema:** `_evaluate_rank()` requiere `gender` pero el modal nunca lo recolectaba → `gender: null` → siempre BASIC
+- **Fix:** Campo género agregado al modal (select obligatorio), todos los campos marcados con `*`, género incluido en payload a `/profile`
+- **Archivos:** `frontend/src/components/bunker/VerifyIdentityModal.tsx`
+- **Commit:** `1a9bc6e`
+
+#### 8️⃣ **Edad mínima de verificación corregida** (Frontend)
+- **Problema:** Validación aceptaba usuarios desde 14 años
+- **Fix:** `CURRENT_YEAR - 14` → `CURRENT_YEAR - 18`
+- **Archivos:** `frontend/src/components/bunker/VerifyIdentityModal.tsx`
+- **Commit:** `866aa80`
+
 ### Impacto
 
 - ✅ Nuevos registros crean perfil correctamente
 - ✅ Email confirmation flow sin confusión de UX
 - ✅ Banner verificación visible en desktop y legible en mobile
-- ✅ **Recuperación de contraseña funciona en producción** ← nuevo
-- ✅ Sin usuarios huérfanos (requiere migration SQL manual para caso previo)
+- ✅ Recuperación de contraseña funciona en producción
+- ✅ Error 23505 capturado → mensaje claro al usuario
+- ✅ Flujo de verificación de identidad completo y funcional → ascenso a VERIFIED operativo
+- ✅ Solo mayores de 18 años pueden verificar identidad
+- ✅ Sin usuarios huérfanos (requiere SQL manual para casos pre-fix)
 - ✅ Zero regressions en otros flujos
 
 ### Documentación
