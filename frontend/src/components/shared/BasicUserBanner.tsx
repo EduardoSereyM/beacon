@@ -58,49 +58,58 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                 background: `linear-gradient(90deg, rgba(255,140,0,0.15), rgba(212,175,55,0.15), rgba(255,140,0,0.15))`,
                 borderBottom: `1px solid ${AMBER}40`,
                 backdropFilter: "blur(8px)",
-                padding: isMobile ? "16px 16px" : "14px 24px",
+                padding: isMobile ? "10px 12px" : "14px 24px",
                 display: "flex",
-                alignItems: isMobile ? "flex-start" : "center",
+                alignItems: "center",
                 justifyContent: "space-between",
-                gap: isMobile ? "16px" : "20px",
-                flexWrap: isMobile ? "wrap" : "nowrap",
-                flexDirection: isMobile ? "column" : "row",
+                gap: isMobile ? "8px" : "20px",
+                flexWrap: "wrap",
+                flexDirection: "row",
             }}
         >
             {/* Mensaje principal */}
-            <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", gap: "12px", flex: isMobile ? "1 1 100%" : 1, minWidth: "200px" }}>
-                <span style={{ fontSize: isMobile ? "20px" : "18px", flexShrink: 0, marginTop: isMobile ? "2px" : 0 }}>🔒</span>
-                <span style={{ color: "#E0E0E0", fontSize: isMobile ? "14px" : "13px", lineHeight: "1.5", wordBreak: "break-word" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px", flex: 1, minWidth: isMobile ? "auto" : "200px" }}>
+                <span style={{ fontSize: isMobile ? "16px" : "18px", flexShrink: 0 }}>🔒</span>
+                <span style={{ color: "#E0E0E0", fontSize: isMobile ? "12px" : "13px", lineHeight: isMobile ? "1.3" : "1.4", wordBreak: "break-word" }}>
                     <strong style={{ color: AMBER }}>Tu voto aparece en el conteo público</strong>
-                    {", pero solo los votos verificados cuentan en los informes oficiales. "}
-                    <span style={{ color: "#BDBDBD" }}>
-                        Verifica tu identidad con RUT y tu voz contará{" "}
-                        <strong style={{ color: GOLD }}>al 100%</strong>.
-                    </span>
+                    {isMobile ? (
+                        <>
+                            {" — "}
+                            <strong style={{ color: GOLD }}>verifica RUT al 100%</strong>
+                        </>
+                    ) : (
+                        <>
+                            {", pero solo los votos verificados cuentan en los informes oficiales. "}
+                            <span style={{ color: "#BDBDBD" }}>
+                                Verifica tu identidad con RUT y tu voz contará{" "}
+                                <strong style={{ color: GOLD }}>al 100%</strong>.
+                            </span>
+                        </>
+                    )}
                 </span>
             </div>
 
             {/* Acciones */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
                 <button
                     onClick={onVerifyClick}
                     style={{
                         background: `linear-gradient(135deg, ${AMBER}, ${GOLD})`,
                         color: "#000",
                         border: "none",
-                        borderRadius: "6px",
-                        padding: isMobile ? "10px 18px" : "8px 18px",
-                        fontSize: isMobile ? "13px" : "12px",
+                        borderRadius: "4px",
+                        padding: isMobile ? "6px 12px" : "8px 18px",
+                        fontSize: isMobile ? "11px" : "12px",
                         fontWeight: "700",
                         cursor: "pointer",
-                        letterSpacing: "0.5px",
+                        letterSpacing: "0.3px",
                         whiteSpace: "nowrap",
                         transition: "opacity 0.2s",
                     }}
                     onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
                     onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                 >
-                    Verificar identidad →
+                    {isMobile ? "Verificar" : "Verificar identidad"} →
                 </button>
 
                 <button
@@ -111,9 +120,9 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                         color: "#757575",
                         border: "none",
                         cursor: "pointer",
-                        fontSize: isMobile ? "24px" : "20px",
+                        fontSize: isMobile ? "18px" : "20px",
                         lineHeight: "1",
-                        padding: "4px 8px",
+                        padding: "2px 6px",
                         borderRadius: "4px",
                         transition: "color 0.2s",
                         display: "flex",
