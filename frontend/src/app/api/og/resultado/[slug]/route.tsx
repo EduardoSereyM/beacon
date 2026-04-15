@@ -24,6 +24,7 @@ interface PollResult {
   option?: string;
   pct?: number;
   count?: number;
+  average?: number; // encuestas tipo scale
 }
 
 export async function GET(
@@ -54,13 +55,17 @@ export async function GET(
     // cold start — usa defaults
   }
 
-  // Tomar top 5 por pct, descartar opciones sin nombre
+  // Detectar si es encuesta de escala (backend devuelve [{average, count}] sin campo option)
+  const isScale = results.length > 0 && results[0].average !== undefined && !results[0].option;
+  const scaleAvg: number = isScale ? (results[0].average ?? 0) : 0;
+
+  // Tomar top 5 por pct, descartar opciones sin nombre (multiple_choice / ranking)
   const top = [...results]
     .filter((r) => r.option)
     .sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0))
     .slice(0, 5);
 
-  const hasResults = top.length > 0 && votes > 0;
+  const hasResults = (top.length > 0 || isScale) && votes > 0;
 
   // Fuente adaptativa para el título
   const titleSize = title.length > 80 ? 28 : title.length > 50 ? 33 : 38;
@@ -127,7 +132,24 @@ export async function GET(
 
         {/* ── Barras de resultado ── */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 64px", gap: 20 }}>
-          {hasResults ? (
+          {hasResults && isScale ? (
+            /* Encuesta de escala — mostrar promedio grande */
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={{ color: "#00E5FF", fontSize: 120, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.04em" }}>
+                  {scaleAvg.toFixed(1)}
+                </span>
+                <span style={{ color: "rgba(0,229,255,0.5)", fontSize: 32, fontWeight: 600 }}>/10</span>
+              </div>
+              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15, fontFamily: "monospace", margin: 0, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                PROMEDIO CIUDADANO
+              </p>
+              {/* Barra de progreso */}
+              <div style={{ width: "100%", height: 10, background: "rgba(255,255,255,0.07)", borderRadius: 5, display: "flex" }}>
+                <div style={{ width: `${Math.min((scaleAvg / 10) * 100, 100)}%`, height: "100%", background: "linear-gradient(90deg, #00E5FF, rgba(0,229,255,0.5))", borderRadius: 5 }} />
+              </div>
+            </div>
+          ) : hasResults ? (
             top.map((r, i) => {
               const pct  = Math.round(r.pct ?? 0);
               const fill = Math.max(pct, 2); // mínimo visual de 2%

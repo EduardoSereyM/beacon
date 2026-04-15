@@ -339,7 +339,7 @@ function PostVoteCard({
   );
 }
 
-// ─── Share Social ─────────────────────────────────────────────────────────────
+// ─── Share Modal ─────────────────────────────────────────────────────────────
 
 function SocialShareBar({
   url,
@@ -352,8 +352,9 @@ function SocialShareBar({
   mode?: "pre-vote" | "post-vote";
   totalVotes?: number;
 }) {
-  const [copied, setCopied] = useState(false);
-  const [toastNetwork, setToastNetwork] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [copied,    setCopied]    = useState(false);
+  const [toastNet,  setToastNet]  = useState<string | null>(null);
 
   const shareText =
     mode === "post-vote"
@@ -362,119 +363,46 @@ function SocialShareBar({
       ? `¿Qué piensas sobre "${title}"? ${totalVotes.toLocaleString("es-CL")} ciudadanos ya votaron en Beacon Chile →`
       : `¿Qué piensas sobre "${title}"? Vota en Beacon Chile →`;
 
-  const text    = encodeURIComponent(shareText);
-  const encUrl  = encodeURIComponent(url);
+  const text   = encodeURIComponent(shareText);
+  const encUrl = encodeURIComponent(url);
 
   const networks = [
-    {
-      id: "whatsapp",
-      label: "WhatsApp",
-      logo: logoWhatsapp,
-      color: "#25D366",
-      href: `https://wa.me/?text=${text}%20${encUrl}`,
-    },
-    {
-      id: "twitter",
-      label: "X",
-      logo: logoX,
-      color: "#ffffff",
-      href: `https://twitter.com/intent/tweet?text=${text}&url=${encUrl}`,
-    },
-    {
-      id: "telegram",
-      label: "Telegram",
-      logo: logoTelegram,
-      color: "#229ED9",
-      href: `https://t.me/share/url?url=${encUrl}&text=${text}`,
-    },
-    {
-      id: "facebook",
-      label: "Facebook",
-      logo: logoFacebook,
-      color: "#1877F2",
-      href: `https://www.facebook.com/sharer/sharer.php?u=${encUrl}`,
-    },
-    {
-      id: "instagram",
-      label: "Instagram",
-      logo: logoInstagram,
-      color: "#E1306C",
-      href: null, // no direct share — solo copy
-    },
-    {
-      id: "tiktok",
-      label: "TikTok",
-      logo: logoTiktok,
-      color: "#EE1D52",
-      href: null, // no direct share — solo copy
-    },
+    { id: "whatsapp",  label: "WhatsApp",  logo: logoWhatsapp,  color: "#25D366", href: `https://wa.me/?text=${text}%20${encUrl}` },
+    { id: "twitter",   label: "X",          logo: logoX,          color: "#ffffff", href: `https://twitter.com/intent/tweet?text=${text}&url=${encUrl}` },
+    { id: "telegram",  label: "Telegram",   logo: logoTelegram,   color: "#229ED9", href: `https://t.me/share/url?url=${encUrl}&text=${text}` },
+    { id: "facebook",  label: "Facebook",   logo: logoFacebook,   color: "#1877F2", href: `https://www.facebook.com/sharer/sharer.php?u=${encUrl}` },
+    { id: "instagram", label: "Instagram",  logo: logoInstagram,  color: "#E1306C", href: null },
+    { id: "tiktok",    label: "TikTok",     logo: logoTiktok,     color: "#EE1D52", href: null },
   ];
 
-  // Web Share API disponible en mobile y algunos desktop modernos
   const canNativeShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  function nativeShare() {
+  function handleMainButton() {
     if (canNativeShare) {
-      navigator
-        .share({ title, text: shareText, url })
-        .catch(() => {}); // usuario canceló
+      navigator.share({ title, text: shareText, url }).catch(() => {});
     } else {
-      copyLink();
+      setShowModal(true);
     }
   }
 
   function copyLink(network?: string) {
     navigator.clipboard.writeText(`${shareText} ${url}`).then(() => {
       if (network) {
-        setToastNetwork(network);
-        setTimeout(() => setToastNetwork(null), 3500);
+        setToastNet(network);
+        setTimeout(() => setToastNet(null), 3500);
       } else {
         setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
+        setTimeout(() => { setCopied(false); setShowModal(false); }, 2000);
       }
     });
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, position: "relative" }}>
-
-      {/* ── Toast flotante para Instagram / TikTok ── */}
-      {toastNetwork && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 28,
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 9999,
-            background: "rgba(10,10,18,0.97)",
-            border: "1px solid rgba(57,255,20,0.4)",
-            borderRadius: 12,
-            padding: "12px 20px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-            minWidth: 260,
-            maxWidth: 360,
-          }}
-        >
-          <span style={{ fontSize: 18 }}>✅</span>
-          <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#39FF14" }}>
-              Link copiado
-            </p>
-            <p style={{ margin: 0, fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
-              Abre {toastNetwork} y pégalo donde quieras compartirlo.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ── CTA principal: Web Share API (mobile) o Copy (desktop) ── */}
+    <>
+      {/* ── CTA principal ── */}
       <button
-        onClick={nativeShare}
+        onClick={handleMainButton}
         style={{
           width: "100%",
           padding: "9px 16px",
@@ -491,96 +419,154 @@ function SocialShareBar({
           alignItems: "center",
           justifyContent: "center",
           gap: 8,
-          transition: "background 0.15s",
         }}
       >
         <span style={{ fontSize: 14 }}>↗</span>
-        {copied
-          ? "✓ Link copiado"
-          : canNativeShare
-          ? "Compartir encuesta"
-          : "Copiar link"}
+        Compartir encuesta
       </button>
 
-      {/* ── Redes secundarias ── */}
-      <div>
-        <p
+      {/* ── Modal de compartir ── */}
+      {showModal && (
+        <div
+          onClick={() => setShowModal(false)}
           style={{
-            fontSize: 10,
-            fontFamily: "monospace",
-            color: "rgba(255,255,255,0.3)",
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            marginBottom: 8,
+            position: "fixed",
+            inset: 0,
+            zIndex: 9998,
+            background: "rgba(0,0,0,0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 16px",
           }}
         >
-          O compartir en
-        </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        {networks.map((n) =>
-          n.href ? (
-            <a
-              key={n.id}
-              href={n.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={n.label}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: `${n.color}18`,
-                border: `1px solid ${n.color}40`,
-                textDecoration: "none",
-                transition: "transform 0.15s, background 0.15s",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLAnchorElement).style.background = `${n.color}30`;
-                (e.currentTarget as HTMLAnchorElement).style.transform = "scale(1.1)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLAnchorElement).style.background = `${n.color}18`;
-                (e.currentTarget as HTMLAnchorElement).style.transform = "scale(1)";
-              }}
-            >
-              <Image src={n.logo} alt={n.label} width={20} height={20} style={{ objectFit: "contain" }} />
-            </a>
-          ) : (
-            /* Instagram / TikTok → copia link y muestra toast */
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#0c0c1a",
+              border: "1px solid rgba(0,229,255,0.18)",
+              borderRadius: 16,
+              padding: "28px 24px 24px",
+              width: "100%",
+              maxWidth: 360,
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+              boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: "0.04em" }}>
+                Compartir encuesta
+              </p>
+              <button
+                onClick={() => setShowModal(false)}
+                style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 18, cursor: "pointer", padding: 4, lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Grid de redes */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+              {networks.map((n) =>
+                n.href ? (
+                  <a
+                    key={n.id}
+                    href={n.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowModal(false)}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      padding: "14px 8px",
+                      borderRadius: 12,
+                      background: `${n.color}12`,
+                      border: `1px solid ${n.color}30`,
+                      textDecoration: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Image src={n.logo} alt={n.label} width={26} height={26} style={{ objectFit: "contain" }} />
+                    <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", letterSpacing: "0.04em" }}>
+                      {n.label}
+                    </span>
+                  </a>
+                ) : (
+                  /* Instagram / TikTok → copia y muestra toast */
+                  <button
+                    key={n.id}
+                    onClick={() => copyLink(n.label)}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      padding: "14px 8px",
+                      borderRadius: 12,
+                      background: `${n.color}12`,
+                      border: `1px solid ${n.color}30`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Image src={n.logo} alt={n.label} width={26} height={26} style={{ objectFit: "contain" }} />
+                    <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", letterSpacing: "0.04em" }}>
+                      {n.label}
+                    </span>
+                  </button>
+                )
+              )}
+            </div>
+
+            {/* Toast Instagram / TikTok (dentro del modal) */}
+            {toastNet && (
+              <div style={{ background: "rgba(57,255,20,0.1)", border: "1px solid rgba(57,255,20,0.35)", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 16 }}>✅</span>
+                <div>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#39FF14" }}>Link copiado</p>
+                  <p style={{ margin: 0, fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.45)", marginTop: 2 }}>
+                    Abre {toastNet} y pégalo donde quieras.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+
+            {/* Copiar link */}
             <button
-              key={n.id}
-              onClick={() => copyLink(n.label)}
-              title={`Copiar link para pegar en ${n.label}`}
+              onClick={() => copyLink()}
               style={{
-                display: "inline-flex",
+                width: "100%",
+                padding: "10px 16px",
+                borderRadius: 10,
+                fontSize: 12,
+                fontWeight: 700,
+                fontFamily: "monospace",
+                letterSpacing: "0.06em",
+                background: copied ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.06)",
+                border: `1px solid ${copied ? "rgba(57,255,20,0.4)" : "rgba(255,255,255,0.12)"}`,
+                color: copied ? "#39FF14" : "rgba(255,255,255,0.7)",
+                cursor: "pointer",
+                display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: copied ? "rgba(57,255,20,0.15)" : `${n.color}18`,
-                border: `1px solid ${copied ? "rgba(57,255,20,0.5)" : `${n.color}40`}`,
-                cursor: "pointer",
-                transition: "transform 0.15s, background 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.1)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+                gap: 8,
               }}
             >
-              <Image src={n.logo} alt={n.label} width={20} height={20} style={{ objectFit: "contain" }} />
+              {copied ? "✓ Link copiado — cerrando..." : "⎘  Copiar link"}
             </button>
-          )
-        )}
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
@@ -1934,7 +1920,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
             {/* Footer */}
             <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: 22 }}>
-              {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"} · BASIC 0.5× · VERIFIED 1.0× · BEACON Protocol
+              {poll.total_votes} {poll.total_votes === 1 ? "voto" : "votos"} · BASIC 0.5× · VERIFIED 1.0× · Beacon Chile
             </p>
           </div>
         </div>
