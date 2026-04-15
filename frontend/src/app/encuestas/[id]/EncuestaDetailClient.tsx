@@ -359,8 +359,8 @@ function SocialShareBar({
     mode === "post-vote"
       ? `Acabo de votar en Beacon Chile: "${title}". ¿Y tú qué opinas? #ChileOpina #BeaconChile`
       : totalVotes > 0
-      ? `¿Qué piensas sobre "${title}"? ${totalVotes.toLocaleString("es-CL")} ciudadanos ya votaron en Beacon Chile. Vota gratis →`
-      : `¿Qué piensas sobre "${title}"? Vota gratis en Beacon Chile →`;
+      ? `¿Qué piensas sobre "${title}"? ${totalVotes.toLocaleString("es-CL")} ciudadanos ya votaron en Beacon Chile →`
+      : `¿Qué piensas sobre "${title}"? Vota en Beacon Chile →`;
 
   const text    = encodeURIComponent(shareText);
   const encUrl  = encodeURIComponent(url);

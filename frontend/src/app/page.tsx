@@ -23,14 +23,14 @@ export const revalidate = 10;
 export const metadata: Metadata = {
   title: "Beacon Chile — Opinión ciudadana verificada",
   description:
-    "La plataforma de opinión ciudadana abierta y verificada de Chile. Sin panelistas seleccionados ni agenda oculta. Vota, ve los resultados y propón preguntas. Siempre gratis.",
+    "La plataforma de opinión ciudadana abierta y verificada de Chile. Sin panelistas seleccionados ni agenda oculta. Vota, ve los resultados y propón preguntas.",
   alternates: {
     canonical: "https://www.beaconchile.cl",
   },
   openGraph: {
     title: "Beacon Chile — Opinión ciudadana verificada",
     description:
-      "Sin panelistas seleccionados ni agenda oculta. Vota, ve los resultados y propón preguntas. Siempre gratis.",
+      "Sin panelistas seleccionados ni agenda oculta. Vota, ve los resultados y propón preguntas.",
     url: "https://www.beaconchile.cl",
     images: [
       {

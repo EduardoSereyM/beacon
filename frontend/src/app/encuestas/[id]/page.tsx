@@ -52,7 +52,7 @@ export async function generateMetadata({
       : `${votes.toLocaleString("es-CL")} ciudadanos ya votaron`;
 
   const description =
-    `${voteLabel}. ¿Cuál es tu opinión? Vota gratis y ve los resultados en tiempo real.`;
+    `${voteLabel}. ¿Cuál es tu opinión? Vota y ve los resultados en tiempo real.`;
 
   const ogImage = `${BASE_URL}/api/og/encuesta/${slug}`;
   const url     = `${BASE_URL}/encuestas/${slug}`;
