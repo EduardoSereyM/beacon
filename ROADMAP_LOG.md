@@ -15,10 +15,35 @@
 
 ---
 
+## 🔧 Fixes Post-Deploy — 2026-04-15 (commit ec35525)
+
+### Problemas detectados en producción tras verificación con shares reales
+
+| # | Bug | Causa raíz | Fix |
+|---|---|---|---|
+| 1 | Share text incluía "gratis" | Copy escrito a mano | Eliminado de `SocialShareBar`, `page.tsx` (description + OG description), `encuestas/[id]/page.tsx` (OG description) |
+| 2 | Footer de resultados decía "BEACON Protocol" | String no actualizado en el sprint de rebranding | `EncuestaDetailClient.tsx` línea del footer → "Beacon Chile" |
+| 3 | Imagen resultado (`/api/og/resultado/[slug]`) vacía en polls de escala | Backend devuelve `[{average, count}]` sin campo `option`; el filtro `.filter((r) => r.option)` descartaba todo | Detector de tipo scale + render de promedio grande + barra de progreso cian |
+| 4 | Íconos de redes siempre visibles (UX ruidosa) | Diseño original inline | `SocialShareBar` refactorizado: botón abre modal centrado con grid 3×2; mobile conserva `navigator.share` nativo |
+
+### Detalle del modal de compartir
+- Desktop: click en "↗ Compartir encuesta" → modal con grid 3×2 (WhatsApp, X, Telegram, Facebook, Instagram, TikTok)
+- Instagram / TikTok dentro del modal: copia link + toast inline "Link copiado — Abre [Red] y pégalo donde quieras."
+- "Copiar link" al pie: copia y cierra el modal automáticamente tras 2 seg
+- Backdrop click cierra el modal
+- Mobile: `navigator.share` nativo (OS share sheet) — sin cambio
+
+### Detalle del fix de escala
+- Detecta `isScale = results[0].average !== undefined && !results[0].option`
+- Si scale: muestra `scaleAvg.toFixed(1)` en 120px + `/10` + "PROMEDIO CIUDADANO" + barra de progreso
+- Si múltiple opción / ranking: sigue mostrando barras horizontales como antes
+
+---
+
 ## 📣 Sprint Marketing & Viralidad — 2026-04-15
 
 ### Contexto
-Sprint dedicado a eliminar los bloqueos de viralidad identificados en `REQUERIMIENTOS_DEVELOPER.md`. Todos los cambios son frontend — sin migraciones ni cambios de backend. Verificado en local (`npm run dev`); pendiente de deploy a producción.
+Sprint dedicado a eliminar los bloqueos de viralidad identificados en `REQUERIMIENTOS_DEVELOPER.md`. Todos los cambios son frontend — sin migraciones ni cambios de backend. **Deploy a producción verificado el mismo día.**
 
 ---
 
