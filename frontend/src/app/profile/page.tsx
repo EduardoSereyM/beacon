@@ -139,6 +139,85 @@ function RankBadge({ rank }: { rank: string }) {
     );
 }
 
+// ─── Badge compartible para VERIFIED ─────────────────────────────────────────
+
+function VerifiedShareBadge() {
+    const [copied, setCopied] = useState(false);
+
+    const shareText =
+        "Acabo de verificar mi identidad en @BeaconChile.\n" +
+        "Mi voto cuenta en las estadísticas oficiales de Chile. ¿Y el tuyo?\n" +
+        "beaconchile.cl #BeaconChile #ChileOpina";
+
+    function handleShare() {
+        if (typeof navigator !== "undefined" && navigator.share) {
+            navigator.share({
+                title: "Soy ciudadano verificado en Beacon Chile",
+                text: shareText,
+                url: "https://www.beaconchile.cl",
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(shareText).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2500);
+            });
+        }
+    }
+
+    return (
+        <div
+            className="rounded-2xl p-5 flex items-center gap-4"
+            style={{
+                background: "rgba(212,175,55,0.05)",
+                border: "1px solid rgba(212,175,55,0.2)",
+                boxShadow: "0 0 40px rgba(212,175,55,0.04)",
+            }}
+        >
+            {/* Ícono badge */}
+            <div
+                style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: "50%",
+                    background: "rgba(212,175,55,0.1)",
+                    border: "2px solid rgba(212,175,55,0.4)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 24,
+                    flexShrink: 0,
+                }}
+            >
+                🎖️
+            </div>
+
+            {/* Texto + botón */}
+            <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white leading-tight mb-0.5">
+                    Ciudadano Verificado
+                </p>
+                <p className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    Tu voto cuenta al 100% en las estadísticas oficiales
+                </p>
+            </div>
+
+            <button
+                onClick={handleShare}
+                className="flex-shrink-0 px-3 py-2 rounded-lg text-[11px] font-bold font-mono uppercase tracking-wide transition-all"
+                style={{
+                    background: copied ? "rgba(57,255,20,0.1)" : "rgba(212,175,55,0.1)",
+                    border: `1px solid ${copied ? "rgba(57,255,20,0.35)" : "rgba(212,175,55,0.3)"}`,
+                    color: copied ? "#39FF14" : "#D4AF37",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                }}
+            >
+                {copied ? "✓ Copiado" : "Compartir →"}
+            </button>
+        </div>
+    );
+}
+
 // ═══════════════════════════════════════════
 //  PÁGINA PRINCIPAL
 // ═══════════════════════════════════════════
@@ -446,6 +525,9 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Badge compartible — solo para VERIFIED */}
+                {user.rank === "VERIFIED" && <VerifiedShareBadge />}
 
                 {/* ═══════════════════════════════════
                     SECCIÓN 2 — DATOS DEMOGRÁFICOS

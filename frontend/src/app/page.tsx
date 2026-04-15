@@ -16,18 +16,19 @@ import TrendingPollsSection from "@/components/polls/TrendingPollsSection";
 import PollsByCategorySection from "@/components/polls/PollsByCategorySection";
 import ClosedPollsSection from "@/components/polls/ClosedPollsSection";
 import VotingWeightDisclaimer from "@/components/home/VotingWeightDisclaimer";
+import ComparisonSection from "@/components/home/ComparisonSection";
 
 export const revalidate = 10;
 
 export const metadata: Metadata = {
-  title: "Beacon — Opinión ciudadana verificada de Chile",
+  title: "Beacon Chile — Opinión ciudadana verificada",
   description:
     "La plataforma de opinión ciudadana abierta y verificada de Chile. Sin panelistas seleccionados ni agenda oculta. Vota, ve los resultados y propón preguntas. Siempre gratis.",
   alternates: {
     canonical: "https://www.beaconchile.cl",
   },
   openGraph: {
-    title: "Beacon — Opinión ciudadana verificada de Chile",
+    title: "Beacon Chile — Opinión ciudadana verificada",
     description:
       "Sin panelistas seleccionados ni agenda oculta. Vota, ve los resultados y propón preguntas. Siempre gratis.",
     url: "https://www.beaconchile.cl",
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Beacon — Opinión ciudadana verificada de Chile",
+        alt: "Beacon Chile — Opinión ciudadana verificada",
       },
     ],
   },
@@ -46,8 +47,8 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  name: "Beacon",
-  alternateName: "Beacon Chile",
+  name: "Beacon Chile",
+  alternateName: "Beacon",
   url: "https://www.beaconchile.cl",
   description:
     "Plataforma de opinión ciudadana abierta y verificada de Chile. Sin panelistas seleccionados ni agenda oculta.",
@@ -61,7 +62,7 @@ const jsonLd = {
   },
   publisher: {
     "@type": "Organization",
-    name: "Beacon Protocol",
+    name: "Beacon Chile",
     url: "https://www.beaconchile.cl",
     logo: {
       "@type": "ImageObject",
@@ -107,6 +108,13 @@ export default function Home() {
        *  HERO
        * ═══════════════════════════════════════════ */}
       <HomeHeroClient />
+
+      <SectionDivider />
+
+      {/* ═══════════════════════════════════════════
+       *  COMPARATIVA: TRADICIONALES VS BEACON
+       * ═══════════════════════════════════════════ */}
+      <ComparisonSection />
 
       <SectionDivider />
 

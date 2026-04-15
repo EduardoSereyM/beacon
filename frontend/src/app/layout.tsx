@@ -17,27 +17,26 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://www.beaconchile.cl"),
 
   title: {
-    default: "Beacon Protocol — Motor de Integridad Digital",
-    template: "%s | Beacon Protocol",
+    default: "Beacon Chile — Opinión ciudadana verificada",
+    template: "%s",
   },
   description:
-    "Evalúa políticos, empresarios y personajes públicos de Chile. " +
-    "Verificación humana forense. La verdad validada.",
+    "Encuestas ciudadanas verificadas de Chile. Sin panel seleccionado, sin bots. " +
+    "Vota, ve los resultados en tiempo real y propón preguntas.",
   keywords: [
-    "beacon",
-    "integridad",
-    "reputación",
-    "votación",
-    "verificación",
-    "políticos Chile",
-    "empresarios Chile",
+    "encuestas Chile",
+    "opinión ciudadana",
+    "verificación identidad",
+    "política Chile",
+    "votación online",
+    "datos reales",
+    "beacon chile",
     "transparencia",
     "accountability",
-    "Motor de Integridad Digital",
   ],
-  authors: [{ name: "Beacon Protocol", url: "https://www.beaconchile.cl" }],
-  creator: "Beacon Protocol",
-  publisher: "Beacon Protocol",
+  authors: [{ name: "Beacon Chile", url: "https://www.beaconchile.cl" }],
+  creator: "Beacon Chile",
+  publisher: "Beacon Chile",
 
   alternates: {
     canonical: "/",
@@ -59,17 +58,17 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_CL",
     url: "https://www.beaconchile.cl",
-    siteName: "Beacon Protocol",
-    title: "Beacon Protocol — Motor de Integridad Digital",
+    siteName: "Beacon Chile",
+    title: "Beacon Chile — Opinión ciudadana verificada",
     description:
-      "Evalúa políticos, empresarios y personajes públicos de Chile. " +
-      "Verificación humana forense. La verdad validada.",
+      "Encuestas ciudadanas verificadas de Chile. Sin panel seleccionado, sin bots. " +
+      "Vota, ve los resultados en tiempo real y propón preguntas.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Beacon Protocol — Motor de Integridad Digital",
+        alt: "Beacon Chile — Opinión ciudadana verificada",
         type: "image/png",
       },
     ],
@@ -77,12 +76,12 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "Beacon Protocol — Motor de Integridad Digital",
+    title: "Beacon Chile — Opinión ciudadana verificada",
     description:
-      "Evalúa políticos, empresarios y personajes públicos de Chile. " +
-      "Verificación humana forense. La verdad validada.",
+      "Encuestas ciudadanas verificadas de Chile. Sin panel seleccionado, sin bots. " +
+      "Vota, ve los resultados en tiempo real y propón preguntas.",
     images: ["/og-image.png"],
-    site: "@beaconprotocol",
+    site: "@beaconchile",
   },
 
   icons: {
@@ -118,7 +117,7 @@ export default function RootLayout({
         <footer className="border-t border-beacon-border px-6 py-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <p className="text-xs text-foreground-muted font-mono">
-              BEACON PROTOCOL v1.0 — &quot;Lo que no es íntegro, no existe.&quot;
+              BEACON CHILE — &quot;Lo que no es íntegro, no existe.&quot;
             </p>
             <p className="text-xs text-foreground-muted">
               Desarrollo ESM; 2026

@@ -114,7 +114,7 @@ export default function TruthMeter({ value, size = 200 }: TruthMeterProps) {
                     className="text-[11px] tracking-[0.25em] uppercase font-bold"
                     style={{ color: meterColor }}
                 >
-                    Auditado por Beacon Protocol
+                    Auditado por Beacon Chile
                 </p>
                 <p className="text-[10px] text-foreground-muted mt-0.5 font-mono tracking-wider">
                     INTEGRITY INDEX · FORENSIC VALIDATED

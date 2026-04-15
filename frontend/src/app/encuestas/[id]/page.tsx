@@ -1,9 +1,12 @@
 /**
- * BEACON PROTOCOL — /encuestas/[slug] (Server wrapper)
+ * BEACON CHILE — /encuestas/[slug] (Server Component)
  * ======================================================
- * Genera Open Graph tags dinámicos con datos en vivo:
- *   título + votos actuales + resultado parcial
- * Delega el render al cliente EncuestaDetailClient.
+ * - generateMetadata: OG tags dinámicos con datos en vivo
+ * - JSON-LD Schema.org SurveyResults: solo en encuestas cerradas
+ * - Render: delega al Client Component
+ *
+ * Next.js deduplica automáticamente el fetch cuando la URL es idéntica
+ * en generateMetadata y en el default export (misma request).
  *
  * URL canónica: beaconchile.cl/encuestas/{slug}
  * API:          GET /api/v1/polls/by-slug/{slug}
@@ -14,62 +17,115 @@ import EncuestaDetailClient from "./EncuestaDetailClient";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const BASE_URL = "https://www.beaconchile.cl";
-const DEFAULT_OG = `${BASE_URL}/og-default.jpg`;
 
+// ── Fetch compartido (deduplicado por Next.js dentro de la misma request) ──────
+async function fetchPollForServer(slug: string) {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/polls/by-slug/${slug}`, {
+      next: { revalidate: 30 },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// ── Metadata dinámica ──────────────────────────────────────────────────────────
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id: slug } = await params;
-  try {
-    const res = await fetch(`${API_URL}/api/v1/polls/by-slug/${slug}`, {
-      next: { revalidate: 30 },   // 30s — datos en vivo para el OG
-    });
-    if (!res.ok) return { title: "Encuesta — BEACON" };
-    const poll = await res.json();
+  const poll = await fetchPollForServer(slug);
+  if (!poll) return { title: "Encuesta — Beacon Chile" };
 
-    const title = poll.title ?? "Encuesta Ciudadana";
-    const votes = poll.total_votes ?? 0;
+  const title  = poll.title ?? "Encuesta Ciudadana";
+  const votes  = poll.total_votes ?? 0;
 
-    // OG con datos en vivo: votos actuales dan sensación de urgencia + singular/plural
-    const voteLabel = votes === 1 ? "1 voto" : `${votes.toLocaleString("es-CL")} votos`;
-    const description =
-      `${voteLabel} registrados. ¿Cuál es tu opinión? Participa en ` +
-      (poll.description || "esta encuesta ciudadana verificada en Beacon.");
+  const voteLabel =
+    votes === 0
+      ? "Sé el primero en votar"
+      : votes === 1
+      ? "1 ciudadano ya votó"
+      : `${votes.toLocaleString("es-CL")} ciudadanos ya votaron`;
 
-    const image  = poll.header_image || DEFAULT_OG;
-    const url    = `${BASE_URL}/encuestas/${slug}`;
+  const description =
+    `${voteLabel}. ¿Cuál es tu opinión? Vota gratis y ve los resultados en tiempo real.`;
 
-    return {
-      title: `${title} — Beacon Chile`,
+  const ogImage = `${BASE_URL}/api/og/encuesta/${slug}`;
+  const url     = `${BASE_URL}/encuestas/${slug}`;
+
+  return {
+    title: `${title} — Beacon Chile`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
       description,
-      alternates: { canonical: url },
-      openGraph: {
-        title,
-        description,
-        url,
-        type:     "website",
-        siteName: "Beacon Chile",
-        images:   [{ url: image, width: 1200, height: 630, alt: title }],
-      },
-      twitter: {
-        card:        "summary_large_image",
-        title,
-        description,
-        images:      [image],
-        site:        "@beaconchile",
-      },
-    };
-  } catch {
-    return { title: "Encuesta — Beacon" };
-  }
+      url,
+      type:     "website",
+      locale:   "es_CL",
+      siteName: "Beacon Chile",
+      images:   [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title,
+      description,
+      images:      [ogImage],
+      site:        "@beaconchile",
+    },
+  };
 }
 
-export default function EncuestaPage({
+// ── Page ───────────────────────────────────────────────────────────────────────
+export default async function EncuestaPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  return <EncuestaDetailClient params={params} />;
+  const { id: slug } = await params;
+  const poll = await fetchPollForServer(slug);
+
+  // JSON-LD solo para encuestas cerradas — datos estables, útil para SEO
+  const jsonLd =
+    poll && !poll.is_open
+      ? {
+          "@context": "https://schema.org",
+          "@type": "SurveyResults",
+          name: poll.title,
+          about: {
+            "@type": "Thing",
+            name:
+              poll.category && poll.category !== "general"
+                ? poll.category
+                : poll.tags?.[0] ?? "Opinión ciudadana",
+          },
+          numberOfParticipants: poll.total_votes ?? 0,
+          // ends_at es la fecha de cierre; datePublished = cuando quedó cerrada
+          datePublished: poll.ends_at
+            ? new Date(poll.ends_at).toISOString().split("T")[0]
+            : undefined,
+          url: `${BASE_URL}/encuestas/${slug}`,
+          publisher: {
+            "@type": "Organization",
+            name: "Beacon Chile",
+            url: BASE_URL,
+          },
+        }
+      : null;
+
+  return (
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      <EncuestaDetailClient params={params} />
+    </>
+  );
 }

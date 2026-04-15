@@ -258,7 +258,7 @@ function CallbackContent() {
                     style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
                 >
                     <p className="text-[9px] font-mono text-gray-700 uppercase tracking-widest">
-                        Beacon Protocol · Puerta de Verificación
+                        Beacon Chile · Puerta de Verificación
                     </p>
                 </div>
             </div>

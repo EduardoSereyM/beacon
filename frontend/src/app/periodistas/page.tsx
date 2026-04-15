@@ -13,11 +13,11 @@ import EntitiesListPage from "@/components/shared/EntitiesListPage";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Personajes Públicos — Beacon Protocol",
+  title: "Periodistas — Beacon Chile",
   description:
     "Figuras mediáticas y líderes de opinión evaluados por su audiencia real y verificada. Periodistas, influencers y comunicadores.",
   openGraph: {
-    title: "Personajes Públicos — Beacon Protocol",
+    title: "Periodistas — Beacon Chile",
     description:
       "Accountability mediático con votos ponderados por integridad. Quién informa y qué tan confiable es.",
     type: "website",

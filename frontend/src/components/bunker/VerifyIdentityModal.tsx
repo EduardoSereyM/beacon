@@ -88,6 +88,127 @@ const INPUT_ERROR_STYLE = {
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
+// ─── Momento de orgullo post-verificación ────────────────────────────────────
+
+function VerifiedPrideMoment({
+    isVerified,
+    onClose,
+}: {
+    isVerified: boolean;
+    onClose: () => void;
+}) {
+    const [copied, setCopied] = useState(false);
+
+    const shareText =
+        "Acabo de verificar mi identidad en @BeaconChile.\n" +
+        "Mi voto cuenta en las estadísticas oficiales de Chile. ¿Y el tuyo?\n" +
+        "beaconchile.cl #BeaconChile #ChileOpina";
+
+    function handleShare() {
+        if (typeof navigator !== "undefined" && navigator.share) {
+            navigator.share({
+                title: "Soy ciudadano verificado en Beacon Chile",
+                text: shareText,
+                url: "https://www.beaconchile.cl",
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(`${shareText}`).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2500);
+            });
+        }
+    }
+
+    if (!isVerified) {
+        // RUT registrado pero aún no VERIFIED (faltan datos demográficos)
+        return (
+            <div className="text-center py-6">
+                <div className="text-4xl mb-3">✅</div>
+                <h2 className="text-lg font-bold text-white mb-2">RUT registrado</h2>
+                <p className="text-sm mb-4" style={{ color: "rgba(255,255,255,0.5)" }}>
+                    Completa tus datos demográficos en el perfil para ascender a VERIFIED.
+                </p>
+                <button
+                    onClick={onClose}
+                    className="text-xs font-mono uppercase tracking-wider px-4 py-2 rounded-lg"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.6)", cursor: "pointer" }}
+                >
+                    Cerrar
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col items-center text-center py-4 gap-5">
+            {/* Badge visual */}
+            <div
+                style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: "50%",
+                    background: "rgba(212,175,55,0.1)",
+                    border: "2px solid rgba(212,175,55,0.5)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 36,
+                    boxShadow: "0 0 32px rgba(212,175,55,0.15)",
+                }}
+            >
+                🎖️
+            </div>
+
+            {/* Título y copy */}
+            <div className="flex flex-col gap-2">
+                <h2 className="text-xl font-bold text-white">
+                    Ahora eres un ciudadano verificado
+                </h2>
+                <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Tu voz es parte de las estadísticas oficiales de Chile.
+                </p>
+                <p className="text-sm font-semibold" style={{ color: "#D4AF37" }}>
+                    Un ser humano real. Una voz que cuenta al 100%.
+                </p>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex flex-col gap-3 w-full">
+                <button
+                    onClick={handleShare}
+                    className="w-full py-3 rounded-xl text-sm font-bold font-mono tracking-wide transition-all"
+                    style={{
+                        background: copied ? "rgba(57,255,20,0.12)" : "rgba(212,175,55,0.12)",
+                        border: `1px solid ${copied ? "rgba(57,255,20,0.4)" : "rgba(212,175,55,0.4)"}`,
+                        color: copied ? "#39FF14" : "#D4AF37",
+                        cursor: "pointer",
+                    }}
+                >
+                    {copied ? "✓ Texto copiado — pégalo donde quieras" : "Compartir que soy ciudadano verificado →"}
+                </button>
+
+                <button
+                    onClick={() => {
+                        onClose();
+                        window.location.href = "/encuestas";
+                    }}
+                    className="w-full py-3 rounded-xl text-sm font-bold font-mono tracking-wide"
+                    style={{
+                        background: "rgba(0,229,255,0.08)",
+                        border: "1px solid rgba(0,229,255,0.25)",
+                        color: "#00E5FF",
+                        cursor: "pointer",
+                    }}
+                >
+                    Ir a votar →
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 interface Props {
     isOpen: boolean;
     onClose: () => void;
@@ -243,18 +364,10 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
 
                 {/* ── Estado: éxito ── */}
                 {success ? (
-                    <div className="text-center py-6">
-                        <div className="text-5xl mb-4">✅</div>
-                        <h2 className="text-xl font-bold text-white mb-2">
-                            {success.new_rank === "VERIFIED" ? "¡Identidad Verificada!" : "RUT registrado"}
-                        </h2>
-                        <p className="text-sm text-foreground-muted mb-2">{success.message}</p>
-                        {success.new_rank === "VERIFIED" && (
-                            <p className="text-sm font-semibold" style={{ color: "#4dff83" }}>
-                                Tu voto ahora vale <strong>1.0x</strong> 🎉
-                            </p>
-                        )}
-                    </div>
+                    <VerifiedPrideMoment
+                        isVerified={success.new_rank === "VERIFIED"}
+                        onClose={onClose}
+                    />
                 ) : (
                     <>
                         {/* Header */}

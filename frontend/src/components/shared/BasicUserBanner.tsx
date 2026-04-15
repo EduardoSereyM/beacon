@@ -15,6 +15,8 @@ import { useAuthStore } from "@/store";
 
 const GOLD   = "#D4AF37";
 const AMBER  = "#FF8C00";
+const NEON  = "#00E5FF";
+
 
 interface BasicUserBannerProps {
     /** Callback para abrir el modal de perfil/verificación */
@@ -48,17 +50,17 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
             role="banner"
             style={{
                 position: "fixed",
-                top: "105px",
+                top: "115px",
                 left: "50%",
                 transform: "translateX(-50%)",
                 zIndex: 45,
-                maxWidth: isMobile ? "calc(100% - 24px)" : "600px",
+                maxWidth: isMobile ? "calc(100% - 24px)" : "850px",
                 width: "100%",
                 background: `linear-gradient(90deg, rgba(255,140,0,0.08), rgba(212,175,55,0.08), rgba(255,140,0,0.08))`,
-                border: `1.5px solid ${AMBER}60`,
+                border: `1.5px solid ${NEON}60`,
                 borderRadius: "12px",
                 backdropFilter: "blur(12px)",
-                padding: isMobile ? "16px 14px" : "16px 20px",
+                padding: isMobile ? "16px 14px" : "16px 25px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -72,21 +74,21 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                 <span style={{ fontSize: isMobile ? "20px" : "16px", flexShrink: 0 }}>🔒</span>
                 <span style={{ color: "#E0E0E0", fontSize: isMobile ? "14px" : "13px", lineHeight: isMobile ? "1.6" : "1.4" }}>
                     <strong style={{ color: AMBER }}>Tu voto solo aparece en el conteo público</strong>
-                    {", pero solo los votos de usuarios verificados cuentan en los informes oficiales. "}
-                    <strong style={{ color: GOLD }}>Verifica tu identidad con RUT</strong>
-                    {" y tu voz contará "}
-                    <strong style={{ color: GOLD }}>al 100%.</strong>
+                    <strong style={{ color: "#FFFFFF" }}>{", pero solo los votos de usuarios verificados cuentan en los informes oficiales. "}</strong>
+                    <strong style={{ color: NEON }}>Verifica tu identidad con RUT y tu voz contará </strong>
+                    {""}
+                    <strong style={{ color: NEON }}>al 100%.</strong> 
                 </span>
             </div>
 
             {/* Acciones */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "30px", flexShrink: 0 }}>
                 <button
                     onClick={onVerifyClick}
                     style={{
-                        background: `linear-gradient(135deg, ${AMBER}, ${GOLD})`,
+                        background: "var(--beacon-neon)",
                         color: "#000",
-                        border: "none",
+                        border: `1.5px solid ${AMBER}60`,
                         borderRadius: "4px",
                         padding: "6px 12px",
                         fontSize: "11px",
@@ -107,10 +109,10 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                     aria-label="Cerrar aviso"
                     style={{
                         background: "rgba(255, 140, 0, 0.1)",
-                        color: "#A0A0A0",
+                        color: "#ff0000",
                         border: `1px solid ${AMBER}40`,
                         cursor: "pointer",
-                        fontSize: "28px",
+                        fontSize: "20px",
                         lineHeight: "1",
                         width: "40px",
                         height: "40px",
@@ -124,12 +126,12 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                     }}
                     onMouseEnter={e => {
                         e.currentTarget.style.background = `rgba(255, 140, 0, 0.2)`;
-                        e.currentTarget.style.color = "#FF8C00";
+                        e.currentTarget.style.color = "#ff0000";
                         e.currentTarget.style.transform = "scale(1.1)";
                     }}
                     onMouseLeave={e => {
                         e.currentTarget.style.background = "rgba(255, 140, 0, 0.1)";
-                        e.currentTarget.style.color = "#A0A0A0";
+                        e.currentTarget.style.color = "#ff0000";
                         e.currentTarget.style.transform = "scale(1)";
                     }}
                 >

@@ -15,6 +15,191 @@
 
 ---
 
+## 📣 Sprint Marketing & Viralidad — 2026-04-15
+
+### Contexto
+Sprint dedicado a eliminar los bloqueos de viralidad identificados en `REQUERIMIENTOS_DEVELOPER.md`. Todos los cambios son frontend — sin migraciones ni cambios de backend. Verificado en local (`npm run dev`); pendiente de deploy a producción.
+
+---
+
+### REQ-01 — Rebranding global: "Beacon Protocol" → "Beacon Chile"
+
+**Archivos modificados:**
+
+| Archivo | Cambio |
+|---|---|
+| `frontend/src/app/layout.tsx` | `title.default`, `og:title`, `twitter:title`, `siteName`, `description`, `twitter:site` (`@beaconprotocol` → `@beaconchile`), footer |
+| `frontend/src/app/page.tsx` | `metadata.title`, `og:title`, JSON-LD `Organization.name` |
+| `frontend/src/app/politicos/page.tsx` | `metadata.title` + `og:title` |
+| `frontend/src/app/empresas/page.tsx` | `metadata.title` + `og:title` |
+| `frontend/src/app/personajes/page.tsx` | `metadata.title` + `og:title` |
+| `frontend/src/app/periodistas/page.tsx` | `metadata.title` + `og:title` (además corregido: era "Personajes" en lugar de "Periodistas") |
+| `frontend/src/components/status/TruthMeter.tsx` | UI pública: "Auditado por Beacon Chile" |
+| `frontend/src/app/auth/callback/page.tsx` | UI pública: "Beacon Chile · Puerta de Verificación" |
+
+**Template de título:** cambiado de `"%s | Beacon Protocol"` → `"%s"` para evitar doble suffix (las páginas ya incluyen "— Beacon Chile").
+
+---
+
+### REQ-02 — OG tags dinámicos por encuesta (ajuste de descripción y consistencia)
+
+**Archivo:** `frontend/src/app/encuestas/[id]/page.tsx`
+
+- Description mejorada: `"[N ciudadanos ya votaron / Sé el primero]. ¿Cuál es tu opinión? Vota gratis y ve los resultados en tiempo real."`
+- `og:locale: "es_CL"` añadido
+- `og:siteName` consistente con "Beacon Chile"
+- `twitter:site` corregido a `@beaconchile`
+- Función `fetchPollForServer` centraliza el fetch (deduplicado por Next.js)
+
+---
+
+### REQ-03 — Imagen OG dinámica por encuesta (`next/og`)
+
+**Archivo creado:** `frontend/src/app/api/og/encuesta/[slug]/route.tsx`
+
+- Edge Runtime, `next/og` (ya incluido en Next.js 16)
+- Fondo: degradado oscuro brand (`#07071a` → `#0a0a14` → `#060610`) con destello cian arriba-izquierda y destello dorado abajo-derecha
+- Borde cian superior + borde dorado inferior
+- Pregunta centrada con font adaptativo (34/42/50px según longitud)
+- Fila inferior: votos reales + "beaconchile.cl" en dorado
+- Timeout de 4s en fetch al backend (protección ante Render cold start)
+- Cache: `no-store` en dev, `s-maxage=3600, stale-while-revalidate=86400` en producción
+
+**Actualización en `generateMetadata`:** `og:image` y `twitter:image` apuntan a `/api/og/encuesta/[slug]` en lugar de `poll.header_image` o genérico.
+
+---
+
+### REQ-04 — Componente post-voto: momento de orgullo
+
+**Archivo:** `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx`
+
+- Nuevo componente `PostVoteCard` (función local, ~130 líneas)
+- Nuevo estado `showVoteSuccess` (se activa en `doVote`, se cierra con "Ver resultados")
+- Copy diferenciado por rango:
+  - **VERIFIED:** "Eres parte de los [N] ciudadanos reales…" en cian
+  - **BASIC:** "Tu opinión aparece en el conteo público. Para que cuente en los informes verificados:" + botón "Verificar identidad →" en dorado
+- Botón "Compartir →" usa `navigator.share` (mobile) o copia el texto post-voto
+- Botón "Ver resultados" cierra el card y revela `PollResults`
+- Al cerrar queda badge discreto "✓ Voto registrado"
+
+---
+
+### REQ-05 — Share text personalizado pre/post voto
+
+**Archivo:** `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx`
+
+`SocialShareBar` recibe props `mode: "pre-vote" | "post-vote"` y `totalVotes`:
+
+- **Pre-voto:** `"¿Qué piensas sobre "[pregunta]"? [N] ciudadanos ya votaron en Beacon Chile. Vota gratis →"`
+- **Post-voto:** `"Acabo de votar en Beacon Chile: "[pregunta]". ¿Y tú qué opinas? #ChileOpina #BeaconChile"`
+- El `SocialShareBar` del header cambia automáticamente al modo post-voto tras votar
+
+---
+
+### REQ-06 — Web Share API como CTA principal
+
+**Archivo:** `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx`
+
+- Botón primario "↗ Compartir encuesta" en cian (ancho completo)
+  - Mobile: `navigator.share` → selector nativo del OS (incluye todas las apps instaladas)
+  - Desktop: copia texto + URL al clipboard
+- Botones de red individuales degradados a sección "O compartir en" (secundaria)
+- **Instagram / TikTok:** al hacer click copia el link y muestra toast flotante (fixed, bottom-center) durante 3.5s: `"✅ Link copiado — Abre [Red] y pégalo donde quieras compartirlo."`
+- Estado `toastNetwork` independiente del `copied` del CTA principal
+
+---
+
+### REQ-07 — Schema.org `SurveyResults` en encuestas cerradas
+
+**Archivo:** `frontend/src/app/encuestas/[id]/page.tsx`
+
+- El `EncuestaPage` es ahora `async` y hace fetch del poll server-side
+- Si `!poll.is_open`: inyecta `<script type="application/ld+json">` con `SurveyResults`
+- Campos: `name`, `about.name` (category o primer tag), `numberOfParticipants` (total_votes), `datePublished` (ends_at ISO), `url`, `publisher` (Beacon Chile)
+- Encuestas abiertas: sin JSON-LD (datos cambian constantemente)
+- Verificación en producción: Google Rich Results Test con URL de encuesta cerrada
+
+---
+
+### REQ-08 — Card visual de resultado compartible
+
+**Archivo creado:** `frontend/src/app/api/og/resultado/[slug]/route.tsx`
+
+- Edge Runtime, `next/og`, 1080×1080px (formato Instagram/TikTok)
+- Diseño: mismo brand gradient oscuro + barras horizontales por opción (top 5, ordenadas por % desc)
+- Colores de barras progresivos: cian puro (1°) → cian al 22% (5°)
+- Label truncado a 36 caracteres + % en grande a la derecha
+- Fallback sin votos: emoji 📊 + `"AÚN NO HAY VOTOS SUFICIENTES"`
+- `?download=1` → `Content-Disposition: attachment; filename="beacon-resultado-[slug].png"`
+- Cache: `no-store` dev / `s-maxage=1800` producción (30 min)
+
+**Componente `DownloadResultCard`** en `EncuestaDetailClient.tsx`:
+- Se muestra bajo `PollResults` cuando el usuario votó (`!showVoteSuccess`) o la encuesta está cerrada
+- Botón "↓ Descargar imagen": fetch blob → `createObjectURL` → click programático; fallback a `window.open`
+- Estado "Generando…" mientras descarga
+
+---
+
+### REQ-09 — Badge de ciudadano verificado
+
+**Archivos modificados:**
+
+| Archivo | Cambio |
+|---|---|
+| `frontend/src/components/bunker/VerifyIdentityModal.tsx` | Nuevo `VerifiedPrideMoment` reemplaza el success state simple |
+| `frontend/src/app/profile/page.tsx` | Nuevo `VerifiedShareBadge` + llamada condicional cuando `rank === "VERIFIED"` |
+
+**`VerifiedPrideMoment`:**
+- Si `new_rank === "VERIFIED"`: badge 🎖️ (80px, borde dorado, glow) + título + copy + 2 botones
+- "Compartir →": `navigator.share` mobile / copia texto desktop (feedback verde)
+- "Ir a votar →": `onClose()` + `window.location.href = "/encuestas"`
+- Si `new_rank !== "VERIFIED"`: mensaje simple "completa datos demográficos"
+
+**`VerifiedShareBadge`** en perfil:
+- Card compacta entre sección datos básicos y demográficos
+- Solo visible cuando `user.rank === "VERIFIED"`
+- Botón "Compartir →" con mismo texto y lógica
+
+**Texto de share en ambos contextos:**
+```
+Acabo de verificar mi identidad en @BeaconChile.
+Mi voto cuenta en las estadísticas oficiales de Chile. ¿Y el tuyo?
+beaconchile.cl #BeaconChile #ChileOpina
+```
+
+---
+
+### REQ-10 — Sección comparativa en landing page
+
+**Archivo creado:** `frontend/src/components/home/ComparisonSection.tsx`
+**Archivo modificado:** `frontend/src/app/page.tsx`
+
+- Server Component puro (sin hooks) — rendereado en servidor
+- Insertado entre `<HomeHeroClient />` y las 3 cards "POR QUÉ BEACON"
+- Desktop: `grid-cols-2` lado a lado
+- Mobile: `flex-col` + `order-1/order-2` — Beacon siempre arriba
+- Columna izquierda (Tradicionales): fondo `#0f0f0f`, borde `#1a1a1a`, header gris `#555`, ✗ rojo apagado
+- Columna derecha (Beacon): fondo `rgba(0,229,255,0.02)`, borde cian `rgba(0,229,255,0.15)`, header cian, ✓ cian
+- Contenido de cada columna especificado en `docs/LANDING_PAGE_PENDING.md`
+
+---
+
+### Impacto
+
+- ✅ REQ-01: Brand unificado en todas las páginas y meta tags — 8 archivos
+- ✅ REQ-02: OG description correcta, locale, siteName y handle consistentes
+- ✅ REQ-03: Cada share de encuesta genera imagen propia con pregunta + votos
+- ✅ REQ-04: Momento de orgullo post-voto con copy diferenciado por rango
+- ✅ REQ-05: Texto de share cambia automáticamente pre/post voto
+- ✅ REQ-06: `navigator.share` en mobile + toast informativo en IG/TikTok
+- ✅ REQ-07: Rich data para Google en encuestas cerradas
+- ✅ REQ-08: Imagen 1080×1080 descargable con resultados reales + barras de %
+- ✅ REQ-09: Momento de orgullo post-verificación + badge compartible en perfil
+- ✅ REQ-10: Comparativa visual Tradicionales vs Beacon en landing, responsive
+- ✅ Build limpio sin errores TypeScript en todos los cambios
+
+---
+
 ## 💬 Reacciones Ciudadanas (poll_comments) — 2026-04-14 (commits 05d3b9b, ec9d192)
 
 ### Implementado y desplegado en producción

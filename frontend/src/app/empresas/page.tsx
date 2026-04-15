@@ -13,11 +13,11 @@ import EntitiesListPage from "@/components/shared/EntitiesListPage";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Empresas — Beacon Protocol",
+  title: "Empresas — Beacon Chile",
   description:
     "Empresas y conglomerados bajo el escrutinio ciudadano verificado. Transparencia y responsabilidad corporativa en tiempo real.",
   openGraph: {
-    title: "Empresas — Beacon Protocol",
+    title: "Empresas — Beacon Chile",
     description:
       "Evaluación ciudadana de empresas. Solo votos de usuarios verificados con integridad real.",
     type: "website",

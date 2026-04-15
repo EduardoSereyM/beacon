@@ -165,12 +165,205 @@ function formatDateHour(iso: string) {
   });
 }
 
+// ─── Post-Vote Card (momento de orgullo) ─────────────────────────────────────
+
+function PostVoteCard({
+  isVerified,
+  totalVotes,
+  pollTitle,
+  pageUrl,
+  onReveal,
+}: {
+  isVerified: boolean;
+  totalVotes: number;
+  pollTitle: string;
+  pageUrl: string;
+  onReveal: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const postVoteText = `Acabo de votar en Beacon Chile: "${pollTitle}". ¿Y tú qué opinas? #ChileOpina #BeaconChile`;
+
+  function handleShare() {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator.share({ title: pollTitle, text: postVoteText, url: pageUrl }).catch(() => {});
+    } else {
+      const wa = `https://wa.me/?text=${encodeURIComponent(postVoteText + " " + pageUrl)}`;
+      window.open(wa, "_blank", "noopener");
+    }
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(`${postVoteText} ${pageUrl}`).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  const nLabel =
+    totalVotes === 1
+      ? "1 ciudadano real"
+      : `${totalVotes.toLocaleString("es-CL")} ciudadanos reales`;
+
+  return (
+    <div
+      style={{
+        borderRadius: 18,
+        padding: "28px 24px",
+        marginBottom: 20,
+        background: isVerified
+          ? "rgba(0, 229, 255, 0.04)"
+          : "rgba(212, 175, 55, 0.04)",
+        border: `1px solid ${isVerified ? "rgba(0,229,255,0.2)" : "rgba(212,175,55,0.2)"}`,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 16,
+        textAlign: "center",
+      }}
+    >
+      {/* Check animado */}
+      <div
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: "50%",
+          background: "rgba(57,255,20,0.1)",
+          border: "2px solid rgba(57,255,20,0.35)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 26,
+        }}
+      >
+        ✅
+      </div>
+
+      {/* Título */}
+      <p style={{ fontSize: 16, fontWeight: 800, color: "#f5f5f5", margin: 0, lineHeight: 1.3 }}>
+        Tu voto fue registrado
+      </p>
+
+      {/* Copy diferenciado por rango */}
+      {isVerified ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <p style={{ fontSize: 13, color: "#00E5FF", fontWeight: 600, margin: 0 }}>
+            Eres parte de los {nLabel} que opinaron.
+          </p>
+          <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.45)", margin: 0, lineHeight: 1.6 }}>
+            Tu voz cuenta al 100% en las estadísticas verificadas de Chile.{"\n"}
+            Sin panel seleccionado. Sin bots. Tú mismo.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <p style={{ fontSize: 12, fontFamily: "monospace", color: "rgba(255,255,255,0.5)", margin: 0, lineHeight: 1.6 }}>
+            Tu opinión aparece en el conteo público.{"\n"}
+            Para que cuente en los informes verificados:
+          </p>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("beacon:open-verify-modal"))}
+            style={{
+              fontSize: 11, fontFamily: "monospace", fontWeight: 700,
+              letterSpacing: "0.08em", textTransform: "uppercase",
+              color: "#D4AF37", background: "rgba(212,175,55,0.12)",
+              border: "1px solid rgba(212,175,55,0.35)",
+              borderRadius: 8, padding: "7px 16px", cursor: "pointer",
+              alignSelf: "center",
+            }}
+          >
+            Verificar identidad →
+          </button>
+        </div>
+      )}
+
+      {/* Acciones */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", width: "100%", marginTop: 4 }}>
+        <button
+          onClick={handleShare}
+          style={{
+            flex: 1,
+            minWidth: 130,
+            padding: "10px 16px",
+            borderRadius: 10,
+            fontSize: 12,
+            fontWeight: 700,
+            fontFamily: "monospace",
+            letterSpacing: "0.05em",
+            background: isVerified ? "rgba(0,229,255,0.12)" : "rgba(212,175,55,0.12)",
+            border: `1px solid ${isVerified ? "rgba(0,229,255,0.35)" : "rgba(212,175,55,0.35)"}`,
+            color: isVerified ? "#00E5FF" : "#D4AF37",
+            cursor: "pointer",
+          }}
+        >
+          Compartir →
+        </button>
+
+        <button
+          onClick={onReveal}
+          style={{
+            flex: 1,
+            minWidth: 130,
+            padding: "10px 16px",
+            borderRadius: 10,
+            fontSize: 12,
+            fontWeight: 700,
+            fontFamily: "monospace",
+            letterSpacing: "0.05em",
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            color: "rgba(255,255,255,0.7)",
+            cursor: "pointer",
+          }}
+        >
+          Ver resultados
+        </button>
+      </div>
+
+      {/* Copy link discreto */}
+      <button
+        onClick={handleCopy}
+        style={{
+          fontSize: 10,
+          fontFamily: "monospace",
+          background: "none",
+          border: "none",
+          color: copied ? "#39FF14" : "rgba(255,255,255,0.25)",
+          cursor: "pointer",
+          letterSpacing: "0.06em",
+        }}
+      >
+        {copied ? "✓ Link copiado" : "🔗 Copiar link"}
+      </button>
+    </div>
+  );
+}
+
 // ─── Share Social ─────────────────────────────────────────────────────────────
 
-function SocialShareBar({ url, title }: { url: string; title: string }) {
+function SocialShareBar({
+  url,
+  title,
+  mode = "pre-vote",
+  totalVotes = 0,
+}: {
+  url: string;
+  title: string;
+  mode?: "pre-vote" | "post-vote";
+  totalVotes?: number;
+}) {
   const [copied, setCopied] = useState(false);
-  const text = encodeURIComponent(`${title} — Encuesta BEACON`);
-  const encUrl = encodeURIComponent(url);
+  const [toastNetwork, setToastNetwork] = useState<string | null>(null);
+
+  const shareText =
+    mode === "post-vote"
+      ? `Acabo de votar en Beacon Chile: "${title}". ¿Y tú qué opinas? #ChileOpina #BeaconChile`
+      : totalVotes > 0
+      ? `¿Qué piensas sobre "${title}"? ${totalVotes.toLocaleString("es-CL")} ciudadanos ya votaron en Beacon Chile. Vota gratis →`
+      : `¿Qué piensas sobre "${title}"? Vota gratis en Beacon Chile →`;
+
+  const text    = encodeURIComponent(shareText);
+  const encUrl  = encodeURIComponent(url);
 
   const networks = [
     {
@@ -217,28 +410,113 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
     },
   ];
 
-  function copyLink() {
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  // Web Share API disponible en mobile y algunos desktop modernos
+  const canNativeShare =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  function nativeShare() {
+    if (canNativeShare) {
+      navigator
+        .share({ title, text: shareText, url })
+        .catch(() => {}); // usuario canceló
+    } else {
+      copyLink();
+    }
+  }
+
+  function copyLink(network?: string) {
+    navigator.clipboard.writeText(`${shareText} ${url}`).then(() => {
+      if (network) {
+        setToastNetwork(network);
+        setTimeout(() => setToastNetwork(null), 3500);
+      } else {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      }
     });
   }
 
   return (
-    <div>
-      <p
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, position: "relative" }}>
+
+      {/* ── Toast flotante para Instagram / TikTok ── */}
+      {toastNetwork && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 28,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            background: "rgba(10,10,18,0.97)",
+            border: "1px solid rgba(57,255,20,0.4)",
+            borderRadius: 12,
+            padding: "12px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+            minWidth: 260,
+            maxWidth: 360,
+          }}
+        >
+          <span style={{ fontSize: 18 }}>✅</span>
+          <div>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#39FF14" }}>
+              Link copiado
+            </p>
+            <p style={{ margin: 0, fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
+              Abre {toastNetwork} y pégalo donde quieras compartirlo.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── CTA principal: Web Share API (mobile) o Copy (desktop) ── */}
+      <button
+        onClick={nativeShare}
         style={{
-          fontSize: 11,
+          width: "100%",
+          padding: "9px 16px",
+          borderRadius: 10,
+          fontSize: 12,
+          fontWeight: 700,
           fontFamily: "monospace",
-          color: "rgba(255,255,255,0.55)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-          marginBottom: 10,
+          letterSpacing: "0.06em",
+          background: "rgba(0,229,255,0.08)",
+          border: "1px solid rgba(0,229,255,0.28)",
+          color: "#00E5FF",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          transition: "background 0.15s",
         }}
       >
-        Compartir en
-      </p>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 14 }}>↗</span>
+        {copied
+          ? "✓ Link copiado"
+          : canNativeShare
+          ? "Compartir encuesta"
+          : "Copiar link"}
+      </button>
+
+      {/* ── Redes secundarias ── */}
+      <div>
+        <p
+          style={{
+            fontSize: 10,
+            fontFamily: "monospace",
+            color: "rgba(255,255,255,0.3)",
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            marginBottom: 8,
+          }}
+        >
+          O compartir en
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         {networks.map((n) =>
           n.href ? (
             <a
@@ -272,11 +550,11 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
               <Image src={n.logo} alt={n.label} width={20} height={20} style={{ objectFit: "contain" }} />
             </a>
           ) : (
-            /* Instagram / TikTok → copiar link con tooltip */
+            /* Instagram / TikTok → copia link y muestra toast */
             <button
               key={n.id}
-              onClick={copyLink}
-              title={`${n.label} — Copia el link y pégalo en ${n.label}`}
+              onClick={() => copyLink(n.label)}
+              title={`Copiar link para pegar en ${n.label}`}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -284,10 +562,10 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
                 width: 36,
                 height: 36,
                 borderRadius: 10,
-                background: `${n.color}18`,
-                border: `1px solid ${n.color}40`,
+                background: copied ? "rgba(57,255,20,0.15)" : `${n.color}18`,
+                border: `1px solid ${copied ? "rgba(57,255,20,0.5)" : `${n.color}40`}`,
                 cursor: "pointer",
-                transition: "transform 0.15s",
+                transition: "transform 0.15s, background 0.15s",
               }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.1)";
@@ -300,30 +578,78 @@ function SocialShareBar({ url, title }: { url: string; title: string }) {
             </button>
           )
         )}
-
-        {/* Copy URL */}
-        <button
-          onClick={copyLink}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 5,
-            height: 36,
-            padding: "0 12px",
-            borderRadius: 10,
-            fontSize: 10,
-            fontFamily: "monospace",
-            fontWeight: 700,
-            background: copied ? "rgba(57,255,20,0.15)" : "rgba(255,255,255,0.04)",
-            border: `1px solid ${copied ? "rgba(57,255,20,0.4)" : "rgba(255,255,255,0.12)"}`,
-            color: copied ? "#39FF14" : "rgba(255,255,255,0.5)",
-            cursor: "pointer",
-            transition: "all 0.2s",
-          }}
-        >
-          {copied ? "✓ Copiado" : "🔗 Copiar link"}
-        </button>
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Download Result Card ─────────────────────────────────────────────────────
+
+function DownloadResultCard({ slug }: { slug: string }) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleDownload() {
+    setLoading(true);
+    try {
+      const res  = await fetch(`/api/og/resultado/${slug}?download=1`);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `beacon-resultado-${slug}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // fallback: abrir en tab nueva
+      window.open(`/api/og/resultado/${slug}`, "_blank");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 18,
+        borderRadius: 12,
+        padding: "12px 16px",
+        background: "rgba(212,175,55,0.04)",
+        border: "1px solid rgba(212,175,55,0.15)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
+      <div>
+        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#D4AF37", lineHeight: 1.3 }}>
+          Compartir resultados
+        </p>
+        <p style={{ margin: 0, fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
+          Imagen lista para Instagram y TikTok
+        </p>
+      </div>
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        style={{
+          flexShrink: 0,
+          padding: "8px 14px",
+          borderRadius: 8,
+          fontSize: 11,
+          fontWeight: 700,
+          fontFamily: "monospace",
+          letterSpacing: "0.06em",
+          background: loading ? "rgba(212,175,55,0.06)" : "rgba(212,175,55,0.12)",
+          border: "1px solid rgba(212,175,55,0.3)",
+          color: "#D4AF37",
+          cursor: loading ? "wait" : "pointer",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {loading ? "Generando…" : "↓ Descargar imagen"}
+      </button>
     </div>
   );
 }
@@ -1059,6 +1385,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [voted, setVoted] = useState(false);
+  const [showVoteSuccess, setShowVoteSuccess] = useState(false);
   const [userVote, setUserVote] = useState<string | null>(null);
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1131,6 +1458,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
       if (!res.ok) throw new Error(data.detail || "Error al votar");
       setUserVote(optionValue);
       setVoted(true);
+      setShowVoteSuccess(true);
       await fetchPoll();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al votar");
@@ -1364,7 +1692,12 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
             {/* Share social */}
             <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <SocialShareBar url={pageUrl} title={poll.title} />
+              <SocialShareBar
+                url={pageUrl}
+                title={poll.title}
+                mode={voted ? "post-vote" : "pre-vote"}
+                totalVotes={poll.total_votes}
+              />
             </div>
 
             {/* Divisor */}
@@ -1411,14 +1744,27 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
             {/* ── Contenido de votación ── */}
             {voted ? (
               <div>
-                <div style={{ borderRadius: 16, padding: "22px 24px", textAlign: "center", background: "rgba(57,255,20,0.05)", border: "1px solid rgba(57,255,20,0.2)", marginBottom: 20 }}>
-                  <p style={{ fontSize: 32, marginBottom: 10 }}>✅</p>
-                  <p style={{ fontSize: 15, fontWeight: 800, color: "#39FF14", marginBottom: 4 }}>¡Gracias por participar!</p>
-                  <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>
-                    Tu respuesta fue registrada con ponderación por integridad.
-                  </p>
-                </div>
-                <PollResults poll={poll} userVote={userVote} />
+                {/* Momento de orgullo: se muestra una vez al votar, se cierra al ver resultados */}
+                {showVoteSuccess && (
+                  <PostVoteCard
+                    isVerified={isVerified}
+                    totalVotes={poll.total_votes}
+                    pollTitle={poll.title}
+                    pageUrl={pageUrl}
+                    onReveal={() => setShowVoteSuccess(false)}
+                  />
+                )}
+                {!showVoteSuccess && (
+                  <>
+                    <div style={{ borderRadius: 16, padding: "14px 18px", textAlign: "center", background: "rgba(57,255,20,0.04)", border: "1px solid rgba(57,255,20,0.15)", marginBottom: 20 }}>
+                      <p style={{ fontSize: 11, fontFamily: "monospace", color: "#39FF14", opacity: 0.7 }}>
+                        ✓ Voto registrado
+                      </p>
+                    </div>
+                    <PollResults poll={poll} userVote={userVote} />
+                    <DownloadResultCard slug={slug} />
+                  </>
+                )}
               </div>
             ) : !poll.is_open ? (
               <div>
@@ -1426,6 +1772,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                   Resultados finales
                 </p>
                 <PollResults poll={poll} userVote={null} />
+                <DownloadResultCard slug={slug} />
               </div>
             ) : !token ? (
               <div style={{ borderRadius: 14, padding: "20px 22px", background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)", textAlign: "center" }}>

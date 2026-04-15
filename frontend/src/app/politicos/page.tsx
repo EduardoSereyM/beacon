@@ -13,11 +13,11 @@ import EntitiesListPage from "@/components/shared/EntitiesListPage";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Políticos — Beacon Protocol",
+  title: "Políticos — Beacon Chile",
   description:
-    "Evalúa a los funcionarios públicos de Chile con el Protocolo Beacon. Tu voto pesa según tu nivel de integridad verificada.",
+    "Evalúa a los funcionarios públicos de Chile. Tu voto pesa según tu nivel de integridad verificada.",
   openGraph: {
-    title: "Políticos — Beacon Protocol",
+    title: "Políticos — Beacon Chile",
     description:
       "Escrutinio ciudadano verificado. Diputados, senadores, alcaldes y ministros evaluados en tiempo real.",
     type: "website",
