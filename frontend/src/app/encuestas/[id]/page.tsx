@@ -32,16 +32,17 @@ export async function generateMetadata({
     const title = poll.title ?? "Encuesta Ciudadana";
     const votes = poll.total_votes ?? 0;
 
-    // OG con datos en vivo: votos actuales dan sensación de urgencia
+    // OG con datos en vivo: votos actuales dan sensación de urgencia + singular/plural
+    const voteLabel = votes === 1 ? "1 voto" : `${votes.toLocaleString("es-CL")} votos`;
     const description =
-      `${votes.toLocaleString("es-CL")} votos · ` +
-      (poll.description || "Participa en esta encuesta ciudadana verificada. Tu voto cuenta.");
+      `${voteLabel} registrados. ¿Cuál es tu opinión? Participa en ` +
+      (poll.description || "esta encuesta ciudadana verificada en Beacon.");
 
     const image  = poll.header_image || DEFAULT_OG;
     const url    = `${BASE_URL}/encuestas/${slug}`;
 
     return {
-      title: `${title} — Beacon`,
+      title: `${title} — Beacon Chile`,
       description,
       alternates: { canonical: url },
       openGraph: {
