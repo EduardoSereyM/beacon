@@ -11,11 +11,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { IdCardLanyard } from "lucide-react";
 import { useAuthStore } from "@/store";
 
 const GOLD   = "#D4AF37";
 const AMBER  = "#FF8C00";
 const NEON  = "#00E5FF";
+const RED    = "#FF0000";
+const GREEN  = "#00FF00";
 
 
 interface BasicUserBannerProps {
@@ -67,11 +70,15 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                     alignItems: "stretch",
                 }}
             >
-                {/* Columna izquierda: texto */}
+                {/* Columna izquierda: icono */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <IdCardLanyard size={32} color={GREEN} strokeWidth={1.5} />
+                </div>
+
+                {/* Columna central: texto */}
                 <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
                     <span style={{ color: "#E0E0E0", fontSize: "12px", lineHeight: "1.5" }}>
-                        <span style={{ fontSize: "13px" }}>🔒 </span>
-                        <strong style={{ color: NEON }}>Verifica tu cuenta aquí</strong>
+                        <strong style={{ color: "#E0E0E0" }}>Verifica tu cuenta aquí</strong>
                         <br />
                         <strong style={{ color: AMBER }}> - Tu voto valdrá al 100%</strong>
                         <br />
@@ -158,18 +165,18 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
         >
             {/* Mensaje principal */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: "auto" }}>
-                <span style={{ fontSize: "16px", flexShrink: 0 }}>🔒</span>
+                <IdCardLanyard size={32} color={GREEN} strokeWidth={1.5} style={{ flexShrink: 0 }} />
                 <span style={{ color: "#E0E0E0", fontSize: "13px", lineHeight: "1.4" }}>
-                    <strong style={{ color: AMBER }}>Tu voto solo aparece en el conteo público</strong>
-                    <strong style={{ color: "#FFFFFF" }}>{", pero solo los votos de usuarios verificados cuentan en los informes oficiales. "}</strong>
-                    <strong style={{ color: NEON }}>Verifica tu identidad con RUT y tu voz contará </strong>
+                    <strong style={{ color: "#E0E0E0" }}>Tu voto solo aparece en el conteo público,</strong>
+                    <strong style={{ color: "#FFFFFF" }}>{" solo los votos de usuarios verificados cuentan en los informes oficiales. "}</strong>
+                    <strong style={{ color: AMBER }}>Verifica tu identidad y tu voz contará </strong>
                     {""}
-                    <strong style={{ color: NEON }}>al 100%.</strong>
+                    <strong style={{ color: AMBER }}>al 100%.</strong>
                 </span>
             </div>
 
             {/* Acciones */}
-            <div style={{ display: "flex", alignItems: "center", gap: "30px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "20px", flexShrink: 0, paddingLeft: "10px" }}>
                 <button
                     onClick={onVerifyClick}
                     style={{
