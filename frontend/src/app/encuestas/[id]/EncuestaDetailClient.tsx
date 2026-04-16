@@ -6,7 +6,7 @@
 
 "use client";
 
-import { use, useState, useEffect, useCallback } from "react";
+import { use, useState, useEffect, useCallback, useRef } from "react";
 import {
   DndContext,
   closestCenter,
@@ -131,6 +131,7 @@ interface Poll {
   category: string;
   requires_auth: boolean;
   is_private?: boolean;
+  user_vote?: string | null;  // voto previo del usuario autenticado (desde el backend)
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -186,11 +187,15 @@ function PostVoteCard({
   const postVoteText = `Acabo de votar en Beacon Chile: "${pollTitle}". ¿Y tú qué opinas? #ChileOpina #BeaconChile`;
 
   function handleShare() {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      navigator.share({ title: pollTitle, text: postVoteText, url: pageUrl }).catch(() => {});
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(postVoteText + " " + pageUrl)}`;
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const canNativeShare = isMobile && typeof navigator !== "undefined" && typeof navigator.share === "function";
+    if (canNativeShare) {
+      navigator.share({ title: pollTitle, text: postVoteText, url: pageUrl }).catch(() => {
+        window.open(waUrl, "_blank", "noopener");
+      });
     } else {
-      const wa = `https://wa.me/?text=${encodeURIComponent(postVoteText + " " + pageUrl)}`;
-      window.open(wa, "_blank", "noopener");
+      window.open(waUrl, "_blank", "noopener");
     }
   }
 
@@ -376,12 +381,18 @@ function SocialShareBar({
     { id: "tiktok",    label: "TikTok",     logo: logoTiktok,     color: "#EE1D52", href: null },
   ];
 
+  const isMobile =
+    typeof window !== "undefined" && window.innerWidth < 768;
   const canNativeShare =
-    typeof navigator !== "undefined" && typeof navigator.share === "function";
+    isMobile &&
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function";
 
   function handleMainButton() {
     if (canNativeShare) {
-      navigator.share({ title, text: shareText, url }).catch(() => {});
+      navigator.share({ title, text: shareText, url }).catch(() => {
+        setShowModal(true);
+      });
     } else {
       setShowModal(true);
     }
@@ -1376,6 +1387,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
   const [userVote, setUserVote] = useState<string | null>(null);
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const voteSuccessRef = useRef<HTMLDivElement>(null);
   const [accessCode, setAccessCode] = useState("");
   const [accessError, setAccessError] = useState<string | null>(null);
   const [verifyingCode, setVerifyingCode] = useState(false);
@@ -1401,13 +1413,31 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
       const url = code
         ? `${API_URL}/api/v1/polls/by-slug/${slug}?access_code=${encodeURIComponent(code)}`
         : `${API_URL}/api/v1/polls/by-slug/${slug}`;
-      const res = await fetch(url);
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(url, { headers });
       if (res.status === 404) { setNotFound(true); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setPoll(await res.json());
+      const data = await res.json();
+      setPoll(data);
+      // Detectar voto previo en visitas de retorno (sin activar celebración)
+      if (data.user_vote && !voted) {
+        setUserVote(data.user_vote);
+        setVoted(true);
+        // showVoteSuccess queda false → muestra resultados directamente
+      }
     } catch { setNotFound(true); }
     finally { setLoading(false); }
-  }, [slug]);
+  }, [slug, token]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll al card de éxito cuando el usuario acaba de votar
+  useEffect(() => {
+    if (showVoteSuccess && voteSuccessRef.current) {
+      setTimeout(() => {
+        voteSuccessRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }, [showVoteSuccess]);
 
   async function handleVerifyCode() {
     if (!accessCode.trim()) return;
@@ -1442,6 +1472,10 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
         body: JSON.stringify(body),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        window.dispatchEvent(new CustomEvent("beacon:session-expired"));
+        throw new Error("Tu sesión expiró. Inicia sesión nuevamente — tus respuestas siguen seleccionadas.");
+      }
       if (!res.ok) throw new Error(data.detail || "Error al votar");
       setUserVote(optionValue);
       setVoted(true);
@@ -1537,7 +1571,11 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
           </Link>
           <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 11 }}>/</span>
           <span style={{ fontSize: 10, fontFamily: "monospace", color: "#39FF14", letterSpacing: "0.08em" }}>
-            {(poll?.slug || slug).toUpperCase()}
+            {poll?.title
+              ? poll.title.length > 48
+                ? poll.title.slice(0, 48) + "…"
+                : poll.title
+              : (poll?.slug || slug).toUpperCase()}
           </span>
         </div>
 
@@ -1730,7 +1768,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
             {/* ── Contenido de votación ── */}
             {voted ? (
-              <div>
+              <div ref={voteSuccessRef}>
                 {/* Momento de orgullo: se muestra una vez al votar, se cierra al ver resultados */}
                 {showVoteSuccess && (
                   <PostVoteCard

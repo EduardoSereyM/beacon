@@ -7,7 +7,6 @@
  * "La primera impresión es el primer juicio. Hazle sentir el poder."
  */
 
-import Link from "next/link";
 import type { Metadata } from "next";
 import { Users, ShieldCheck, BarChart3 } from "lucide-react";
 import HomeHeroClient from "@/components/home/HomeHeroClient";
@@ -193,60 +192,6 @@ export default function Home() {
       <SectionDivider />
 
       {/* ═══════════════════════════════════════════
-       *  VS
-       * ═══════════════════════════════════════════ */}
-      <section className="px-6 pb-10">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: "#D4AF37", boxShadow: "0 0 6px rgba(212,175,55,0.5)" }}
-              />
-              <span className="text-sm">⚔️</span>
-              <h2 className="text-xs tracking-[0.18em] uppercase text-foreground-muted font-medium">
-                VS del Momento
-              </h2>
-            </div>
-            <Link
-              href="/versus"
-              className="text-[10px] uppercase tracking-wider font-mono transition-colors hover:opacity-80"
-              style={{ color: "#D4AF37" }}
-            >
-              Ver todos →
-            </Link>
-          </div>
-
-          <div
-            className="rounded-xl p-8 text-center"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(212,175,55,0.05) 0%, rgba(138,43,226,0.05) 100%)",
-              border: "1px solid rgba(212,175,55,0.15)",
-            }}
-          >
-            <p className="text-2xl mb-2">⚔️</p>
-            <p className="text-sm font-mono text-foreground-muted uppercase tracking-wider">
-              Próximamente — Enfrentamientos en tiempo real
-            </p>
-            <Link
-              href="/versus"
-              className="inline-block mt-4 text-[11px] font-mono uppercase tracking-wider px-4 py-2 rounded-lg transition-all hover:scale-105"
-              style={{
-                backgroundColor: "rgba(212,175,55,0.1)",
-                border: "1px solid rgba(212,175,55,0.3)",
-                color: "#D4AF37",
-              }}
-            >
-              Entrar al Arena →
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <SectionDivider />
-
-      {/* ═══════════════════════════════════════════
        *  VOTING WEIGHT & RUT PRIVACY DISCLAIMER
        * ═══════════════════════════════════════════ */}
       <VotingWeightDisclaimer />
@@ -257,10 +202,9 @@ export default function Home() {
        *  STATS FOOTER
        * ═══════════════════════════════════════════ */}
       <section className="border-t border-beacon-border px-6 py-10 mt-4">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6">
           {[
             { label: "Ciudadanos Activos", value: "1,646", color: "#D4AF37" },
-            { label: "Entidades Evaluadas", value: "—", color: "#00E5FF" },
             { label: "Votos Registrados", value: "18,403", color: "#39FF14" },
             { label: "Votos Verificados", value: "14,189", color: "#8A2BE2" },
           ].map((stat) => (

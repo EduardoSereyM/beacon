@@ -578,8 +578,14 @@ async def create_user_poll(
 
 
 @router.get("/polls/by-slug/{slug}", summary="Detalle de encuesta por slug (URL pública)")
-async def get_poll_by_slug(slug: str, access_code: Optional[str] = None):
-    """Lookup por slug canónico — usado por las páginas /encuestas/[slug]."""
+async def get_poll_by_slug(
+    slug: str,
+    access_code: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+):
+    """Lookup por slug canónico — usado por las páginas /encuestas/[slug].
+    Si se envía JWT, incluye user_vote con el voto previo del usuario (si existe).
+    """
     supabase = get_async_supabase_client()
     try:
         res = await (
@@ -621,6 +627,28 @@ async def get_poll_by_slug(slug: str, access_code: Optional[str] = None):
     result = _compute_results(poll, vote_res.data or [])
     result["is_private"] = bool(stored_code)
     result.pop("access_code", None)
+
+    # Detectar voto previo del usuario autenticado
+    result["user_vote"] = None
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            token = authorization.split(" ", 1)[1]
+            user_res = await supabase.auth.get_user(token)
+            user_id = user_res.user.id if user_res and user_res.user else None
+            if user_id:
+                uv_res = await (
+                    supabase.table("poll_votes")
+                    .select("option_value")
+                    .eq("poll_id", poll["id"])
+                    .eq("user_id", user_id)
+                    .limit(1)
+                    .execute()
+                )
+                if uv_res.data:
+                    result["user_vote"] = uv_res.data[0]["option_value"]
+        except Exception:
+            pass  # JWT inválido o expirado — tratamos como anónimo
+
     return result
 
 

@@ -37,8 +37,9 @@ export default function TrendingPollsSection() {
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && data.items) {
-            // Sort by total_votes DESC, take top 3
+            // Solo contar como "tendencia" si tiene al menos 1 voto
             const sorted = (data.items as TrendingPoll[])
+              .filter((p) => p.total_votes > 0)
               .sort((a, b) => b.total_votes - a.total_votes)
               .slice(0, 3);
             setPolls(sorted);
@@ -54,6 +55,8 @@ export default function TrendingPollsSection() {
     fetchTrending();
     return () => { cancelled = true; };
   }, []);
+
+  if (!loading && polls.length === 0) return null;
 
   if (loading) {
     return (
@@ -102,20 +105,7 @@ export default function TrendingPollsSection() {
         </div>
 
         {/* Content */}
-        {polls.length === 0 ? (
-          <div
-            className="rounded-xl p-8 text-center"
-            style={{
-              background: "linear-gradient(135deg, rgba(212,175,55,0.05) 0%, rgba(0,229,255,0.05) 100%)",
-              border: "1px solid rgba(212,175,55,0.15)",
-            }}
-          >
-            <p className="text-2xl mb-2">🔥</p>
-            <p className="text-sm font-mono uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.3)" }}>
-              Sin encuestas tendencias disponibles
-            </p>
-          </div>
-        ) : (
+        {polls.length === 0 ? null : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {polls.map((poll, idx) => (
               <div

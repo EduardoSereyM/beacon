@@ -47,16 +47,21 @@ export async function GET(
     clearTimeout(timer);
     if (res.ok) {
       const poll = await res.json();
-      title   = poll.title        ?? title;
-      votes   = poll.total_votes  ?? 0;
-      results = poll.results      ?? [];
+      title   = poll.title       ?? title;
+      votes   = poll.total_votes ?? 0;
+      // Preferir results (todos los votos); si viene vacío o nulo usar results_verified
+      const raw = (Array.isArray(poll.results) && poll.results.length > 0)
+        ? poll.results
+        : (poll.results_verified ?? []);
+      results = raw;
     }
   } catch {
     // cold start — usa defaults
   }
 
   // Detectar si es encuesta de escala (backend devuelve [{average, count}] sin campo option)
-  const isScale = results.length > 0 && results[0].average !== undefined && !results[0].option;
+  // != null captura tanto null como undefined (backend puede devolver null en vez de omitir)
+  const isScale = results.length > 0 && results[0].average != null && !results[0].option;
   const scaleAvg: number = isScale ? (results[0].average ?? 0) : 0;
 
   // Tomar top 5 por pct, descartar opciones sin nombre (multiple_choice / ranking)

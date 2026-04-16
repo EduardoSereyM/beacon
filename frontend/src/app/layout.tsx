@@ -120,7 +120,7 @@ export default function RootLayout({
               BEACON CHILE — &quot;Lo que no es íntegro, no existe.&quot;
             </p>
             <p className="text-xs text-foreground-muted">
-              Desarrollo ESM; 2026
+              © 2026 Beacon Chile
             </p>
           </div>
         </footer>

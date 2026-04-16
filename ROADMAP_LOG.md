@@ -15,6 +15,42 @@
 
 ---
 
+## 🔧 Bugs & Oportunidades UI — 2026-04-16
+
+### BUG-01 (fix) · BUG-03 · BUG-04 · BUG-05 + OPP-01 a OPP-05
+
+**Archivos modificados:**
+- `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx`
+- `frontend/src/app/api/og/resultado/[slug]/route.tsx`
+- `frontend/src/components/polls/TrendingPollsSection.tsx`
+- `frontend/src/components/bunker/NavbarClient.tsx`
+- `frontend/src/app/layout.tsx`
+- `frontend/src/app/page.tsx`
+
+#### Bugs resueltos
+
+| # | Bug | Causa raíz | Fix |
+|---|-----|------------|-----|
+| BUG-01 (completar) | Botón "Compartir →" en PostVoteCard abría Windows share nativo en desktop | `PostVoteCard.handleShare()` usaba `navigator.share` sin gate de `isMobile` | Añadido check `window.innerWidth < 768`; desktop abre WhatsApp directamente |
+| BUG-02 | Usuario que ya votó seguía viendo el formulario en visitas de retorno | `voted` era estado efímero; el backend no retornaba voto previo del usuario | Backend: `GET /polls/by-slug/{slug}` acepta JWT y devuelve `user_vote`; frontend: detecta `data.user_vote` en `fetchPoll` y setea `voted=true` sin activar `showVoteSuccess` |
+| BUG-03 | Breadcrumb mostraba slug técnico en mayúsculas | `(poll?.slug \|\| slug).toUpperCase()` | Muestra `poll.title` (truncado a 48 chars) con fallback al slug si poll no cargó |
+| BUG-04 | Navbar decía "Opinión ciudadana REAL" | String desincronizado en `NavbarClient.tsx` | Corregido a "Opinión ciudadana verificada" |
+| BUG-05 | DownloadResultCard no aparecía para visitantes de retorno | Era consecuencia de BUG-02: `voted=false` → rama `!voted` → no se rendea el card | Resuelto al corregir BUG-02 |
+| — | Sesión expirada al votar mostraba error genérico sin acción | `doVote` no diferenciaba HTTP 401 | Intercepta 401 → `beacon:session-expired` (abre modal login) + mensaje "tus respuestas siguen seleccionadas" |
+| — | Página quedaba scrolled al fondo tras votar | Sin scroll automático al completar el voto | `useRef` + `useEffect` hacen `scrollIntoView` al PostVoteCard 80ms después de `showVoteSuccess=true` |
+| — | Imagen OG de resultados mostraba "AÚN NO HAY VOTOS SUFICIENTES" con votos reales | `isScale` check usaba `!== undefined` (no capturaba `null`); si `poll.results` llegaba vacío no había fallback | `results[0].average != null`; fallback a `results_verified` si `results` es array vacío |
+
+#### Oportunidades UI implementadas
+
+| # | Oportunidad | Fix |
+|---|-------------|-----|
+| OPP-01 | Footer sin copyright de marca | `layout.tsx`: "Desarrollo ESM; 2026" → "© 2026 Beacon Chile" |
+| OPP-02 | "Tendencias Ahora" mostraba encuestas con 0 votos | `TrendingPollsSection`: filtro `.filter(p => p.total_votes > 0)` antes de ordenar; sección oculta completa si no hay resultados |
+| OPP-03 | Stat "Entidades Evaluadas = —" confundía usuarios nuevos | Eliminada del array de stats del home; grid ajustado a `sm:grid-cols-3` |
+| OPP-04 | Sección "VS del Momento: Próximamente" ocupaba espacio vacío | Sección removida del home hasta que el feature tenga contenido real |
+
+---
+
 ## 🎨 Mejora UI — Iconos Lucide en PollCommentsSection — 2026-04-16
 
 ### Reemplazar emojis por iconos Lucide con color

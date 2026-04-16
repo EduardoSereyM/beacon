@@ -92,7 +92,7 @@ export default function NavbarClient() {
                                     Beacon
                                 </h1>
                                 <p className="text-[10px] sm:text-[10px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden sm:block mt-0.5" style={{ lineHeight: "1" }}>
-                                    Opinión ciudadana REAL
+                                    Opinión ciudadana verificada
                                 </p>
                             </div>
                         </Link>
