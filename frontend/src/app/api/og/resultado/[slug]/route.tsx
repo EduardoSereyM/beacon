@@ -232,7 +232,7 @@ export async function GET(
     "Cache-Control",
     process.env.NODE_ENV === "development"
       ? "no-store"
-      : "s-maxage=1800, stale-while-revalidate=86400"
+      : "s-maxage=60, stale-while-revalidate=3600"
   );
 
   return response;

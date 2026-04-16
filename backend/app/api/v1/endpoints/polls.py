@@ -158,12 +158,18 @@ def _aggregate(poll: dict, votes: list) -> list:
       Todas las posiciones en los outputs de API son 1-based (1 = primer lugar).
       Borda internamente: option en posición p (1-based) recibe (n - p) puntos,
       donde n = número de opciones. Posición 1 → n-1 pts, posición n → 0 pts.
+
+    Nota: polls creadas vía admin/pipeline no tienen poll_type ni options en el
+    top-level; solo dentro de questions[0]. Se hace fallback a questions[0].
     """
     total = len(votes)
-    poll_type = poll.get("poll_type", "multiple_choice")
+    # Fallback a questions[0] para polls creadas vía admin/pipeline
+    first_q = (poll.get("questions") or [{}])[0]
+    poll_type = poll.get("poll_type") or first_q.get("type", "multiple_choice")
+    top_options = poll.get("options") or first_q.get("options") or []
 
     if poll_type == "multiple_choice":
-        options = poll.get("options") or []
+        options = top_options
         counts = {opt: 0 for opt in options}
         for v in votes:
             raw = v.get("option_value", "")
@@ -176,7 +182,7 @@ def _aggregate(poll: dict, votes: list) -> list:
         ]
 
     if poll_type == "ranking":
-        options = poll.get("options") or []
+        options = top_options
         n = len(options)
         borda:      dict = {opt: 0   for opt in options}
         pos_sum:    dict = {opt: 0.0 for opt in options}

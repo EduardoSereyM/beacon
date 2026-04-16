@@ -269,6 +269,10 @@ async def admin_ingest_poll(
 
     questions_json = [q.model_dump() for q in questions]
 
+    first_q = questions[0] if questions else None
+    _poll_type = first_q.type if first_q else "multiple_choice"
+    _options   = first_q.options if first_q and _poll_type in ("multiple_choice", "ranking") else None
+
     payload = {
         "title":        body.title,
         "slug":         slug,
@@ -283,6 +287,8 @@ async def admin_ingest_poll(
         "is_featured":  False,
         "created_by":   pipeline["user_id"],
         "questions":    questions_json,
+        "poll_type":    _poll_type,
+        "options":      _options,
         "category":     category,
         "requires_auth": True,
     }
@@ -439,6 +445,10 @@ async def admin_create_poll(
 
     questions_json = [q.model_dump() for q in body.questions]
 
+    first_q_admin = body.questions[0] if body.questions else None
+    _poll_type = first_q_admin.type if first_q_admin else "multiple_choice"
+    _options   = first_q_admin.options if first_q_admin and _poll_type in ("multiple_choice", "ranking") else None
+
     payload = {
         "title":        body.title,
         "slug":         slug,
@@ -454,6 +464,8 @@ async def admin_create_poll(
         "is_featured":  body.is_featured,
         "created_by":   admin["user_id"],
         "questions":    questions_json,
+        "poll_type":    _poll_type,
+        "options":      _options,
         "category":     category,
         "requires_auth": body.requires_auth,
         "access_code":  body.access_code or None,
