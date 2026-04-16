@@ -271,7 +271,7 @@ async def admin_ingest_poll(
 
     first_q = questions[0] if questions else None
     _poll_type = first_q.type if first_q else "multiple_choice"
-    _options   = first_q.options if first_q and _poll_type in ("multiple_choice", "ranking") else None
+    _options   = first_q.options if first_q and _poll_type == "multiple_choice" else None
 
     payload = {
         "title":        body.title,
@@ -447,7 +447,7 @@ async def admin_create_poll(
 
     first_q_admin = body.questions[0] if body.questions else None
     _poll_type = first_q_admin.type if first_q_admin else "multiple_choice"
-    _options   = first_q_admin.options if first_q_admin and _poll_type in ("multiple_choice", "ranking") else None
+    _options   = first_q_admin.options if first_q_admin and _poll_type == "multiple_choice" else None
 
     payload = {
         "title":        body.title,

@@ -37,7 +37,7 @@ class PollVotePayload(BaseModel):
 
 class UserQuestionIn(BaseModel):
     text: str
-    type: str                         # "multiple_choice" | "scale" | "ranking"
+    type: str                         # "multiple_choice" | "scale"
     options: Optional[List[str]] = None
     scale_points: Optional[int] = None   # 2–10 (ciudadanos)
     allow_multiple: bool = False          # True = checkboxes, False = radio
@@ -56,7 +56,6 @@ VALID_CATEGORIES = {
 _QUESTION_TYPE_MAP = {
     "likert_scale":    "scale",
     "multiple_choice": "multiple_choice",
-    "ranking":         "ranking",
 }
 
 
@@ -153,18 +152,11 @@ def _is_open(p: dict) -> bool:
 def _aggregate(poll: dict, votes: list) -> list:
     """
     Agrega votos en resultados para un subconjunto (todos o solo verificados).
-    Soporta multiple_choice, scale y ranking.
-
-    Convención de posiciones (RANKING):
-      Todas las posiciones en los outputs de API son 1-based (1 = primer lugar).
-      Borda internamente: option en posición p (1-based) recibe (n - p) puntos,
-      donde n = número de opciones. Posición 1 → n-1 pts, posición n → 0 pts.
-
+    Soporta multiple_choice y scale.
     Nota: polls creadas vía admin/pipeline no tienen poll_type ni options en el
     top-level; solo dentro de questions[0]. Se hace fallback a questions[0].
     """
     total = len(votes)
-    # Fallback a questions[0] para polls creadas vía admin/pipeline
     first_q = (poll.get("questions") or [{}])[0]
     poll_type = poll.get("poll_type") or first_q.get("type", "multiple_choice")
     top_options = poll.get("options") or first_q.get("options") or []
@@ -181,40 +173,6 @@ def _aggregate(poll: dict, votes: list) -> list:
             {"option": opt, "count": cnt, "pct": round(cnt / total * 100, 1) if total else 0}
             for opt, cnt in counts.items()
         ]
-
-    if poll_type == "ranking":
-        options = top_options
-        n = len(options)
-        borda:      dict = {opt: 0   for opt in options}
-        pos_sum:    dict = {opt: 0.0 for opt in options}
-        pos_count:  dict = {opt: 0   for opt in options}
-        first_place: dict = {opt: 0  for opt in options}
-
-        for v in votes:
-            ranked = [s.strip() for s in v.get("option_value", "").split("||") if s.strip()]
-            for pos_1based, opt in enumerate(ranked, start=1):  # pos_1based: 1 = primer lugar
-                if opt in borda:
-                    borda[opt]     += n - pos_1based          # Borda: n-p (1-based)
-                    pos_sum[opt]   += pos_1based
-                    pos_count[opt] += 1
-                    if pos_1based == 1:
-                        first_place[opt] += 1
-
-        result = []
-        for opt in options:
-            cnt  = pos_count[opt]
-            avg_pos = round(pos_sum[opt] / cnt, 2) if cnt else None
-            fp_pct  = round(first_place[opt] / total * 100, 1) if total else 0
-            result.append({
-                "option":          opt,
-                "borda_score":     borda[opt],
-                "avg_position":    avg_pos,    # 1-based: 1.0 = siempre primero
-                "first_place_pct": fp_pct,
-                "count":           cnt,
-            })
-        # Ordenar por Borda descendente (mayor puntaje = más preferida)
-        result.sort(key=lambda x: x["borda_score"], reverse=True)
-        return result
 
     # scale
     values = []
@@ -565,16 +523,8 @@ async def create_user_poll(
                 labels = [q.scale_min_label.strip() if q.scale_min_label else ""] + [""] * (sc_pts - 2) + [q.scale_max_label.strip() if q.scale_max_label else ""]
             questions_clean.append({"text": q.text.strip(), "type": "scale", "scale_min": sc_min, "scale_max": sc_max, "scale_labels": labels, "order_index": i})
 
-        elif q.type == "ranking":
-            opts = [o.strip() for o in (opts_src or []) if str(o).strip()]
-            if len(opts) < 3:
-                raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: ranking requiere mínimo 3 opciones")
-            if len(opts) > 6:
-                raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: ranking permite máximo 6 opciones")
-            questions_clean.append({"text": q.text.strip(), "type": "ranking", "options": opts, "order_index": i})
-
         else:
-            raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: tipo inválido (multiple_choice | scale | ranking)")
+            raise HTTPException(status_code=400, detail=f"Pregunta {i+1}: tipo inválido (multiple_choice | scale)")
 
     now = datetime.now(timezone.utc)
 
@@ -598,7 +548,7 @@ async def create_user_poll(
 
     # Determinar poll_type y options desde la primera pregunta (retrocompatibilidad)
     first_q = questions_clean[0]
-    if first_q["type"] in ("multiple_choice", "ranking"):
+    if first_q["type"] == "multiple_choice":
         poll_type = first_q["type"]
         options   = first_q["options"]
         scale_min, scale_max = 1, 5
@@ -871,10 +821,6 @@ async def vote_poll(
                 invalid = [s for s in selections if s not in q_opts]
                 if invalid:
                     raise HTTPException(status_code=400, detail=f"Opción inválida en '{q.get('text', '')}'")
-            elif q_type == "ranking":
-                submitted = [s.strip() for s in answer.split("||") if s.strip()]
-                if sorted(submitted) != sorted(q_opts):
-                    raise HTTPException(status_code=400, detail=f"Ranking incompleto en '{q.get('text', '')}'")
             else:  # scale
                 try:
                     val = float(answer)
@@ -899,13 +845,6 @@ async def vote_poll(
             invalid = [s for s in selections if s not in q_options]
             if invalid:
                 raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones válidas: {q_options}")
-        elif q_type == "ranking":
-            submitted = [s.strip() for s in payload.option_value.split("||") if s.strip()]
-            if sorted(submitted) != sorted(q_options):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Ranking incompleto: debes ordenar todas las opciones exactamente una vez"
-                )
         else:  # scale
             try:
                 val = float(payload.option_value)
@@ -1049,31 +988,6 @@ def _crosstab_aggregate(votes_with_demo: list, dimension_values: list, options_o
                 {"option": opt, "count": cnt, "pct": round(cnt / n * 100, 1)}
                 for opt, cnt in counts.items()
             ]
-
-        elif poll_type == "ranking":
-            # Posiciones 1-based. avg_position: 1.0 = siempre primero.
-            pos_sum:    dict = {opt: 0.0 for opt in poll_options}
-            pos_count:  dict = {opt: 0   for opt in poll_options}
-            first_place: dict = {opt: 0  for opt in poll_options}
-            for v in values:
-                ranked = [s.strip() for s in v.split("||") if s.strip()]
-                for pos_1based, opt in enumerate(ranked, start=1):
-                    if opt in pos_sum:
-                        pos_sum[opt]    += pos_1based
-                        pos_count[opt]  += 1
-                        if pos_1based == 1:
-                            first_place[opt] += 1
-            breakdown = [
-                {
-                    "option":          opt,
-                    "avg_position":    round(pos_sum[opt] / pos_count[opt], 2) if pos_count[opt] else None,
-                    "first_place_pct": round(first_place[opt] / n * 100, 1),
-                }
-                for opt in poll_options
-            ]
-            breakdown.sort(key=lambda x: (x["avg_position"] or 999))
-            results.append({"group": group, "n": n, "breakdown": breakdown})
-            continue
 
         else:  # scale — distribución completa por punto + promedio
             scale_min = options_or_scale.get("scale_min", 1)
