@@ -51,7 +51,9 @@ export default function HomeHeroClient() {
                     }`}
                     style={{ color: "#f5f5f5" }}
                 >
-                    En otros lugares eligen quién opina por ti.
+                    En otros lugares eligen quién 
+                    <br />
+                    opina por ti.
                     <br className="sm:hidden" />
                     <br />
                     <span style={{ color: "#00E5FF" }}>Aquí opinas tú.</span>
