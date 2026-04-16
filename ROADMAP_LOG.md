@@ -15,6 +15,31 @@
 
 ---
 
+## 🔧 Bugs & UX — 2026-04-16 (sesión 2)
+
+### BUG-06 · BUG-07 · BUG-08 + OPP-06
+
+**Archivos modificados:**
+- `frontend/src/app/encuestas/page.tsx`
+- `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx`
+- `frontend/src/app/encuestas/[id]/page.tsx`
+
+#### Bugs resueltos
+
+| # | Bug | Causa raíz | Fix |
+|---|-----|------------|-----|
+| BUG-06 | Usuarios VERIFIED podían crear encuestas (solo admin debería poder) | `CreatePollButton isAdmin={isVerified \|\| isAdmin}` — condición demasiado permisiva; modal también condicionado a `isVerified` | `encuestas/page.tsx`: `isAdmin={isAdmin}` en el botón y `{showCreate && isAdmin && (` en el modal |
+| BUG-07 | "Compartir como voté" compartía URL con OG image de la pregunta, no de resultados | `PostVoteCard` usaba `pageUrl` limpio; `generateMetadata` siempre devolvía `/api/og/encuesta/[slug]` | PostVoteCard comparte `pageUrl?resultado=1`; `generateMetadata` acepta `searchParams` y devuelve `/api/og/resultado/[slug]` cuando `resultado=1` |
+
+#### Oportunidades UI implementadas
+
+| # | Oportunidad | Fix |
+|---|-------------|-----|
+| OPP-05 | Share text post-voto tenía CTA débil "¿Y tú qué opinas?" | Cambiado a `"¡Tú también puedes hacerlo, anímate!"` en `PostVoteCard` (línea 187) y `SocialShareBar` (línea 367) |
+| OPP-06 | Cards "Resultados Verificados" y "Resultados Totales" sin contexto — usuarios no entendían qué mostraban | Subtítulos agregados: `"Solo votos con identidad verificada · Sin bots ni paneles"` y `"Incluye todos los votos: verificados y básicos"` |
+
+---
+
 ## 🔧 Bugs & Oportunidades UI — 2026-04-16
 
 ### BUG-01 (fix) · BUG-03 · BUG-04 · BUG-05 + OPP-01 a OPP-05

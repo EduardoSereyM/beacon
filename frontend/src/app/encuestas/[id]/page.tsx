@@ -34,10 +34,13 @@ async function fetchPollForServer(slug: string) {
 // ── Metadata dinámica ──────────────────────────────────────────────────────────
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }): Promise<Metadata> {
   const { id: slug } = await params;
+  const sp = await searchParams;
   const poll = await fetchPollForServer(slug);
   if (!poll) return { title: "Encuesta — Beacon Chile" };
 
@@ -54,7 +57,10 @@ export async function generateMetadata({
   const description =
     `${voteLabel}. ¿Cuál es tu opinión? Vota y ve los resultados en tiempo real.`;
 
-  const ogImage = `${BASE_URL}/api/og/encuesta/${slug}`;
+  // ?resultado=1 → preview muestra imagen de resultados (compartir post-voto)
+  const ogImage = sp.resultado === "1"
+    ? `${BASE_URL}/api/og/resultado/${slug}`
+    : `${BASE_URL}/api/og/encuesta/${slug}`;
   const url     = `${BASE_URL}/encuestas/${slug}`;
 
   return {

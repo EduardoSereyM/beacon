@@ -184,14 +184,16 @@ function PostVoteCard({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const postVoteText = `Acabo de votar en Beacon Chile: "${pollTitle}". ¿Y tú qué opinas? #ChileOpina #BeaconChile`;
+  const postVoteText = `Acabo de votar en Beacon Chile: "${pollTitle}". ¡Tú también puedes hacerlo, anímate! #ChileOpina #BeaconChile`;
+  // URL con ?resultado=1 para que la OG preview muestre la imagen de resultados
+  const shareUrl = `${pageUrl}?resultado=1`;
 
   function handleShare() {
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(postVoteText + " " + pageUrl)}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(postVoteText + " " + shareUrl)}`;
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     const canNativeShare = isMobile && typeof navigator !== "undefined" && typeof navigator.share === "function";
     if (canNativeShare) {
-      navigator.share({ title: pollTitle, text: postVoteText, url: pageUrl }).catch(() => {
+      navigator.share({ title: pollTitle, text: postVoteText, url: shareUrl }).catch(() => {
         window.open(waUrl, "_blank", "noopener");
       });
     } else {
@@ -200,7 +202,7 @@ function PostVoteCard({
   }
 
   function handleCopy() {
-    navigator.clipboard.writeText(`${postVoteText} ${pageUrl}`).then(() => {
+    navigator.clipboard.writeText(`${postVoteText} ${shareUrl}`).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -364,7 +366,7 @@ function SocialShareBar({
 
   const shareText =
     mode === "post-vote"
-      ? `Acabo de votar en Beacon Chile: "${title}". ¿Y tú qué opinas? #ChileOpina #BeaconChile`
+      ? `Acabo de votar en Beacon Chile: "${title}". ¡Tú también puedes hacerlo, anímate! #ChileOpina #BeaconChile`
       : totalVotes > 0
       ? `¿Qué piensas sobre "${title}"? ${totalVotes.toLocaleString("es-CL")} ciudadanos ya votaron en Beacon Chile →`
       : `¿Qué piensas sobre "${title}"? Vota en Beacon Chile →`;
@@ -1853,8 +1855,8 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                       border: "1px solid rgba(212,175,55,0.2)",
                     }}>
                       {/* Header */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>
                           Resultados Verificados
                         </p>
                         <span style={{
@@ -1866,6 +1868,9 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                           VERIFICADOS ✓
                         </span>
                       </div>
+                      <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", margin: "0 0 14px" }}>
+                        Solo votos con identidad verificada · Sin bots ni paneles
+                      </p>
 
                       {poll.verified_votes > 0 ? (
                         <PollResults
@@ -1894,8 +1899,8 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                       border: "1px solid rgba(255,255,255,0.07)",
                     }}>
                       {/* Header */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.12em", margin: 0 }}>
                           Resultados Totales
                         </p>
                         <span style={{
@@ -1909,6 +1914,9 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                           {poll.is_open ? "EN VIVO" : "CERRADA"}
                         </span>
                       </div>
+                      <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", margin: "0 0 14px" }}>
+                        Incluye todos los votos: verificados y básicos
+                      </p>
 
                       <PollResults poll={poll} userVote={voted ? userVote : null} />
 

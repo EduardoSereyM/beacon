@@ -392,7 +392,7 @@ export default function EncuestasPage() {
               </Link>
             )}
             {/* Disabled for non-admin: Show "Coming Soon" modal */}
-            <CreatePollButton isAdmin={isVerified || isAdmin} onCreateClick={() => setShowCreate(true)} />
+            <CreatePollButton isAdmin={isAdmin} onCreateClick={() => setShowCreate(true)} />
           </div>
         </div>
 
@@ -499,7 +499,7 @@ export default function EncuestasPage() {
       </div>
 
       {/* Modal crear encuesta - DISABLED: Only admins can create */}
-      {showCreate && isVerified && (
+      {showCreate && isAdmin && (
         <CreatePollModal
           token={token!}
           onClose={() => setShowCreate(false)}
