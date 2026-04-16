@@ -15,6 +15,23 @@
 
 ---
 
+## 🎨 Fix UI Mobile — 2026-04-16
+
+### BasicUserBanner: rediseño layout mobile
+
+**Componente:** `frontend/src/components/shared/BasicUserBanner.tsx`
+
+**Problema:** En mobile el banner ocupaba ~60% de la pantalla. El `flexWrap` hacía que los botones cayeran debajo del texto en una fila separada, resultando en un bloque vertical enorme.
+
+**Fix:** Layout de 2 columnas exclusivo para mobile (`isMobile`):
+- **Columna izquierda:** texto compacto con 🔒 inline + bullets amber/neon
+- **Columna derecha:** `flex-direction: column` con `justify-content: space-between` → X (cerrar) en esquina superior derecha y "Verificar →" en esquina inferior derecha
+- Desktop sin cambios: mantiene el layout horizontal original
+
+**Resultado:** Banner mobile reducido a ~3 líneas de alto, proporcional y con jerarquía visual clara.
+
+---
+
 ## 🔧 Fix Crítico — 2026-04-16 (commit da8e75f)
 
 ### Registro de usuarios roto en producción — RLS 403 en INSERT public.users

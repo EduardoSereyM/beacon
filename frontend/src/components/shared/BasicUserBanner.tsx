@@ -45,6 +45,93 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
 
     if (!isBasicUser || dismissed) return null;
 
+    // ── MOBILE layout ──────────────────────────────────────────────
+    if (isMobile) {
+        return (
+            <div
+                role="banner"
+                style={{
+                    position: "fixed",
+                    top: "115px",
+                    left: "12px",
+                    right: "12px",
+                    zIndex: 45,
+                    background: `linear-gradient(90deg, rgba(255,140,0,0.08), rgba(212,175,55,0.08), rgba(255,140,0,0.08))`,
+                    border: `1.5px solid ${NEON}60`,
+                    borderRadius: "12px",
+                    backdropFilter: "blur(12px)",
+                    padding: "10px 12px",
+                    boxShadow: `0 8px 32px rgba(255, 140, 0, 0.15), 0 2px 8px rgba(212, 175, 55, 0.2)`,
+                    display: "flex",
+                    gap: "10px",
+                    alignItems: "stretch",
+                }}
+            >
+                {/* Columna izquierda: texto */}
+                <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
+                    <span style={{ color: "#E0E0E0", fontSize: "12px", lineHeight: "1.5" }}>
+                        <span style={{ fontSize: "13px" }}>🔒 </span>
+                        <strong style={{ color: NEON }}>Verifica tu cuenta aquí</strong>
+                        <br />
+                        <strong style={{ color: AMBER }}> - Tu voto valdrá al 100%</strong>
+                        <br />
+                        <strong style={{ color: AMBER }}> - Se incluirá en informes oficiales</strong>
+                    </span>
+                </div>
+
+                {/* Columna derecha: X arriba, Verificar abajo */}
+                <div style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    alignItems: "flex-end",
+                    flexShrink: 0,
+                    gap: "8px",
+                }}>
+                    <button
+                        onClick={handleDismiss}
+                        aria-label="Cerrar aviso"
+                        style={{
+                            background: "rgba(255, 140, 0, 0.1)",
+                            color: "#ff0000",
+                            border: `1px solid ${AMBER}40`,
+                            cursor: "pointer",
+                            fontSize: "16px",
+                            lineHeight: "1",
+                            width: "28px",
+                            height: "28px",
+                            padding: "0",
+                            borderRadius: "6px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                        }}
+                    >
+                        ×
+                    </button>
+                    <button
+                        onClick={onVerifyClick}
+                        style={{
+                            background: "var(--beacon-neon)",
+                            color: "#000",
+                            border: "none",
+                            borderRadius: "4px",
+                            padding: "5px 12px",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        Verificar →
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ── DESKTOP layout (sin cambios) ────────────────────────────────
     return (
         <div
             role="banner"
@@ -54,13 +141,13 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
                 left: "50%",
                 transform: "translateX(-50%)",
                 zIndex: 45,
-                maxWidth: isMobile ? "calc(100% - 24px)" : "850px",
+                maxWidth: "850px",
                 width: "100%",
                 background: `linear-gradient(90deg, rgba(255,140,0,0.08), rgba(212,175,55,0.08), rgba(255,140,0,0.08))`,
                 border: `1.5px solid ${NEON}60`,
                 borderRadius: "12px",
                 backdropFilter: "blur(12px)",
-                padding: isMobile ? "16px 14px" : "16px 25px",
+                padding: "16px 25px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -71,13 +158,13 @@ export default function BasicUserBanner({ onVerifyClick }: BasicUserBannerProps)
         >
             {/* Mensaje principal */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: "auto" }}>
-                <span style={{ fontSize: isMobile ? "20px" : "16px", flexShrink: 0 }}>🔒</span>
-                <span style={{ color: "#E0E0E0", fontSize: isMobile ? "14px" : "13px", lineHeight: isMobile ? "1.6" : "1.4" }}>
+                <span style={{ fontSize: "16px", flexShrink: 0 }}>🔒</span>
+                <span style={{ color: "#E0E0E0", fontSize: "13px", lineHeight: "1.4" }}>
                     <strong style={{ color: AMBER }}>Tu voto solo aparece en el conteo público</strong>
                     <strong style={{ color: "#FFFFFF" }}>{", pero solo los votos de usuarios verificados cuentan en los informes oficiales. "}</strong>
                     <strong style={{ color: NEON }}>Verifica tu identidad con RUT y tu voz contará </strong>
                     {""}
-                    <strong style={{ color: NEON }}>al 100%.</strong> 
+                    <strong style={{ color: NEON }}>al 100%.</strong>
                 </span>
             </div>
 
