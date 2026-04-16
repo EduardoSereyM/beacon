@@ -15,6 +15,8 @@ Reglas de Oro:
 
 from typing import Optional
 
+import httpx
+
 from app.core.database import get_async_supabase_client, get_supabase_anon_async
 from app.core.audit_logger import audit_bus
 from app.core.security.dna_scanner import gatekeeper
@@ -162,12 +164,28 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
             pass  # audit_logs puede no estar listo — no bloquea el registro
 
         # ─── 4. Insertar en tabla public.users ───
-        result = await supabase.table("users").insert(new_user).execute()
+        # Usamos httpx directo con service_role para evitar que el estado de sesión
+        # del cliente supabase-py singleton quede contaminado tras el sign_up del
+        # cliente anon (ambos comparten estado interno de GoTrue en la lib).
+        async with httpx.AsyncClient() as http:
+            insert_resp = await http.post(
+                f"{settings.SUPABASE_URL}/rest/v1/users",
+                headers={
+                    "apikey": settings.SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=representation",
+                },
+                json=new_user,
+            )
+        if insert_resp.status_code not in (200, 201):
+            raise Exception(f"Error al insertar usuario en DB: {insert_resp.text}")
 
-        if not result.data:
+        insert_data = insert_resp.json()
+        if not insert_data:
             raise Exception("Supabase devolvió data vacía al insertar usuario")
 
-        user = result.data[0]
+        user = insert_data[0]
         user_id = user["id"]
 
         # ─── 5. Audit Log inmutable ───
@@ -230,9 +248,18 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         }
 
     except Exception as err:
-        # Rollback: eliminar el auth user huérfano para permitir reintento limpio
+        # Rollback: eliminar el auth user huérfano para permitir reintento limpio.
+        # Usamos httpx directo (Admin API) para no depender del estado de sesión
+        # del singleton supabase-py, que puede estar contaminado.
         try:
-            await supabase.auth.admin.delete_user(auth_user_id)
+            async with httpx.AsyncClient() as http:
+                await http.delete(
+                    f"{settings.SUPABASE_URL}/auth/v1/admin/users/{auth_user_id}",
+                    headers={
+                        "apikey": settings.SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    },
+                )
         except Exception:
             pass
         raise Exception(
