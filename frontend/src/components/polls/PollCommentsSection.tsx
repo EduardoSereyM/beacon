@@ -7,7 +7,8 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { MessageCircle, ThumbsUp, ThumbsDown, HelpCircle, CheckCircle2, Send } from "lucide-react";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuthStore } from "@/store";
 
@@ -23,11 +24,17 @@ interface Comment {
   created_at: string;
 }
 
-const REACTIONS = [
-  { emoji: "👍", label: "De acuerdo" },
-  { emoji: "👎", label: "En desacuerdo" },
-  { emoji: "🤔", label: "Con dudas" },
+const REACTIONS: { emoji: "👍" | "👎" | "🤔"; label: string; Icon: React.ElementType; color: string; activeBg: string; activeBorder: string }[] = [
+  { emoji: "👍", label: "De acuerdo",    Icon: ThumbsUp,   color: "#4DFF83", activeBg: "rgba(77,255,131,0.12)",  activeBorder: "rgba(77,255,131,0.45)"  },
+  { emoji: "👎", label: "En desacuerdo", Icon: ThumbsDown,  color: "#FF6B6B", activeBg: "rgba(255,107,107,0.12)", activeBorder: "rgba(255,107,107,0.45)" },
+  { emoji: "🤔", label: "Con dudas",     Icon: HelpCircle,  color: "#FFD166", activeBg: "rgba(255,209,102,0.12)", activeBorder: "rgba(255,209,102,0.45)" },
 ];
+
+const REACTION_ICON: Record<string, { Icon: React.ElementType; color: string }> = {
+  "👍": { Icon: ThumbsUp,  color: "#4DFF83" },
+  "👎": { Icon: ThumbsDown, color: "#FF6B6B" },
+  "🤔": { Icon: HelpCircle, color: "#FFD166" },
+};
 
 const RANK_COLORS: Record<string, string> = {
   VERIFIED: "#4DFF83",
@@ -143,8 +150,8 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13 }}>💬</span>
-          <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", color: "rgba(138,43,226,0.7)", textTransform: "uppercase" }}>
+          <MessageCircle size={14} color="#B06EE8" fill="rgba(176,110,232,0.15)" />
+          <span style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em", color: "#B06EE8", textTransform: "uppercase" }}>
             Reacciones ciudadanas
           </span>
         </div>
@@ -160,24 +167,27 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
         <div style={{ marginBottom: 20 }}>
           {/* Reacciones rápidas */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            {REACTIONS.map((r) => (
-              <button
-                key={r.emoji}
-                onClick={() => setReaction(reaction === r.emoji ? null : r.emoji as typeof reaction)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  padding: "5px 12px", borderRadius: 20, cursor: "pointer",
-                  fontSize: 12, fontFamily: "monospace",
-                  background: reaction === r.emoji ? "rgba(138,43,226,0.2)" : "rgba(255,255,255,0.04)",
-                  border: `1px solid ${reaction === r.emoji ? "rgba(138,43,226,0.5)" : "rgba(255,255,255,0.08)"}`,
-                  color: reaction === r.emoji ? "#fff" : "rgba(255,255,255,0.4)",
-                  transition: "all 0.15s",
-                }}
-              >
-                <span>{r.emoji}</span>
-                <span style={{ fontSize: 9 }}>{r.label}</span>
-              </button>
-            ))}
+            {REACTIONS.map((r) => {
+              const active = reaction === r.emoji;
+              return (
+                <button
+                  key={r.emoji}
+                  onClick={() => setReaction(active ? null : r.emoji)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "6px 14px", borderRadius: 20, cursor: "pointer",
+                    fontFamily: "monospace",
+                    background: active ? r.activeBg : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${active ? r.activeBorder : "rgba(255,255,255,0.07)"}`,
+                    opacity: active ? 1 : 0.55,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <r.Icon size={13} color={r.color} strokeWidth={active ? 2.2 : 1.8} />
+                  <span style={{ fontSize: 9, color: r.color, letterSpacing: "0.05em" }}>{r.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Textarea */}
@@ -221,7 +231,9 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
                   opacity: submitting || text.trim().length < 10 ? 0.5 : 1,
                 }}
               >
-                {submitting ? "Enviando…" : "Publicar →"}
+                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  {submitting ? "Enviando…" : (<>Publicar <Send size={10} /></>)}
+                </span>
               </button>
             </div>
           </div>
@@ -247,8 +259,8 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
         </div>
       ) : showSubmitted ? (
         <div style={{ marginBottom: 18, padding: "10px 14px", borderRadius: 10, background: "rgba(57,255,20,0.05)", border: "1px solid rgba(57,255,20,0.15)" }}>
-          <p style={{ fontSize: 11, fontFamily: "monospace", color: "#39FF14" }}>
-            ✓ Ya publicaste tu reacción en esta encuesta
+          <p style={{ fontSize: 11, fontFamily: "monospace", color: "#39FF14", display: "flex", alignItems: "center", gap: 6, margin: 0 }}>
+            <CheckCircle2 size={12} /> Ya publicaste tu reacción en esta encuesta
           </p>
         </div>
       ) : null}
@@ -278,7 +290,10 @@ export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSect
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                {c.reaction && <span style={{ fontSize: 14 }}>{c.reaction}</span>}
+                {c.reaction && (() => {
+                  const r = REACTION_ICON[c.reaction!];
+                  return r ? <r.Icon size={14} color={r.color} /> : null;
+                })()}
                 <span
                   style={{
                     fontSize: 8, fontFamily: "monospace", padding: "1px 7px",

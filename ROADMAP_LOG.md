@@ -15,6 +15,32 @@
 
 ---
 
+## 🎨 Mejora UI — Iconos Lucide en PollCommentsSection — 2026-04-16
+
+### Reemplazar emojis por iconos Lucide con color
+
+**Archivos modificados:**
+- `frontend/src/components/polls/PollCommentsSection.tsx`
+- `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx`
+
+**Cambios:**
+| Elemento | Antes | Ahora |
+|---|---|---|
+| Header "Reacciones ciudadanas" | `💬` emoji | `MessageCircle` púrpura `#B06EE8` |
+| Botón De acuerdo | `👍` emoji | `ThumbsUp` verde `#4DFF83` |
+| Botón En desacuerdo | `👎` emoji | `ThumbsDown` rojo `#FF6B6B` |
+| Botón Con dudas | `🤔` emoji | `HelpCircle` ámbar `#FFD166` |
+| Reacción en comentarios | emoji renderizado | ícono Lucide con color según tipo |
+| Estado "ya comentaste" | `✓` texto | `CheckCircle2` verde |
+| Botón Publicar | `→` texto | `Send` ícono |
+| Candado resultados bloqueados | `🔒` emoji (roto) | `Lock` dorado `#D4AF37` |
+
+**Motivo:** Los emojis `🔒` y `💬` fallaban en renderizado (aparecían como `—` rojo). Los botones de reacción carecían de diferenciación visual. Los iconos Lucide son consistentes, configurables y no dependen del sistema operativo.
+
+**Comportamiento de color en botones de reacción:** inactivo = `opacity: 0.55` + color propio; activo = opacidad completa + fondo y borde coloreados.
+
+---
+
 ## 🎨 Fix UI Mobile — 2026-04-16
 
 ### BasicUserBanner: rediseño layout mobile

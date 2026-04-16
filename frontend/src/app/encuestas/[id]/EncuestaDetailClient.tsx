@@ -32,6 +32,7 @@ import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 import usePermissions from "@/hooks/usePermissions";
 import PollCommentsSection from "@/components/polls/PollCommentsSection";
+import { Lock } from "lucide-react";
 
 // ─── Logos de redes sociales ──────────────────────────────────────────────────
 import logoWhatsapp from "@/asset/logos/whatsapp.png";
@@ -1905,11 +1906,11 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                       background: "rgba(10,10,10,0.6)", backdropFilter: "blur(2px)",
                       borderRadius: 14, padding: "16px 20px", textAlign: "center",
                     }}>
-                      <p style={{ fontSize: 18, marginBottom: 8 }}>🔒</p>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: "#f5f5f5", marginBottom: 4 }}>
+                      <Lock size={22} color="#D4AF37" strokeWidth={1.5} style={{ marginBottom: 10, display: "block" }} />
+                      <p style={{ fontSize: 12, fontWeight: 700, color: "#f5f5f5", margin: "0 0 4px 0" }}>
                         Verifica tu identidad para ver resultados
                       </p>
-                      <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)" }}>
+                      <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", margin: 0 }}>
                         Los ciudadanos VERIFIED acceden a resultados en tiempo real.
                       </p>
                     </div>
