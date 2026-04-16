@@ -15,6 +15,26 @@
 
 ---
 
+## 🔧 Fix Crítico — 2026-04-16 (commit da8e75f)
+
+### Registro de usuarios roto en producción — RLS 403 en INSERT public.users
+
+**Síntoma:** Al intentar crear una cuenta, el frontend mostraba:
+> `new row violates row-level security policy for table "users"`
+
+**Causa raíz:** El singleton `_async_client` (service_role) de `supabase-py` comparte estado interno de GoTrue con el cliente anon. Al llamar `anon_client.auth.sign_up()`, el JWT del usuario recién creado (no confirmado, rol anónimo) contamina la sesión del singleton service_role. Las operaciones posteriores que requieren privilegios de admin fallaban con 403:
+- `POST /rest/v1/users` → 403
+- `DELETE /auth/v1/admin/users/{id}` (rollback) → 403
+
+**Fix:** `backend/app/services/auth_service.py`
+- INSERT en `public.users` → reemplazado por `httpx` directo con headers `service_role` explícitos
+- Rollback DELETE auth user → reemplazado por `httpx` directo al endpoint `DELETE /auth/v1/admin/users/{id}`
+- Mismo patrón ya usado en `/reset-password` — ahora consistente en todo el flujo de registro
+
+**Impacto:** Registro de usuarios completamente caído en producción. Fix restaura el flujo normal.
+
+---
+
 ## 🔧 Fixes Post-Deploy — 2026-04-15 (commit ec35525)
 
 ### Problemas detectados en producción tras verificación con shares reales
