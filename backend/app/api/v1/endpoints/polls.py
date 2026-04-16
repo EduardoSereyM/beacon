@@ -864,7 +864,12 @@ async def vote_poll(
                 raise HTTPException(status_code=400, detail=f"Falta respuesta para: '{q.get('text', qid)}'")
 
             if q_type == "multiple_choice":
-                if answer not in q_opts:
+                # Soporta multi-select: answer puede ser "opt1||opt2||opt3"
+                selections = [s.strip() for s in answer.split("||") if s.strip()]
+                if not selections:
+                    raise HTTPException(status_code=400, detail=f"Debes seleccionar al menos una opción en '{q.get('text', '')}'")
+                invalid = [s for s in selections if s not in q_opts]
+                if invalid:
                     raise HTTPException(status_code=400, detail=f"Opción inválida en '{q.get('text', '')}'")
             elif q_type == "ranking":
                 submitted = [s.strip() for s in answer.split("||") if s.strip()]
@@ -887,8 +892,13 @@ async def vote_poll(
         q_scale_max = first_q.get("scale_max") or first_q.get("scale_points", 5)
 
         if q_type == "multiple_choice":
-            if payload.option_value not in q_options:
-                raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones: {q_options}")
+            # Soporta multi-select: option_value puede ser "opt1||opt2||opt3"
+            selections = [s.strip() for s in payload.option_value.split("||") if s.strip()]
+            if not selections:
+                raise HTTPException(status_code=400, detail="Debes seleccionar al menos una opción")
+            invalid = [s for s in selections if s not in q_options]
+            if invalid:
+                raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones válidas: {q_options}")
         elif q_type == "ranking":
             submitted = [s.strip() for s in payload.option_value.split("||") if s.strip()]
             if sorted(submitted) != sorted(q_options):
