@@ -102,6 +102,14 @@ interface CrossTabData {
   results: CrossTabGroup[];
 }
 
+interface QuestionResults {
+  question_id: string;
+  question_text: string;
+  question_type: "multiple_choice" | "scale" | "ranking";
+  total_votes: number;
+  results: PollResult[];
+}
+
 interface Poll {
   id: string;
   slug: string;
@@ -127,6 +135,8 @@ interface Poll {
   basic_votes: number;
   results: PollResult[];
   results_verified: PollResult[];
+  results_by_question?: QuestionResults[];
+  results_verified_by_question?: QuestionResults[];
   questions: QuestionDef[] | null;
   category: string;
   requires_auth: boolean;
@@ -668,6 +678,104 @@ function InlineQR({ url }: { url: string }) {
       }}
     >
       <QRCode value={url} size={72} level="M" />
+    </div>
+  );
+}
+
+// ─── Resultados multi-pregunta (grid compacto) ────────────────────────────────
+
+function MiniBar({ pct, isUser }: { pct: number; isUser: boolean }) {
+  return (
+    <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
+      <div style={{
+        width: `${Math.max(pct, 2)}%`, height: "100%", borderRadius: 3,
+        background: isUser ? "#D4AF37" : "rgba(0,229,255,0.55)",
+        transition: "width 0.6s ease",
+      }} />
+    </div>
+  );
+}
+
+function MultiQuestionResults({
+  byQuestion,
+  userVoteJson,
+  accent = "#00E5FF",
+}: {
+  byQuestion: QuestionResults[];
+  userVoteJson?: string | null;
+  accent?: string;
+}) {
+  // Parsear voto del usuario (JSON multi-pregunta o string plano q1)
+  let userAnswers: Record<string, string> = {};
+  if (userVoteJson) {
+    try { userAnswers = JSON.parse(userVoteJson); } catch { /* plano: ignorar */ }
+  }
+
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: byQuestion.length >= 3 ? "repeat(2, 1fr)" : "1fr",
+      gap: 10,
+    }}>
+      {byQuestion.map((q) => {
+        const userAns = userAnswers[q.question_id] ?? null;
+
+        if (q.question_type === "scale") {
+          const r = q.results[0];
+          return (
+            <div key={q.question_id} style={{
+              borderRadius: 12, padding: "12px 14px",
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.07)",
+            }}>
+              <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.45)", margin: "0 0 8px", lineHeight: 1.4 }}>
+                {q.question_text}
+              </p>
+              <p style={{ fontSize: 28, fontFamily: "monospace", fontWeight: 900, color: accent, margin: 0, lineHeight: 1 }}>
+                {r?.average ?? "–"}
+              </p>
+              <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", margin: "4px 0 0" }}>
+                promedio · {q.total_votes} votos
+              </p>
+            </div>
+          );
+        }
+
+        const sortedResults = [...q.results].sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0));
+        return (
+          <div key={q.question_id} style={{
+            borderRadius: 12, padding: "12px 14px",
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(255,255,255,0.07)",
+          }}>
+            <p style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.45)", margin: "0 0 10px", lineHeight: 1.4 }}>
+              {q.question_text}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {sortedResults.map((r) => {
+                const pct = r.pct ?? 0;
+                const isUser = userAns === r.option;
+                return (
+                  <div key={r.option}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                      <span style={{ fontSize: 11, color: isUser ? "#D4AF37" : "rgba(255,255,255,0.7)", fontWeight: isUser ? 700 : 400, lineHeight: 1.3 }}>
+                        {isUser && "✓ "}{r.option}
+                      </span>
+                      <span style={{ fontSize: 11, fontFamily: "monospace", color: isUser ? "#D4AF37" : "rgba(255,255,255,0.5)", flexShrink: 0, marginLeft: 8 }}>
+                        {pct}%
+                      </span>
+                    </div>
+                    <MiniBar pct={pct} isUser={isUser} />
+                  </div>
+                );
+              })}
+            </div>
+            <p style={{ fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", textAlign: "right", margin: "8px 0 0" }}>
+              {q.total_votes} {q.total_votes === 1 ? "voto" : "votos"}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1490,8 +1598,8 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
   async function handleMultiVote(answers: Record<string, string>) {
     if (!poll?.questions?.length) return;
-    const firstQ = [...poll.questions].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))[0];
-    await doVote(answers[firstQ.id]);
+    // Multi-pregunta: enviar todas las respuestas como JSON {"qid": "respuesta", ...}
+    await doVote(JSON.stringify(answers));
   }
 
   // ── Render states ──────────────────────────────────────────────────────────
@@ -1873,12 +1981,20 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                       </p>
 
                       {poll.verified_votes > 0 ? (
-                        <PollResults
-                          poll={poll}
-                          userVote={(voted && isVerified) ? userVote : null}
-                          results={poll.results_verified}
-                          totalVotes={poll.verified_votes}
-                        />
+                        (poll.results_verified_by_question?.length ?? 0) > 1 ? (
+                          <MultiQuestionResults
+                            byQuestion={poll.results_verified_by_question!}
+                            userVoteJson={(voted && isVerified) ? userVote : null}
+                            accent="#D4AF37"
+                          />
+                        ) : (
+                          <PollResults
+                            poll={poll}
+                            userVote={(voted && isVerified) ? userVote : null}
+                            results={poll.results_verified}
+                            totalVotes={poll.verified_votes}
+                          />
+                        )
                       ) : (
                         <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.25)", textAlign: "center", padding: "12px 0" }}>
                           Sin votos verificados aún
@@ -1918,7 +2034,15 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                         Incluye todos los votos: verificados y básicos
                       </p>
 
-                      <PollResults poll={poll} userVote={voted ? userVote : null} />
+                      {(poll.results_by_question?.length ?? 0) > 1 ? (
+                        <MultiQuestionResults
+                          byQuestion={poll.results_by_question!}
+                          userVoteJson={voted ? userVote : null}
+                          accent="#00E5FF"
+                        />
+                      ) : (
+                        <PollResults poll={poll} userVote={voted ? userVote : null} />
+                      )}
 
                       {/* Footer con breakdown */}
                       <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.55)", textAlign: "right", marginTop: 10 }}>

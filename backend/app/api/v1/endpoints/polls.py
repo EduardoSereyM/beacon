@@ -11,6 +11,7 @@ POST /polls/{id}/vote    → emitir voto (JWT requerido o anónimo si requires_a
 """
 
 import asyncio
+import json as _json
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Header
 from fastapi.responses import JSONResponse
@@ -226,16 +227,84 @@ def _aggregate(poll: dict, votes: list) -> list:
     return [{"average": avg, "count": len(values)}]
 
 
+def _aggregate_by_question(poll: dict, votes: list) -> list:
+    """
+    Agrega resultados separados por pregunta.
+    - Polls multi-pregunta: option_value es JSON string {"qid": "respuesta", ...}
+    - Polls de 1 pregunta (compat): option_value es string plano
+    Retorna lista de {question_id, question_text, question_type, total_votes, results}.
+    """
+    questions = sorted(poll.get("questions") or [], key=lambda x: x.get("order_index", 0))
+    if not questions:
+        return []
+
+    is_multi = len(questions) > 1
+    out = []
+
+    for q in questions:
+        qid     = q.get("id", "")
+        q_type  = q.get("type", "multiple_choice")
+        q_opts  = q.get("options") or []
+
+        # Extraer la respuesta de cada voto para esta pregunta
+        q_answers: list[str] = []
+        for v in votes:
+            raw = v.get("option_value", "")
+            if is_multi and raw.startswith("{"):
+                try:
+                    parsed = _json.loads(raw)
+                    if qid in parsed:
+                        q_answers.append(parsed[qid])
+                except Exception:
+                    pass
+            elif not is_multi:
+                q_answers.append(raw)
+
+        q_total = len(q_answers)
+
+        if q_type == "multiple_choice":
+            counts = {opt: 0 for opt in q_opts}
+            for a in q_answers:
+                for sel in (s.strip() for s in a.split("||") if s.strip()):
+                    if sel in counts:
+                        counts[sel] += 1
+            q_results = [
+                {"option": opt, "count": cnt, "pct": round(cnt / q_total * 100, 1) if q_total else 0}
+                for opt, cnt in counts.items()
+            ]
+        elif q_type == "scale":
+            values: list[float] = []
+            for a in q_answers:
+                try:
+                    values.append(float(a))
+                except (ValueError, TypeError):
+                    pass
+            avg = round(sum(values) / len(values), 2) if values else 0
+            q_results = [{"average": avg, "count": len(values)}]
+        else:
+            q_results = []
+
+        out.append({
+            "question_id":   qid,
+            "question_text": q.get("text", ""),
+            "question_type": q_type,
+            "total_votes":   q_total,
+            "results":       q_results,
+        })
+
+    return out
+
+
 def _compute_results(poll: dict, votes: list) -> dict:
     """
     Agrega resultados totales Y verificados.
 
     Retorna:
-      results          → todos los votos (comportamiento histórico)
-      results_verified → solo votos de ciudadanos VERIFIED
-      total_votes      → total de votos
-      verified_votes   → votos de ciudadanos VERIFIED
-      basic_votes      → votos de ciudadanos BASIC/ANONYMOUS
+      results                       → todos los votos, pregunta 1 (compat)
+      results_verified              → solo VERIFIED, pregunta 1 (compat)
+      results_by_question           → todos los votos, por pregunta
+      results_verified_by_question  → solo VERIFIED, por pregunta
+      total_votes / verified_votes / basic_votes
     """
     verified = [v for v in votes if v.get("voter_rank") == "VERIFIED"]
     basic    = [v for v in votes if v.get("voter_rank") != "VERIFIED"]
@@ -245,9 +314,11 @@ def _compute_results(poll: dict, votes: list) -> dict:
         "total_votes":      len(votes),
         "verified_votes":   len(verified),
         "basic_votes":      len(basic),
-        "results":          _aggregate(poll, votes),
-        "results_verified": _aggregate(poll, verified),
-        "is_open":          _is_open(poll),
+        "results":                      _aggregate(poll, votes),
+        "results_verified":             _aggregate(poll, verified),
+        "results_by_question":          _aggregate_by_question(poll, votes),
+        "results_verified_by_question": _aggregate_by_question(poll, verified),
+        "is_open":                      _is_open(poll),
     }
 
 
@@ -766,39 +837,75 @@ async def vote_poll(
         if not anon_id:
             raise HTTPException(status_code=400, detail="Se requiere anon_session_id para votar en esta encuesta")
 
-    # Extraer tipo y opciones de la PRIMERA pregunta
     questions = poll.get("questions") or []
     if not questions:
         raise HTTPException(status_code=400, detail="Encuesta sin preguntas configuradas")
 
-    first_q = questions[0]
-    q_type = first_q.get("type", "scale")
-    q_options = first_q.get("options") or []
-    q_scale_min = first_q.get("scale_min", 1)
-    q_scale_max = first_q.get("scale_max") or first_q.get("scale_points", 5)
+    questions_sorted = sorted(questions, key=lambda x: x.get("order_index", 0))
 
-    # Validar opción
-    if q_type == "multiple_choice":
-        if payload.option_value not in q_options:
-            raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones: {q_options}")
-    elif q_type == "ranking":
-        # Ranking completo obligatorio: todas las opciones exactamente una vez
-        submitted = [s.strip() for s in payload.option_value.split("||") if s.strip()]
-        if sorted(submitted) != sorted(q_options):
-            raise HTTPException(
-                status_code=400,
-                detail="Ranking incompleto: debes ordenar todas las opciones exactamente una vez"
-            )
-    else:  # scale
+    if len(questions_sorted) > 1:
+        # ── Encuesta multi-pregunta: option_value debe ser JSON {"qid": "respuesta", ...}
         try:
-            val = float(payload.option_value)
-            if not (q_scale_min <= val <= q_scale_max):
+            all_answers = _json.loads(payload.option_value)
+            if not isinstance(all_answers, dict):
                 raise ValueError
-        except (ValueError, TypeError):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Valor fuera de rango [{q_scale_min}-{q_scale_max}]"
-            )
+        except Exception:
+            raise HTTPException(status_code=400, detail="Para encuestas multi-pregunta, option_value debe ser JSON")
+
+        for q in questions_sorted:
+            qid     = q.get("id", "")
+            q_type  = q.get("type", "multiple_choice")
+            q_opts  = q.get("options") or []
+            q_min   = q.get("scale_min", 1)
+            q_max   = q.get("scale_max") or q.get("scale_points", 5)
+            answer  = all_answers.get(qid)
+
+            if answer is None:
+                raise HTTPException(status_code=400, detail=f"Falta respuesta para: '{q.get('text', qid)}'")
+
+            if q_type == "multiple_choice":
+                if answer not in q_opts:
+                    raise HTTPException(status_code=400, detail=f"Opción inválida en '{q.get('text', '')}'")
+            elif q_type == "ranking":
+                submitted = [s.strip() for s in answer.split("||") if s.strip()]
+                if sorted(submitted) != sorted(q_opts):
+                    raise HTTPException(status_code=400, detail=f"Ranking incompleto en '{q.get('text', '')}'")
+            else:  # scale
+                try:
+                    val = float(answer)
+                    if not (q_min <= val <= q_max):
+                        raise ValueError
+                except (ValueError, TypeError):
+                    raise HTTPException(status_code=400, detail=f"Valor fuera de rango en '{q.get('text', '')}'")
+
+    else:
+        # ── Encuesta de 1 pregunta: validación original
+        first_q    = questions_sorted[0]
+        q_type     = first_q.get("type", "scale")
+        q_options  = first_q.get("options") or []
+        q_scale_min = first_q.get("scale_min", 1)
+        q_scale_max = first_q.get("scale_max") or first_q.get("scale_points", 5)
+
+        if q_type == "multiple_choice":
+            if payload.option_value not in q_options:
+                raise HTTPException(status_code=400, detail=f"Opción inválida. Opciones: {q_options}")
+        elif q_type == "ranking":
+            submitted = [s.strip() for s in payload.option_value.split("||") if s.strip()]
+            if sorted(submitted) != sorted(q_options):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ranking incompleto: debes ordenar todas las opciones exactamente una vez"
+                )
+        else:  # scale
+            try:
+                val = float(payload.option_value)
+                if not (q_scale_min <= val <= q_scale_max):
+                    raise ValueError
+            except (ValueError, TypeError):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Valor fuera de rango [{q_scale_min}-{q_scale_max}]"
+                )
 
     # Anti-brigada: 1 voto por usuario/sesión por encuesta
     if user_id:
