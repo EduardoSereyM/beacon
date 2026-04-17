@@ -15,6 +15,26 @@
 
 ---
 
+## 🎨 Mejora UI — Disclaimer BadgeCheck en Resultados Verificados — 2026-04-17
+
+### Icono BadgeCheck en disclaimer de tab Verificados
+
+**Archivos modificados:**
+- `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx` (líneas 735-750)
+
+**Cambios:**
+| Elemento | Antes | Ahora |
+|---|---|---|
+| Disclaimer verificados | Solo texto en div | BadgeCheck icon (verde #39FF14) + texto en flex layout |
+| Estructura | Párrafo simple | Flex container con gap 12px; icono en div separado, centrado |
+| Iconografía | Ninguna | `BadgeCheck` de lucide-react, tamaño 20px, color verde verificado |
+
+**Motivo:** Diferenciación visual clara del tab "Verificados" con icono que refuerza concepto de "identidad verificada". El icono separado permite mejor alineación vertical y proporciona mayor énfasis visual al disclaimer.
+
+**Verificación:** ✅ Icono visible en sidebar izquierdo del disclaimer, centrado vertical y horizontalmente, color verde #39FF14 consistente con tema verificado.
+
+---
+
 ## 🔧 Bugs & UX — 2026-04-16 (sesión 2)
 
 ### BUG-06 · BUG-07 · BUG-08 + OPP-06

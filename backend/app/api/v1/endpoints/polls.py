@@ -155,6 +155,8 @@ def _aggregate(poll: dict, votes: list) -> list:
     Soporta multiple_choice y scale.
     Nota: polls creadas vía admin/pipeline no tienen poll_type ni options en el
     top-level; solo dentro de questions[0]. Se hace fallback a questions[0].
+
+    Para scale: retorna distribución completa [{"option": "1", "count": ..., "pct": ...}, ...] + "average"
     """
     total = len(votes)
     first_q = (poll.get("questions") or [{}])[0]
@@ -174,15 +176,39 @@ def _aggregate(poll: dict, votes: list) -> list:
             for opt, cnt in counts.items()
         ]
 
-    # scale
+    # scale: distribución completa + promedio
+    scale_min = poll.get("scale_min") or first_q.get("scale_min", 1)
+    scale_max = poll.get("scale_max") or first_q.get("scale_max") or first_q.get("scale_points", 5)
+    if isinstance(scale_max, str):
+        scale_max = int(scale_max)
+
+    point_counts: dict = {}
     values = []
     for v in votes:
         try:
-            values.append(float(v["option_value"]))
+            pt = float(v["option_value"])
+            values.append(pt)
+            key = str(int(pt))
+            point_counts[key] = point_counts.get(key, 0) + 1
         except (ValueError, TypeError):
             pass
+
     avg = round(sum(values) / len(values), 2) if values else 0
-    return [{"average": avg, "count": len(values)}]
+
+    # Retornar distribución completa de cada punto + promedio
+    result = [
+        {
+            "option": str(pt),
+            "count": point_counts.get(str(pt), 0),
+            "pct": round(point_counts.get(str(pt), 0) / total * 100, 1) if total else 0,
+        }
+        for pt in range(int(scale_min), int(scale_max) + 1)
+    ]
+    # Agregar promedio al primer elemento (compatibilidad con UI)
+    if result:
+        result[0]["average"] = avg
+
+    return result
 
 
 def _aggregate_by_question(poll: dict, votes: list) -> list:
@@ -231,16 +257,40 @@ def _aggregate_by_question(poll: dict, votes: list) -> list:
                 for opt, cnt in counts.items()
             ]
         elif q_type == "scale":
+            scale_min = int(q.get("scale_min", 1))
+            scale_max = int(q.get("scale_max") or q.get("scale_points", 5))
+            point_counts: dict = {}
             values: list[float] = []
             for a in q_answers:
                 try:
-                    values.append(float(a))
+                    pt = float(a)
+                    values.append(pt)
+                    key = str(int(pt))
+                    point_counts[key] = point_counts.get(key, 0) + 1
                 except (ValueError, TypeError):
                     pass
             avg = round(sum(values) / len(values), 2) if values else 0
-            q_results = [{"average": avg, "count": len(values)}]
+            q_results = [
+                {
+                    "option": str(pt),
+                    "count": point_counts.get(str(pt), 0),
+                    "pct": round(point_counts.get(str(pt), 0) / q_total * 100, 1) if q_total else 0,
+                }
+                for pt in range(scale_min, scale_max + 1)
+            ]
+            # Agregar promedio al primer elemento
+            if q_results:
+                q_results[0]["average"] = avg
         else:
             q_results = []
+
+        # Incluir scale_labels para preguntas de escala (usado en frontend para etiquetas)
+        extra = {}
+        if q_type == "scale":
+            extra["scale_min"] = int(q.get("scale_min", 1))
+            extra["scale_max"] = int(q.get("scale_max") or q.get("scale_points", 5))
+            if q.get("scale_labels"):
+                extra["scale_labels"] = q.get("scale_labels")
 
         out.append({
             "question_id":   qid,
@@ -248,6 +298,7 @@ def _aggregate_by_question(poll: dict, votes: list) -> list:
             "question_type": q_type,
             "total_votes":   q_total,
             "results":       q_results,
+            **extra,
         })
 
     return out
