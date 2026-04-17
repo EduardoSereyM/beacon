@@ -20,8 +20,9 @@ import logging
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from datetime import datetime, timezone
+import io
 
 from app.services.image_service import generate_and_cache_poll_image
 
@@ -71,8 +72,8 @@ async def generate_poll_image(
         image_bytes = result.get("image_bytes")
         download_name = result.get("download_name", f"beacon-{poll_slug}-{datetime.now(timezone.utc).isoformat()}.png")
 
-        return FileResponse(
-            iter([image_bytes]),
+        return StreamingResponse(
+            io.BytesIO(image_bytes),
             media_type="image/png",
             headers={"Content-Disposition": f"attachment; filename={download_name}"},
         )

@@ -318,15 +318,22 @@ def _calculate_question_results(poll: dict, question_id: str, votes: list) -> di
             "results": results,
         }
     else:
-        # Multiple choice
-        results = [
-            {
+        # Multiple choice: mostrar TODAS las opciones disponibles
+        all_options = question.get("options", [])
+
+        results = []
+        for opt in all_options:
+            count = option_counts.get(opt, 0)
+            pct = round((count / total * 100), 1) if total > 0 else 0
+
+            results.append({
                 "option": opt,
                 "count": count,
-                "pct": round((count / total * 100), 1) if total > 0 else 0,
-            }
-            for opt, count in sorted(option_counts.items(), key=lambda x: x[1], reverse=True)
-        ]
+                "pct": pct,
+            })
+
+        # Ordenar por votos descendente (0% al final)
+        results.sort(key=lambda x: x["count"], reverse=True)
 
         return {
             "question_id": question_id,
