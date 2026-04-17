@@ -17,64 +17,62 @@
 
 ## 🖼️ Feature: Reingeniería de Descarga de Imágenes para Compartir Resultados — 2026-04-17
 
-### Modal interactivo + generación con Pillow + almacenamiento en Supabase Storage
+### Modal interactivo + generación con Pillow + descarga blob (sin Storage)
 
-**Estado:** ✅ FUNCIONAL (datos correctos, diseño gráfico refinable)
+**Estado:** ✅ COMPLETADO — Datos + Funcionalidad operativa. Diseño gráfico refinable en próxima iteración.
 
 **Archivos creados:**
-- `backend/app/services/image_service.py` (~580 líneas) — Servicio de generación con Pillow
-- `backend/app/api/v1/endpoints/images.py` (~80 líneas) — Router FastAPI
-- `frontend/src/components/polls/ImageDownloadModal.tsx` (~425 líneas) — Modal interactivo
+- `backend/app/services/image_service.py` (~340 líneas) — Servicio Pillow + QR
+- `backend/app/api/v1/endpoints/images.py` (~50 líneas) — Endpoint StreamingResponse
+- `frontend/src/components/polls/ImageDownloadModal.tsx` (~425 líneas) — Modal + blob download
 
 **Archivos modificados:**
-- `backend/requirements.txt` — Pillow, aiofiles, qrcode
-- `backend/app/main.py` — Registrar router `/api/v1/images`
-- `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx` — Botón + modal
+- `backend/requirements.txt` — Pillow, qrcode
+- `backend/app/main.py` — Registrar router
+- `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx` — Botón trigger
 
-**Flujo implementado:**
-1. User abre modal de descarga
-2. Selecciona pregunta (si multi-pregunta) + formato (1080x1080 | 1200x630)
-3. Preview se genera en vivo
-4. Descarga: backend genera PNG con Pillow + sube a Supabase Storage + cachea URL en Redis
-5. Post-descarga: "¿Generar otra imagen?" para loop
+**Decisiones arquitectónicas:**
+- **Generación:** Pillow (simple, confiable, sin dependencias externas)
+- **Descarga:** Blob PNG + `Content-Disposition: attachment` (descarga automática en navegador)
+- **Storage:** No guardar en Supabase (cada descarga es nueva generación; caché en Redis por metadata)
+- **QR:** Generado en backend como data URL base64, embebido en PNG
 
 **Características por tipo de pregunta:**
 
-| Tipo | Formato | Opciones mostradas |
-|------|---------|-------------------|
-| `multiple_choice` | Barras horizontales (dorado) | Solo opciones con votos, ordenadas por % descendente |
-| `scale` | Histograma vertical (cyan) | **Todas** las opciones (1-N), incluso 0%, con etiquetas reales |
+| Tipo | Renderizado | Opciones |
+|------|-------------|----------|
+| `multiple_choice` | Barras horizontales (cyan #00E5FF) | **Todas** disponibles en question.options, ordenadas por votos DESC |
+| `scale` | Barras horizontales (cyan #00E5FF) | **Todas** (1 a scale_points), etiquetas reales, incluso 0% |
 
-**Infraestructura:**
-- **Backend:** FastAPI async, Pillow (PIL), qrcode, Supabase Storage (bucket `encuestas`), Redis cache (86400s)
-- **Frontend:** Next.js client component, TypeScript, Zustand (auth token), fetch blob download
-- **Storage:** Supabase RLS policy `"Allow public uploads"` (INSERT para anon + service_role)
-- **URL:** Manual construction `{SUPABASE_URL}/storage/v1/object/public/encuestas/{path}` (evita coroutine en get_public_url)
+**Flujo de usuario:**
+1. Clickea botón "↓ Descargar imagen"
+2. Modal abre, selecciona pregunta (si multi) + formato
+3. Preview en vivo (fetch blob → URL.createObjectURL)
+4. Clickea "Descargar" → blob descarga automático
+5. Post-descarga: "¿Generar otra?" → reset form o cierre
 
-**Validaciones implementadas:**
-- ✅ QR funcional (apunta a `/encuestas/{slug}`)
-- ✅ Título encuesta + pregunta multi-línea
-- ✅ Tags categoría (ABIERTA, Política, etc.)
-- ✅ Badge "✓ RESULTADOS VERIFICADOS" (verde #39FF14)
-- ✅ Votos verificados + totales
-- ✅ Header image descargada + blur + opacidad
-- ✅ Máx 10 opciones (advertencia si > 10)
-- ✅ Nombre archivo: `beacon-{slug}-q{question_id}-{timestamp}.png`
-- ✅ Caché Redis (segunda generación < 100ms)
+**Implementación técnica:**
+- **Backend:** `_generate_image_pillow()` renderiza PNG con PIL.ImageDraw (primitivos)
+- **QR:** `_generate_qr_image()` → PIL Image (120x120px)
+- **Descarga:** Endpoint retorna `StreamingResponse(io.BytesIO(image_bytes), headers={"Content-Disposition": "attachment"})`
+- **Frontend:** `fetch() → blob → URL.createObjectURL() → link.download`
 
-**Pendientes (diseño gráfico):**
-- [ ] Contraste texto/fondo en barras (mejorar legibilidad)
-- [ ] Espaciado vertical (separación entre secciones)
-- [ ] Alineación de elementos (márgenes y padding)
-- [ ] Formato opciones múltiple (mostrar etiqueta real en lugar de número)
-- [ ] Responsive para 1200x630 (verificar legibilidad en formato landscape)
+**Datos mostrados:**
+- ✅ Header: BEACON CHILE + categoría + badge RESULTADOS VERIFICADOS
+- ✅ Pregunta: multi-línea con wrapping
+- ✅ QR: apunta a `beaconchile.cl/encuestas/{slug}` (hardcodeado, pendiente hacer dinámico)
+- ✅ Opciones: etiqueta + barra + "N (X%)"
+- ✅ Footer: votos verificados + totales + dominio
+- ✅ Background: header_image con blur + opacidad
 
-**Testing pendiente:**
-- Múltiples preguntas (verificar selector)
-- Preguntas con > 10 opciones (advertencia visible)
-- Diferentes formatos (1080 vs 1200)
-- "¿Generar otra?" workflow completo
-- Descarga (actualmente abre en navegador en dev; será correcta en producción)
+**Pendientes (Diseño Gráfico — próximo chat con Claude Design):**
+- [ ] Contraste texto/barra (mejorar legibilidad)
+- [ ] Espaciado vertical y horizontal (padding/margins)
+- [ ] Tipografía (tamaños, weight, leading)
+- [ ] Paleta mejorada (transiciones de color, gradientes)
+- [ ] Responsive para 1200x630 (landscape readability)
+- [ ] QR dinámico (usar settings.FRONTEND_URL)
+- [ ] Formato visual más profesional (borders, shadows, etc.)
 
 ---
 
