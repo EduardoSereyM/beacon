@@ -14,6 +14,7 @@ import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 import usePermissions from "@/hooks/usePermissions";
 import PollCommentsSection from "@/components/polls/PollCommentsSection";
+import ImageDownloadModal from "@/components/polls/ImageDownloadModal";
 import { Lock, BadgeCheck } from "lucide-react";
 
 // ─── Logos de redes sociales ──────────────────────────────────────────────────
@@ -570,30 +571,9 @@ function SocialShareBar({
   );
 }
 
-// ─── Download Result Card ─────────────────────────────────────────────────────
+// ─── Download Result Card Button ──────────────────────────────────────────────
 
-function DownloadResultCard({ slug }: { slug: string }) {
-  const [loading, setLoading] = useState(false);
-
-  async function handleDownload() {
-    setLoading(true);
-    try {
-      const res  = await fetch(`/api/og/resultado/${slug}?download=1`);
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href     = url;
-      a.download = `beacon-resultado-${slug}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      // fallback: abrir en tab nueva
-      window.open(`/api/og/resultado/${slug}`, "_blank");
-    } finally {
-      setLoading(false);
-    }
-  }
-
+function DownloadResultButton({ slug, onOpen }: { slug: string; onOpen: () => void }) {
   return (
     <div
       style={{
@@ -617,8 +597,7 @@ function DownloadResultCard({ slug }: { slug: string }) {
         </p>
       </div>
       <button
-        onClick={handleDownload}
-        disabled={loading}
+        onClick={onOpen}
         style={{
           flexShrink: 0,
           padding: "8px 14px",
@@ -627,14 +606,21 @@ function DownloadResultCard({ slug }: { slug: string }) {
           fontWeight: 700,
           fontFamily: "monospace",
           letterSpacing: "0.06em",
-          background: loading ? "rgba(212,175,55,0.06)" : "rgba(212,175,55,0.12)",
+          background: "rgba(212,175,55,0.12)",
           border: "1px solid rgba(212,175,55,0.3)",
           color: "#D4AF37",
-          cursor: loading ? "wait" : "pointer",
+          cursor: "pointer",
+          transition: "all 0.15s",
           whiteSpace: "nowrap",
         }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(212,175,55,0.18)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "rgba(212,175,55,0.12)";
+        }}
       >
-        {loading ? "Generando…" : "↓ Descargar imagen"}
+        ↓ Descargar imagen
       </button>
     </div>
   );
@@ -1552,6 +1538,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
   const [accessCode, setAccessCode] = useState("");
   const [accessError, setAccessError] = useState<string | null>(null);
   const [verifyingCode, setVerifyingCode] = useState(false);
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
 
   useBeaconPulse(`poll:${slug}`, (data) => {
     if (data.type === "POLL_PULSE" && voted) {
@@ -1957,7 +1944,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                       </p>
                     </div>
                     <div ref={voteSuccessRef} />
-                    <DownloadResultCard slug={slug} />
+                    <DownloadResultButton slug={slug} onOpen={() => setDownloadModalOpen(true)} />
                   </>
                 )}
               </div>
@@ -1967,7 +1954,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                   Resultados finales
                 </p>
                 <PollResults poll={poll} userVote={null} />
-                <DownloadResultCard slug={slug} />
+                <DownloadResultButton slug={slug} onOpen={() => setDownloadModalOpen(true)} />
               </div>
             ) : !token ? (
               <div style={{ borderRadius: 14, padding: "20px 22px", background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)", textAlign: "center" }}>
@@ -2064,6 +2051,19 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
         <PollCommentsSection pollId={poll.id} pollSlug={poll.slug} isOpen={poll.is_open} />
 
       </div>
+
+      {/* Modal de descarga de imágenes */}
+      {poll && (
+        <ImageDownloadModal
+          open={downloadModalOpen}
+          onClose={() => setDownloadModalOpen(false)}
+          slug={poll.slug}
+          title={poll.title}
+          questions={poll.questions || []}
+          totalVotes={poll.total_votes}
+          verifiedVotes={poll.verified_votes}
+        />
+      )}
     </div>
   );
 }

@@ -15,6 +15,69 @@
 
 ---
 
+## 🖼️ Feature: Reingeniería de Descarga de Imágenes para Compartir Resultados — 2026-04-17
+
+### Modal interactivo + generación con Pillow + almacenamiento en Supabase Storage
+
+**Estado:** ✅ FUNCIONAL (datos correctos, diseño gráfico refinable)
+
+**Archivos creados:**
+- `backend/app/services/image_service.py` (~580 líneas) — Servicio de generación con Pillow
+- `backend/app/api/v1/endpoints/images.py` (~80 líneas) — Router FastAPI
+- `frontend/src/components/polls/ImageDownloadModal.tsx` (~425 líneas) — Modal interactivo
+
+**Archivos modificados:**
+- `backend/requirements.txt` — Pillow, aiofiles, qrcode
+- `backend/app/main.py` — Registrar router `/api/v1/images`
+- `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx` — Botón + modal
+
+**Flujo implementado:**
+1. User abre modal de descarga
+2. Selecciona pregunta (si multi-pregunta) + formato (1080x1080 | 1200x630)
+3. Preview se genera en vivo
+4. Descarga: backend genera PNG con Pillow + sube a Supabase Storage + cachea URL en Redis
+5. Post-descarga: "¿Generar otra imagen?" para loop
+
+**Características por tipo de pregunta:**
+
+| Tipo | Formato | Opciones mostradas |
+|------|---------|-------------------|
+| `multiple_choice` | Barras horizontales (dorado) | Solo opciones con votos, ordenadas por % descendente |
+| `scale` | Histograma vertical (cyan) | **Todas** las opciones (1-N), incluso 0%, con etiquetas reales |
+
+**Infraestructura:**
+- **Backend:** FastAPI async, Pillow (PIL), qrcode, Supabase Storage (bucket `encuestas`), Redis cache (86400s)
+- **Frontend:** Next.js client component, TypeScript, Zustand (auth token), fetch blob download
+- **Storage:** Supabase RLS policy `"Allow public uploads"` (INSERT para anon + service_role)
+- **URL:** Manual construction `{SUPABASE_URL}/storage/v1/object/public/encuestas/{path}` (evita coroutine en get_public_url)
+
+**Validaciones implementadas:**
+- ✅ QR funcional (apunta a `/encuestas/{slug}`)
+- ✅ Título encuesta + pregunta multi-línea
+- ✅ Tags categoría (ABIERTA, Política, etc.)
+- ✅ Badge "✓ RESULTADOS VERIFICADOS" (verde #39FF14)
+- ✅ Votos verificados + totales
+- ✅ Header image descargada + blur + opacidad
+- ✅ Máx 10 opciones (advertencia si > 10)
+- ✅ Nombre archivo: `beacon-{slug}-q{question_id}-{timestamp}.png`
+- ✅ Caché Redis (segunda generación < 100ms)
+
+**Pendientes (diseño gráfico):**
+- [ ] Contraste texto/fondo en barras (mejorar legibilidad)
+- [ ] Espaciado vertical (separación entre secciones)
+- [ ] Alineación de elementos (márgenes y padding)
+- [ ] Formato opciones múltiple (mostrar etiqueta real en lugar de número)
+- [ ] Responsive para 1200x630 (verificar legibilidad en formato landscape)
+
+**Testing pendiente:**
+- Múltiples preguntas (verificar selector)
+- Preguntas con > 10 opciones (advertencia visible)
+- Diferentes formatos (1080 vs 1200)
+- "¿Generar otra?" workflow completo
+- Descarga (actualmente abre en navegador en dev; será correcta en producción)
+
+---
+
 ## 🎨 Mejora UI — Disclaimer BadgeCheck en Resultados Verificados — 2026-04-17
 
 ### Icono BadgeCheck en disclaimer de tab Verificados

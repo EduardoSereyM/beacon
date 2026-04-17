@@ -264,6 +264,15 @@ app.include_router(
     tags=["Poll Comments"],
 )
 
+# ─── Image Generation (Compartir Resultados) ────────────────────────────────────
+from app.api.v1.endpoints.images import router as images_router  # noqa: E402
+
+app.include_router(
+    images_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Image Generation"],
+)
+
 # ─── P3 Versus ───────────────────────────────────────────────────────────────
 from app.api.v1.endpoints.versus import router as versus_router          # noqa: E402
 from app.api.v1.admin.versus_admin import router as admin_versus_router  # noqa: E402
