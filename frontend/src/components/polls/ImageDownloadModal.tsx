@@ -65,9 +65,7 @@ export default function ImageDownloadModal({
         format,
       });
 
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
+      const headers: HeadersInit = {};
 
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -78,12 +76,13 @@ export default function ImageDownloadModal({
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Error cargando imagen");
+        throw new Error("Error cargando imagen");
       }
 
-      const data = await res.json();
-      setPreviewUrl(data.image_url);
+      // Obtener blob y crear URL para preview
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setPreviewUrl(blobUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
       setPreviewUrl(null);
@@ -118,15 +117,24 @@ export default function ImageDownloadModal({
         throw new Error("Error descargando imagen");
       }
 
-      const data = await res.json();
-      const downloadUrl = data.image_url;
-      const downloadName = data.download_name || `beacon-${slug}.png`;
+      // Obtener blob de imagen
+      const blob = await res.blob();
 
-      // Descargar archivo
+      // Extraer nombre del header Content-Disposition
+      const contentDisposition = res.headers.get("content-disposition");
+      let downloadName = `beacon-${slug}.png`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename=([^;]+)/);
+        if (match) downloadName = match[1].trim().replace(/"/g, "");
+      }
+
+      // Crear URL de blob y descargar
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = downloadUrl;
+      link.href = blobUrl;
       link.download = downloadName;
       link.click();
+      URL.revokeObjectURL(blobUrl);
 
       // Mostrar "¿Generar otra?"
       setShowGenerateAnother(true);

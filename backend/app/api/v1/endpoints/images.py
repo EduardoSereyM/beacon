@@ -20,7 +20,8 @@ import logging
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse
+from datetime import datetime, timezone
 
 from app.services.image_service import generate_and_cache_poll_image
 
@@ -63,10 +64,18 @@ async def generate_poll_image(
 
         logger.info("Generando imagen: poll=%s q=%s format=%s", poll_slug, question_id, format)
 
-        # Generar o cachear
+        # Generar o cachear (retorna dict con image_bytes y metadata)
         result = await generate_and_cache_poll_image(poll_slug, question_id, format)
 
-        return JSONResponse(content=result, status_code=200)
+        # Retornar como archivo descargable
+        image_bytes = result.get("image_bytes")
+        download_name = result.get("download_name", f"beacon-{poll_slug}-{datetime.now(timezone.utc).isoformat()}.png")
+
+        return FileResponse(
+            iter([image_bytes]),
+            media_type="image/png",
+            headers={"Content-Disposition": f"attachment; filename={download_name}"},
+        )
 
     except ValueError as e:
         # Encuesta no encontrada, pregunta no encontrada, etc.

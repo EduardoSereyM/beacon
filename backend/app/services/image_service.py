@@ -102,21 +102,20 @@ async def generate_and_cache_poll_image(
         total_votes=total_votes,
     )
 
-    # Upload a Storage
+    # Preparar respuesta (retornar bytes directamente)
     timestamp = datetime.now(timezone.utc).isoformat().replace(":", "-")
-    storage_path = f"polls/{poll['id']}/{question_id}/{format_type}_{timestamp}.png"
+    download_name = f"beacon-{poll_slug}-q{question_id}-{timestamp}.png"
 
-    supabase_anon = get_supabase_anon_async()
-    await supabase_anon.storage.from_("encuestas").upload(storage_path, image_bytes, {
-        "content-type": "image/png",
-    })
+    response = {
+        "image_bytes": image_bytes,
+        "download_name": download_name,
+        "cached": False,
+    }
 
-    image_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/encuestas/{storage_path}"
-
-    # Cache en Redis
+    # Cache en Redis (solo metadata)
     cache_data = {
-        "image_url": image_url,
-        "download_name": f"beacon-{poll_slug}-q{question_id}-{timestamp}.png",
+        "download_name": download_name,
+        "generated_at": timestamp,
     }
     try:
         await redis.cache_set(cache_key, json.dumps(cache_data), expire=86400)
@@ -124,7 +123,7 @@ async def generate_and_cache_poll_image(
         logger.warning("Could not cache: %s", str(e))
 
     logger.info("Image generated: %s", cache_key)
-    return {**cache_data, "cached": False}
+    return response
 
 
 def _generate_image_pillow(
