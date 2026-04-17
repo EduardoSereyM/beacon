@@ -34,11 +34,12 @@ logger = logging.getLogger("beacon.image_generation")
 COLORS = {
     "bg": "#0A0A0A",
     "text_primary": "#FFFFFF",
-    "text_secondary": "#999999",
+    "text_secondary": "#888888",
     "accent_gold": "#D4AF37",
     "accent_cyan": "#00E5FF",
     "accent_green": "#39FF14",
-    "border": "#333333",
+    "border": "#2A2A2A",
+    "bar_track": "#1C1C1C",
 }
 
 
@@ -134,78 +135,158 @@ def _generate_image_pillow(
     verified_votes: int,
     total_votes: int,
 ) -> bytes:
-    """Genera PNG con Pillow."""
+    """Genera PNG con Pillow — diseño profesional según spec."""
     img = Image.new("RGB", (width, height), COLORS["bg"])
     draw = ImageDraw.Draw(img)
 
-    # Aplicar background image si existe
+    # Aplicar background image con overlay oscuro
     if poll_data.get("header_image"):
         try:
             bg_img = Image.open(io.BytesIO(urlopen(poll_data["header_image"]).read()))
-            bg_img = bg_img.resize((width, height))
-            bg_img = ImageFilter.GaussianBlur(radius=8)(bg_img)
-            bg_img.putalpha(int(255 * 0.15))
-            img.paste(bg_img, (0, 0), bg_img)
+            bg_img = bg_img.convert("RGB").resize((width, height))
+            bg_img = bg_img.filter(ImageFilter.GaussianBlur(radius=10))
+            overlay = Image.new("RGB", (width, height), COLORS["bg"])
+            img = Image.blend(bg_img, overlay, alpha=0.85)
+            draw = ImageDraw.Draw(img)
         except Exception as e:
             logger.warning("Could not load background: %s", str(e))
 
-    y = 40
-    font_title = _get_font(20, bold=True)
-    font_label = _get_font(12)
-    font_small = _get_font(11)
+    MARGIN = 60
+    FOOTER_H = 170
+    is_landscape = width > height
 
-    # Header
-    draw.text((40, y), "BEACON CHILE", fill=COLORS["accent_gold"], font=_get_font(14, bold=True))
-    y += 30
+    # Fonts con tamaños según formato
+    f_brand = _get_font(26, bold=True)
+    f_category = _get_font(14)
+    f_badge = _get_font(14, bold=True)
+    q_size = 22 if is_landscape else 28
+    f_question = _get_font(q_size, bold=True)
+    f_option = _get_font(17)
+    f_pct = _get_font(18, bold=True)
+    f_footer = _get_font(18)
+    f_footer_sm = _get_font(16)
+    f_cta = _get_font(20, bold=True)
+
+    # === HEADER ===
+    y = 48
+    draw.text((MARGIN, y), "BEACON CHILE", fill=COLORS["accent_gold"], font=f_brand)
+    y += 38
 
     if poll_data.get("category"):
-        draw.text((40, y), f"= {poll_data['category'].upper()}", fill=COLORS["text_secondary"], font=_get_font(11))
-        y += 20
+        draw.text((MARGIN, y), f"{poll_data['category'].upper()}", fill=COLORS["text_secondary"], font=f_category)
+        y += 28
+    else:
+        y += 8
 
-    draw.text((40, y), "✓ RESULTADOS VERIFICADOS", fill=COLORS["accent_green"], font=_get_font(11, bold=True))
-    y += 30
+    draw.text((MARGIN, y), "RESULTADOS VERIFICADOS", fill=COLORS["accent_green"], font=f_badge)
+    y += 34
 
-    # QR (derecha)
-    qr_url = _generate_qr_image(poll_data["slug"])
-    img.paste(qr_url, (width - 140, 40))
+    # Divider (cyan, más visible)
+    draw.line([(MARGIN, y), (width - MARGIN, y)], fill=COLORS["accent_cyan"], width=2)
+    y += 35
 
-    # Título pregunta
+    # === QUESTION TITLE ===
     question_text = question_results.get("question_text", "")
-    lines = _wrap_text(question_text, font_title, width - 160)
-    for line in lines:
-        draw.text((40, y), line, fill=COLORS["text_primary"], font=font_title)
-        y += 35
+    q_lines = _wrap_text(question_text, f_question, width - 2 * MARGIN)
+    q_line_h = 36 if is_landscape else 38
+    for line in q_lines:
+        draw.text((MARGIN, y), line, fill=COLORS["text_primary"], font=f_question)
+        y += q_line_h
+    y += 20
 
-    y += 15
-
-    # Resultados
+    # === RESULTS ===
     results = question_results.get("results", [])
+    n = len(results)
+
+    # Calcular altura dinámica por opción (más compactas)
+    available = height - y - FOOTER_H
+    per_option_h = max(36, min(50, available // max(n, 1)))
+
+    bar_x_start = MARGIN
+    bar_x_end = width - MARGIN
+    bar_max_w = bar_x_end - bar_x_start
+    bar_h = 14
+
+    # Encontrar ganador (máximo %)
+    max_pct = max((r.get("pct", 0) for r in results), default=0)
+
     for result in results:
-        option_label = result.get("option", "")
+        label = result.get("option", "")
         pct = result.get("pct", 0)
         count = result.get("count", 0)
+        is_winner = (pct == max_pct and pct > 0)
 
-        # Etiqueta
-        draw.text((40, y), option_label, fill=COLORS["text_primary"], font=font_small)
-        draw.text((width - 150, y), f"{count} ({pct}%)", fill=COLORS["text_secondary"], font=_get_font(10))
+        bar_color = COLORS["accent_gold"] if is_winner else COLORS["accent_cyan"]
 
-        # Barra
-        bar_y = y + 18
-        bar_width = int((pct / 100) * (width - 120)) if pct > 0 else 1
-        draw.rectangle([(40, bar_y), (40 + bar_width, bar_y + 8)], fill=COLORS["accent_cyan"])
+        # Label (sin símbolo, el color gold ya indica ganador)
+        display_label = label
+        pct_text = f"{pct}%"
 
-        y += 28
+        # Calcular ancho del % para right-align
+        pct_bbox = draw.textbbox((0, 0), pct_text, font=f_pct)
+        pct_w = pct_bbox[2] - pct_bbox[0]
 
-    # Footer
-    y_footer = height - 50
-    draw.line([(40, y_footer), (width - 40, y_footer)], fill=COLORS["border"], width=1)
+        # Dibujar label + pct en la misma fila
+        draw.text((MARGIN, y), display_label, fill=COLORS["text_primary"], font=f_option)
+        draw.text((width - MARGIN - pct_w, y), pct_text, fill=bar_color, font=f_pct)
 
-    draw.text((40, y_footer + 16), f"✓ {verified_votes} votos verificados", fill=COLORS["accent_green"], font=_get_font(11))
-    draw.text((40, y_footer + 32), f"• {total_votes} votos totales", fill=COLORS["text_secondary"], font=_get_font(11))
+        label_h = 20
+        bar_y = y + label_h + 5
 
-    draw.text((width - 200, y_footer + 24), "beaconchile.cl", fill=COLORS["text_secondary"], font=_get_font(11))
+        # Track (fondo)
+        draw.rounded_rectangle(
+            [(bar_x_start, bar_y), (bar_x_end, bar_y + bar_h)],
+            radius=7,
+            fill=COLORS["bar_track"]
+        )
 
-    # Guardar a bytes
+        # Fill (barra)
+        if pct > 0:
+            fill_w = int(pct / 100 * bar_max_w)
+        else:
+            fill_w = 4
+
+        draw.rounded_rectangle(
+            [(bar_x_start, bar_y), (bar_x_start + fill_w, bar_y + bar_h)],
+            radius=7,
+            fill=bar_color
+        )
+
+        y += per_option_h
+
+    # === CTA PANEL (antes del footer, como "flotante") ===
+    y_cta = height - FOOTER_H
+
+    # Panel visual (línea divisoria sutil arriba)
+    draw.line([(MARGIN, y_cta), (width - MARGIN, y_cta)], fill=COLORS["border"], width=1)
+    y_cta += 8
+
+    # CTA: 20px bold, gold, muy agresivo
+    cta_text = "¿Estás de acuerdo? ¿Quieres dar tu opinión?\nIngresa a beaconchile.cl y dinos qué piensas"
+    cta_lines = cta_text.split("\n")
+    for line in cta_lines:
+        draw.text((MARGIN, y_cta), line, fill=COLORS["accent_gold"], font=f_cta)
+        y_cta += 24
+
+    y_cta += 8
+
+    # === FOOTER (votos) ===
+    # Línea divisoria
+    draw.line([(MARGIN, y_cta), (width - MARGIN, y_cta)], fill=COLORS["border"], width=1)
+    y_cta += 10
+
+    # Votos verificados (importante, verde) + dominio en la misma fila
+    draw.text((MARGIN, y_cta), f"{verified_votes} votos verificados", fill=COLORS["accent_green"], font=f_footer)
+
+    domain = "beaconchile.cl"
+    domain_bbox = draw.textbbox((0, 0), domain, font=f_footer_sm)
+    domain_w = domain_bbox[2] - domain_bbox[0]
+    draw.text((width - MARGIN - domain_w, y_cta), domain, fill=COLORS["text_secondary"], font=f_footer_sm)
+
+    # Votos totales (secundario, más visible)
+    y_cta += 30
+    draw.text((MARGIN, y_cta), f"• {total_votes} votos totales", fill="#777777", font=f_footer_sm)
+
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
@@ -245,14 +326,24 @@ def _wrap_text(text: str, font, max_width: int) -> list:
 
 
 def _get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    """Obtiene fuente monospace con fallback."""
-    fonts = [
-        "C:\\Windows\\Fonts\\consola.ttf",  # Windows
-        "/System/Library/Fonts/Monaco.dfont",  # Mac
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",  # Linux
+    """Obtiene fuente proporcional (Segoe UI / Arial) con fallback a monospace."""
+    fonts_bold = [
+        "C:\\Windows\\Fonts\\segoeuib.ttf",
+        "C:\\Windows\\Fonts\\arialbd.ttf",
+        "C:\\Windows\\Fonts\\calibrib.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ]
+    fonts_regular = [
+        "C:\\Windows\\Fonts\\segoeui.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "C:\\Windows\\Fonts\\calibri.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
 
-    for font_path in fonts:
+    font_list = fonts_bold if bold else fonts_regular
+    for font_path in font_list:
         try:
             return ImageFont.truetype(font_path, size)
         except Exception:

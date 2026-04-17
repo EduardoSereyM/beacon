@@ -65,14 +65,31 @@
 - ✅ Footer: votos verificados + totales + dominio
 - ✅ Background: header_image con blur + opacidad
 
-**Pendientes (Diseño Gráfico — próximo chat con Claude Design):**
-- [ ] Contraste texto/barra (mejorar legibilidad)
-- [ ] Espaciado vertical y horizontal (padding/margins)
-- [ ] Tipografía (tamaños, weight, leading)
-- [ ] Paleta mejorada (transiciones de color, gradientes)
-- [ ] Responsive para 1200x630 (landscape readability)
-- [ ] QR dinámico (usar settings.FRONTEND_URL)
-- [ ] Formato visual más profesional (borders, shadows, etc.)
+**Refactorización Visual Completa (2026-04-17):**
+
+✅ **Implementado:**
+- Tipografía proporcional (Segoe UI/Arial) — jerarquía clara
+- BEACON CHILE: 26px bold (más prominent)
+- Divider cyan 2px (destaca sin ruido)
+- Barras: track #1C1C1C + fill redondeado (radius 7px, altura 14px)
+- Ganador gold #D4AF37, otros cyan #00E5FF
+- CTA panel: 20px bold gold, separado con líneas divisorias
+- Footer protagonista: 170px (igual header visual)
+  - Votos verificados: 18px verde
+  - Votos totales: 16px gris #777777 (jerarquía clara)
+- Per-option-h dinámico: 36-50px (opciones compactas)
+- Porcentaje: 18px bold (legibilidad 0%)
+- Espaciado optimizado: gaps reducidos, CTA cercano a resultados
+- Sin emojis/símbolos problemáticos (UI limpia)
+
+**Arquitectura:**
+- `_get_font()`: Fuentes proporcionales con fallback
+- `_generate_image_pillow()`: Layout dinámico, responsive 1080×1080 vs 1200×630
+- Gestión de espacio: FOOTER_H 170px, márgenes 60px consistentes
+
+**Pendientes:**
+- [ ] QR dinámico (settings.FRONTEND_URL)
+- [ ] Test en Render + Vercel
 
 ---
 
