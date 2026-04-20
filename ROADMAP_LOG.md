@@ -15,6 +15,29 @@
 
 ---
 
+## ✅ Fix UX: Modal "Tu voto fue registrado" + fix gramática — 2026-04-20
+
+### Modal de confirmación post-voto + corrección de concordancia singular/plural
+
+**Estado:** ✅ COMPLETADO
+
+**Archivo modificado:**
+- `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx`
+
+**Problemas resueltos:**
+
+| # | Problema | Causa | Solución |
+|---|----------|-------|----------|
+| 1 | Card "Tu voto fue registrado" no era visible al votar | `fetchPoll()` disparaba `setLoading(true)` rompiendo el timing del scroll | Convertido a modal overlay (position: fixed, z-index 1000) — visible inmediatamente tras el voto |
+| 2 | Texto incorrecto: _"Eres parte de los 1 ciudadano real que opinaron."_ | `nLabel` singular mezclado con artículo plural "los" y verbo plural "opinaron" | Frase completa condicional: 1 voto → `"Eres el primer ciudadano real en opinar en esta encuesta."` / N votos → `"Eres parte de los N ciudadanos reales que opinaron."` |
+
+**Comportamiento nuevo:**
+- Al confirmar voto → modal oscuro (80% opacidad) se abre centrado en pantalla con `PostVoteCard`
+- Clic en backdrop o "Ver resultados" cierra el modal → queda "✓ Voto registrado" inline
+- Eliminados dos `useEffect` de scroll (ya innecesarios)
+
+---
+
 ## 🖼️ Feature: Reingeniería de Descarga de Imágenes para Compartir Resultados — 2026-04-17
 
 ### Modal interactivo + generación con Pillow + descarga blob (sin Storage)

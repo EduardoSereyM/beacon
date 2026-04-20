@@ -195,10 +195,10 @@ function PostVoteCard({
     });
   }
 
-  const nLabel =
+  const nVotesLabel =
     totalVotes === 1
-      ? "1 ciudadano real"
-      : `${totalVotes.toLocaleString("es-CL")} ciudadanos reales`;
+      ? "Eres el primer ciudadano real en opinar en esta encuesta."
+      : `Eres parte de los ${totalVotes.toLocaleString("es-CL")} ciudadanos reales que opinaron.`;
 
   return (
     <div
@@ -243,7 +243,7 @@ function PostVoteCard({
       {isVerified ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <p style={{ fontSize: 13, color: "#00E5FF", fontWeight: 600, margin: 0 }}>
-            Eres parte de los {nLabel} que opinaron.
+            {nVotesLabel}
           </p>
           <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.45)", margin: 0, lineHeight: 1.6 }}>
             Tu voz cuenta al 100% en las estadísticas verificadas de Chile.{"\n"}
@@ -1553,14 +1553,6 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
     }
   });
 
-  // Auto-scroll al "Compartir votación" cuando se vota
-  useEffect(() => {
-    if (voted && voteSuccessRef.current) {
-      setTimeout(() => {
-        voteSuccessRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
-    }
-  }, [voted]);
 
   const fetchPoll = useCallback(async (code?: string) => {
     setLoading(true);
@@ -1587,14 +1579,6 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
     finally { setLoading(false); }
   }, [slug, token]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Scroll al card de éxito cuando el usuario acaba de votar
-  useEffect(() => {
-    if (showVoteSuccess && voteSuccessRef.current) {
-      setTimeout(() => {
-        voteSuccessRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 80);
-    }
-  }, [showVoteSuccess]);
 
   async function handleVerifyCode() {
     if (!accessCode.trim()) return;
@@ -1924,10 +1908,25 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
             )}
 
             {/* ── Contenido de votación ── */}
-            {voted ? (
-              <div ref={voteSuccessRef}>
-                {/* Momento de orgullo: se muestra una vez al votar, se cierra al ver resultados */}
-                {showVoteSuccess && (
+            {/* Modal de confirmación al votar */}
+            {showVoteSuccess && (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 1000,
+                  background: "rgba(0,0,0,0.80)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "20px",
+                }}
+                onClick={() => setShowVoteSuccess(false)}
+              >
+                <div
+                  style={{ maxWidth: 480, width: "100%" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <PostVoteCard
                     isVerified={isVerified}
                     totalVotes={poll.total_votes}
@@ -1935,7 +1934,11 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                     pageUrl={pageUrl}
                     onReveal={() => setShowVoteSuccess(false)}
                   />
-                )}
+                </div>
+              </div>
+            )}
+            {voted ? (
+              <div ref={voteSuccessRef}>
                 {!showVoteSuccess && (
                   <>
                     <div style={{ borderRadius: 16, padding: "14px 18px", textAlign: "center", background: "rgba(57,255,20,0.04)", border: "1px solid rgba(57,255,20,0.15)", marginBottom: 20 }}>
@@ -1943,7 +1946,6 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                         ✓ Voto registrado
                       </p>
                     </div>
-                    <div ref={voteSuccessRef} />
                     <DownloadResultButton slug={slug} onOpen={() => setDownloadModalOpen(true)} />
                   </>
                 )}
