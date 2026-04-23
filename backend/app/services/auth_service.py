@@ -83,12 +83,31 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     #   Bypass del rate limit de Supabase (2 emails/hora en plan gratuito).
     # DEBUG=False (producción) → sign_up: envía email real de confirmación.
     if settings.DEBUG:
-        # Modo local: admin API, cuenta confirmada inmediatamente, sin email.
-        auth_response = await supabase.auth.admin.create_user({
-            "email": user_data.email,
-            "password": user_data.password,
-            "email_confirm": True,
-        })
+        # Modo local: httpx directo con service_role — AsyncClient instanciado sin
+        # await no inicializa headers de admin correctamente en supabase-py v2.
+        async with httpx.AsyncClient() as http:
+            admin_resp = await http.post(
+                f"{settings.SUPABASE_URL}/auth/v1/admin/users",
+                headers={
+                    "apikey": settings.SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "email": user_data.email,
+                    "password": user_data.password,
+                    "email_confirm": True,
+                },
+            )
+        if admin_resp.status_code not in (200, 201):
+            raise Exception(f"Supabase admin error: {admin_resp.text}")
+        admin_data = admin_resp.json()
+
+        class _FakeUser:
+            id = admin_data["id"]
+        class _FakeResponse:
+            user = _FakeUser()
+        auth_response = _FakeResponse()
     else:
         # Modo producción: sign_up estándar → email de confirmación al usuario.
         # CRÍTICO: usar cliente anon separado para NO contaminar la sesión del
