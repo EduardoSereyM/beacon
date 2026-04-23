@@ -287,6 +287,32 @@
 
 ---
 
+## 🔧 Fix: admin.create_user 403 en entorno local — 2026-04-23
+
+### AsyncClient de supabase-py v2 sin await no inicializa headers service_role
+
+**Estado:** ✅ COMPLETADO
+
+**Archivo modificado:** `backend/app/services/auth_service.py`
+
+**Síntoma:** `POST /api/v1/user/auth/register` devolvía 400 en local (DEBUG=True).
+Supabase respondía: `"this token needs to have one of the following roles: supabase_admin, service_role"`.
+
+**Causa raíz:** La rama DEBUG usaba `supabase.auth.admin.create_user()` sobre el singleton
+`_async_client = AsyncClient(url, key)` instanciado sin `await`. En supabase-py v2, la
+instanciación síncrona no inicializa correctamente los headers de GoTrue Admin — el token
+que llegaba a Supabase era el `anon` key en lugar de `service_role`.
+
+**Fix:** Reemplazado por `httpx` directo con headers `service_role` explícitos,
+consistente con el patrón ya establecido en `da8e75f` para INSERT y rollback DELETE.
+Un `_FakeResponse/_FakeUser` minimal wrappea el `id` de la respuesta para que el
+código posterior (`auth_response.user.id`) no requiera cambios.
+
+**Impacto:** Solo afecta entorno local (DEBUG=True). El path de producción
+(`sign_up` anon + email confirmation) no fue modificado.
+
+---
+
 ## 🔧 Fix Crítico — 2026-04-16 (commit da8e75f)
 
 ### Registro de usuarios roto en producción — RLS 403 en INSERT public.users
