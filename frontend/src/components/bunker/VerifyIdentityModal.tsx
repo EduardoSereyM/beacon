@@ -408,12 +408,13 @@ type ModalStep = "onboarding" | "intro" | "form" | "success";
 interface Props {
     isOpen: boolean;
     onClose: () => void;
+    initialStep?: "onboarding" | "intro";
 }
 
-export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
+export default function VerifyIdentityModal({ isOpen, onClose, initialStep = "intro" }: Props) {
     const { token, user, setAuth } = useAuthStore();
 
-    const [step, setStep] = useState<ModalStep>("onboarding");
+    const [step, setStep] = useState<ModalStep>(initialStep);
 
     const [rut, setRut] = useState("");
     const [birthYear, setBirthYear] = useState(user?.birth_year ? String(user.birth_year) : "");
@@ -428,22 +429,17 @@ export default function VerifyIdentityModal({ isOpen, onClose }: Props) {
 
     const communes = useMemo(() => CHILE_REGIONS[region] ?? [], [region]);
 
-    // Skip onboarding if already seen
+    // Sincronizar step cuando el modal se abre con un initialStep distinto
     useEffect(() => {
-        if (!isOpen) return;
-        try {
-            const seen = localStorage.getItem(ONBOARDING_KEY);
-            setStep(seen ? "intro" : "onboarding");
-        } catch {
-            setStep("intro");
-        }
-    }, [isOpen]);
+        if (isOpen) setStep(initialStep);
+    }, [isOpen, initialStep]);
 
     if (!isOpen) return null;
 
     const handleOnboardingFinish = () => {
         try { localStorage.setItem(ONBOARDING_KEY, "1"); } catch { /* SSR */ }
-        setStep("intro");
+        // En modo onboarding puro → cierra el modal (no lleva al form)
+        onClose();
     };
 
     const handleRegionChange = (val: string) => {

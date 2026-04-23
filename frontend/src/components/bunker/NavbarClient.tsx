@@ -21,6 +21,7 @@ import { ShieldAlert, UserCircle, LogOut, ShieldCheck, Shield } from "lucide-rea
 export default function NavbarClient() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isVerifyOpen, setIsVerifyOpen] = useState(false);
+    const [verifyMode, setVerifyMode] = useState<"onboarding" | "intro">("intro");
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [sessionExpiredMsg, setSessionExpiredMsg] = useState(false);
     const { user, isAuthenticated, isBasic, isAdmin, logout } = usePermissions();
@@ -36,10 +37,21 @@ export default function NavbarClient() {
         }
     }, [isAuthenticated]);
 
+    // Primer login BRONZE sin onboarding visto → mostrar los 4 slides automáticamente
+    useEffect(() => {
+        if (!isAuthenticated || rank !== "BRONZE") return;
+        try {
+            if (!localStorage.getItem("beacon_onboarding_seen")) {
+                setVerifyMode("onboarding");
+                setTimeout(() => setIsVerifyOpen(true), 800);
+            }
+        } catch { /* SSR */ }
+    }, [isAuthenticated, rank]);
+
     // Eventos custom desde otros componentes
     useEffect(() => {
         const openAuth = () => setIsModalOpen(true);
-        const openVerify = () => setIsVerifyOpen(true);
+        const openVerify = () => { setVerifyMode("intro"); setIsVerifyOpen(true); };
         const onExpired = () => { setSessionExpiredMsg(true); setIsModalOpen(true); };
         window.addEventListener("beacon:open-auth-modal", openAuth);
         window.addEventListener("beacon:open-verify-modal", openVerify);
@@ -206,7 +218,7 @@ export default function NavbarClient() {
 
                                 {isBasic && (
                                     <button
-                                        onClick={() => setIsVerifyOpen(true)}
+                                        onClick={() => { setVerifyMode("intro"); setIsVerifyOpen(true); }}
                                         className="flex items-center gap-1.5 text-xs font-mono transition-colors duration-200"
                                         style={{ color: "#8A8A8A" }}
                                         onMouseEnter={e => (e.currentTarget.style.color = "#FF8C00")}
@@ -277,7 +289,7 @@ export default function NavbarClient() {
                                     )}
                                     {isBasic && (
                                         <button
-                                            onClick={() => { setIsVerifyOpen(true); setIsMobileMenuOpen(false); }}
+                                            onClick={() => { setVerifyMode("intro"); setIsVerifyOpen(true); setIsMobileMenuOpen(false); }}
                                             className="px-4 py-2 rounded-lg text-sm font-bold uppercase tracking-wider"
                                             style={{ background: "rgba(255,140,0,0.12)", border: "1px solid rgba(255,140,0,0.35)", color: "#FF8C00" }}
                                         >
@@ -333,7 +345,7 @@ export default function NavbarClient() {
 
             {/* ═══ Banner BASIC — fixed justo bajo la navbar (z-40) ═══ */}
             {isAuthenticated && isBasic && (
-                <BasicUserBanner onVerifyClick={() => setIsVerifyOpen(true)} />
+                <BasicUserBanner onVerifyClick={() => { setVerifyMode("intro"); setIsVerifyOpen(true); }} />
             )}
 
             {/* ═══ Auth Modal ═══ */}
@@ -347,6 +359,7 @@ export default function NavbarClient() {
             <VerifyIdentityModal
                 isOpen={isVerifyOpen}
                 onClose={() => setIsVerifyOpen(false)}
+                initialStep={verifyMode}
             />
         </>
     );
