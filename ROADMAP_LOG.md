@@ -15,6 +15,31 @@
 
 ---
 
+## ✨ UX: Separación Onboarding / Verificación — 2026-04-23
+
+### Dos flujos independientes en VerifyIdentityModal
+
+**Estado:** ✅ COMPLETADO
+
+**Archivos modificados:**
+- `frontend/src/components/bunker/VerifyIdentityModal.tsx`
+- `frontend/src/components/bunker/NavbarClient.tsx`
+
+**Flujos implementados:**
+
+| Trigger | Comportamiento |
+|---------|---------------|
+| Primer login (BASIC + sin flag) | 800ms delay → abre 4 slides onboarding. Al terminar/saltar → guarda flag en `localStorage` y cierra. No lleva al form. |
+| Botón "Verificar" (navbar, mobile, banner, eventos custom) | Abre directo en pantalla intro (3 pasos gold) → form → éxito |
+
+**Decisiones técnicas:**
+- Prop `initialStep?: "onboarding" | "intro"` en `VerifyIdentityModal` controla el punto de entrada.
+- Guard en `NavbarClient`: `isAuthenticated && rank === "BASIC" && !localStorage.getItem("beacon_onboarding_seen")`. Condición `rank !== "BASIC"` excluye usuarios VERIFIED (y cualquier rango futuro superior). BRONZE/SILVER/GOLD/DIAMOND reservados para v4.0 — los rangos activos son solo `BASIC` y `VERIFIED`.
+- `localStorage` flag `beacon_onboarding_seen` persiste entre sesiones para no repetir el onboarding.
+- Todos los puntos de apertura del modal (navbar desktop, mobile, `BasicUserBanner`, evento `beacon:open-verify-modal`) fijan `verifyMode = "intro"` explícitamente.
+
+---
+
 ## 🧹 Fix: Errores Ruff + ESLint bloqueantes en CI — 2026-04-23
 
 ### Limpieza de imports sin uso, variables ambiguas y tipos `any` explícitos
