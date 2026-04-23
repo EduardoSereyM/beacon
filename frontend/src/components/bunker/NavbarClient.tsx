@@ -39,7 +39,7 @@ export default function NavbarClient() {
 
     // Primer login BRONZE sin onboarding visto → mostrar los 4 slides automáticamente
     useEffect(() => {
-        if (!isAuthenticated || rank === "VERIFIED") return;
+        if (!isAuthenticated || rank !== "BASIC") return;
         try {
             if (!localStorage.getItem("beacon_onboarding_seen")) {
                 setVerifyMode("onboarding");
