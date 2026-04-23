@@ -85,6 +85,8 @@ interface QuestionResults {
   question_type: "multiple_choice" | "scale";
   total_votes: number;
   results: PollResult[];
+  scale_min?: number;
+  scale_labels?: string[];
 }
 
 interface Poll {
@@ -874,8 +876,8 @@ function MultiQuestionResults({
                   const pct = r.pct ?? 0;
                   const isUser = userAns === r.option;
                   // Obtener label si existen scale_labels
-                  const scaleMin = (q as any).scale_min ?? 1;
-                  const scaleLabels = (q as any).scale_labels || [];
+                  const scaleMin = q.scale_min ?? 1;
+                  const scaleLabels = q.scale_labels || [];
                   const optionIdx = parseInt(r.option || "1") - scaleMin;
                   const label = scaleLabels[optionIdx] || "";
                   return (
@@ -2011,7 +2013,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
 
                     {/* ── Card 3: Análisis Demográfico (solo admins) ── */}
                     {isAdmin && poll.verified_votes > 0 && (
-                      <CrossTabsPanel pollId={poll.id} pollType={(poll.questions?.[0]?.type as any) ?? "multiple_choice"} />
+                      <CrossTabsPanel pollId={poll.id} pollType={poll.questions?.[0]?.type ?? "multiple_choice"} />
                     )}
                   </>
                 ) : (

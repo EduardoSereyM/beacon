@@ -16,7 +16,6 @@ Flujo:
 import logging
 import json
 import io
-import base64
 from datetime import datetime, timezone
 from typing import Literal
 from urllib.request import urlopen
@@ -24,9 +23,8 @@ from urllib.request import urlopen
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import qrcode
 
-from app.core.database import get_async_supabase_client, get_supabase_anon_async
+from app.core.database import get_async_supabase_client
 from app.core.redis_client import get_redis
-from app.core.config import settings
 
 logger = logging.getLogger("beacon.image_generation")
 
@@ -213,7 +211,6 @@ def _generate_image_pillow(
     for result in results:
         label = result.get("option", "")
         pct = result.get("pct", 0)
-        count = result.get("count", 0)
         is_winner = (pct == max_pct and pct > 0)
 
         bar_color = COLORS["accent_gold"] if is_winner else COLORS["accent_cyan"]

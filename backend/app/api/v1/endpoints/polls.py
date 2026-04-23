@@ -16,7 +16,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Any, Optional, List, Dict, Union
+from typing import Any, Optional, List, Dict
 import logging
 
 from app.core.database import get_async_supabase_client
@@ -130,7 +130,7 @@ def _normalize_scale_labels(
         return result
     if isinstance(raw, list):
         if len(raw) == size:
-            return [str(l).strip() for l in raw]
+            return [str(item).strip() for item in raw]
         # longitud parcial (solo min/max, como en Ejemplo 2 ajuste) — expandir
         if len(raw) == 2:
             return [str(raw[0]).strip()] + [""] * (size - 2) + [str(raw[-1]).strip()]

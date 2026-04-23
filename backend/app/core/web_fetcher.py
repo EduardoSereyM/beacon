@@ -8,8 +8,8 @@ import httpx
 import logging
 import asyncio
 from typing import Optional, Dict, List, Tuple
-from datetime import datetime, timedelta
-from urllib.parse import urljoin, urlparse
+from datetime import datetime
+from urllib.parse import urlparse
 import re
 
 logger = logging.getLogger("beacon.web_fetcher")
@@ -212,7 +212,6 @@ class WebFetcher:
         Returns:
             List of search result URLs
         """
-        domain = self.get_domain(base_url)
         urls = []
 
         # Pattern matching for different source types

@@ -56,7 +56,7 @@ export default function NavbarClient() {
         const shouldOpen = sessionStorage.getItem("beacon_open_login");
         if (shouldOpen === "1") {
             sessionStorage.removeItem("beacon_open_login");
-            setIsModalOpen(true);
+            setTimeout(() => setIsModalOpen(true), 0);
         }
     }, []);
 
