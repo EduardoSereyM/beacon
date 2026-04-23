@@ -15,6 +15,28 @@
 
 ---
 
+## 🧹 Fix: Errores Ruff + ESLint bloqueantes en CI — 2026-04-23
+
+### Limpieza de imports sin uso, variables ambiguas y tipos `any` explícitos
+
+**Estado:** ✅ COMPLETADO
+
+**Archivos modificados:**
+
+| Archivo | Errores corregidos |
+|---------|-------------------|
+| `backend/app/api/v1/endpoints/polls.py` | `Union` sin uso (F401); variable `l` ambigua → `item` (E741) |
+| `backend/app/core/web_fetcher.py` | `timedelta`, `urljoin` sin uso (F401); variable `domain` sin uso (F841) |
+| `backend/app/services/image_service.py` | `base64`, `get_supabase_anon_async`, `settings` sin uso (F401); variable `count` sin uso (F841) |
+| `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx` | 3× `as any` eliminados — se añadió `scale_min?` y `scale_labels?` a `QuestionResults` para tipar correctamente |
+| `frontend/src/components/bunker/NavbarClient.tsx` | `setState` síncrono en `useEffect` → envuelto en `setTimeout(fn, 0)` para evitar cascading renders |
+
+**Deuda técnica pendiente (warnings ESLint, no bloqueantes):**
+- 37 warnings preexistentes: variables sin usar en admin/polls/events/profile, `<img>` sin `<Image />`, `useEffect` con deps faltantes.
+- No se tocaron para mantener el PR enfocado. Registrados como deuda técnica a resolver en sprint de calidad.
+
+---
+
 ## ✨ UX: Onboarding + Rediseño VerifyIdentityModal — 2026-04-23
 
 ### Flujo multi-paso en modal de verificación de identidad
