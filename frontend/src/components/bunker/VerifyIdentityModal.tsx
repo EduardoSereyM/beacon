@@ -8,6 +8,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { BadgeCheck, SmilePlus, UserLock, Vote } from "lucide-react";
 import { useAuthStore } from "@/store";
 
 // ─── Geografía Chile ─────────────────────────────────────────────────────────
@@ -94,28 +95,28 @@ const GOLD_BORDER = "rgba(212,175,55,0.35)";
 
 const SLIDES = [
     {
-        icon: "👁️",
+        Icon: BadgeCheck,
         title: "Valor único",
         subtitle: "Por qué Beacon es diferente",
         body: "Beacon es la primera plataforma de opinión ciudadana verificada de Chile. Cada voz es real, cada dato es auditable.",
         accent: GOLD,
     },
     {
-        icon: "⚖️",
+        Icon: SmilePlus,
         title: "Cómo funciona",
         subtitle: "El sistema de verificación y pesos",
         body: "Los usuarios no verificados votan con 0.5 puntos. Al verificar tu identidad, tu voto vale 1 punto completo — el doble de impacto.",
         accent: "#00E5FF",
     },
     {
-        icon: "🔐",
+        Icon: UserLock,
         title: "Seguridad",
         subtitle: "Cómo protegemos tu RUT",
         body: "Tu RUT se convierte en un hash SHA-256 irreversible al instante. Beacon nunca almacena tu RUT en texto plano. Matemáticamente imposible de reconstruir.",
         accent: "#39FF14",
     },
     {
-        icon: "🗳️",
+        Icon: Vote,
         title: "Primera encuesta",
         subtitle: "Opina sobre algo que te importa",
         body: "Una vez verificado, participa en encuestas sobre política, economía y sociedad chilena. Tu opinión construye estadísticas oficiales.",
@@ -128,6 +129,7 @@ const SLIDES = [
 function OnboardingSlides({ onFinish, onSkip }: { onFinish: () => void; onSkip: () => void }) {
     const [slide, setSlide] = useState(0);
     const current = SLIDES[slide];
+    const { Icon } = current;
     const isLast = slide === SLIDES.length - 1;
 
     return (
@@ -144,12 +146,11 @@ function OnboardingSlides({ onFinish, onSkip }: { onFinish: () => void; onSkip: 
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 32,
                         boxShadow: `0 0 24px ${current.accent}20`,
                         transition: "all 0.3s ease",
                     }}
                 >
-                    {current.icon}
+                    <Icon size={32} color={current.accent} strokeWidth={1.5} />
                 </div>
 
                 <div>
