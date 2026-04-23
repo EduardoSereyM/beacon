@@ -15,6 +15,31 @@
 
 ---
 
+## ✨ UX: Onboarding + Rediseño VerifyIdentityModal — 2026-04-23
+
+### Flujo multi-paso en modal de verificación de identidad
+
+**Estado:** ✅ COMPLETADO
+
+**Archivo modificado:**
+- `frontend/src/components/bunker/VerifyIdentityModal.tsx`
+
+**Cambios implementados:**
+
+| # | Qué | Detalle |
+|---|-----|---------|
+| 1 | Onboarding de 4 slides | Explica valor único, sistema de pesos, seguridad del RUT y primera encuesta. Dots de progreso navegables. Botón "Saltar" para usuarios que ya saben. |
+| 2 | Pantalla intro de verificación | 3 pasos explicativos (Ingresa RUT → Hash automático → Votos verificados) con círculos en **Sovereign Gold** (`#D4AF37`) en vez del verde neón. |
+| 3 | Flujo por steps | `onboarding → intro → form → success`. Control limpio con `useState<ModalStep>`. El `setTimeout` del éxito fue eliminado — el step `success` controla el estado. |
+| 4 | Memoria de onboarding | `localStorage` flag `beacon_onboarding_seen`. Usuarios que vuelven abren directo en `intro`, no repiten el tutorial. |
+| 5 | Paleta unificada | Constantes `GOLD`, `GOLD_DIM`, `GOLD_BORDER` en el módulo. Cada slide de onboarding usa su propio color de acento (gold, cyan, neon, purple). |
+
+**Decisiones de diseño:**
+- Los círculos numerados usan gradient `#D4AF37 → #B8860B` (Sovereign Gold) para coherencia con el botón CTA y el lenguaje visual de rango/status.
+- El verde `#39FF14` se reserva para estados activos/pulsantes (voto válido, RUT correcto), no decoración estática.
+
+---
+
 ## ✅ Fix UX: Modal "Tu voto fue registrado" + fix gramática — 2026-04-20
 
 ### Modal de confirmación post-voto + corrección de concordancia singular/plural
