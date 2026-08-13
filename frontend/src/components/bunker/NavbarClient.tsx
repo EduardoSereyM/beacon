@@ -86,7 +86,7 @@ export default function NavbarClient() {
             >
                 <div className="max-w-7xl mx-auto">
 
-                    {/* ══ Fila 1: Logo | Nav Links | Hamburger (mobile) ══ */}
+                    {/* ══ Fila única: Logo | Nav Links | Auth | Hamburger (mobile) ══ */}
                     <div className="flex items-center justify-between">
 
                         {/* ─── Logo ─── */}
@@ -104,20 +104,125 @@ export default function NavbarClient() {
                                     Beacon
                                 </h1>
                                 <p className="text-[10px] sm:text-[10px] text-foreground-muted tracking-[0.1em] sm:tracking-[0.25em] uppercase whitespace-nowrap hidden sm:block mt-0.5" style={{ lineHeight: "1" }}>
-                                    Opinión ciudadana verificada
+                                    Opinión ciudadana privada verificada
                                 </p>
                             </div>
                         </Link>
 
-                        {/* ─── Navigation Links (Desktop lg+) ─── */}
-                        <div className="hidden lg:flex items-center gap-3 xl:gap-5">
-                            <Link href="/encuestas" className="text-xs font-bold uppercase tracking-wider transition-colors px-2.5 py-1 rounded-lg" style={{ color: "#D4AF37", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)" }}>Encuestas</Link>
-                            <Link href="/entities" className="flex items-center gap-1.5 text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">
-                                Directorio
-                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.2)", color: "#D4AF37" }}>🚧</span>
-                            </Link>
-                            <Link href="/versus" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Versus</Link>
-                            <Link href="/events" className="text-xs text-foreground-muted hover:text-foreground transition-colors uppercase tracking-wider font-medium">Eventos</Link>
+                        {/* ─── Nav Links + Auth (Desktop lg+, misma fila) ─── */}
+                        <div className="hidden lg:flex items-center gap-5 xl:gap-6">
+
+                            {/* Navigation Links — solo Encuestas visible (resto oculto) */}
+                            <div className="flex items-center gap-3 xl:gap-5">
+                                <Link href="/encuestas" className="text-xs font-bold uppercase tracking-wider transition-colors px-2.5 py-1 rounded-lg" style={{ color: "#D4AF37", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)" }}>Encuestas</Link>
+                            </div>
+
+                            {/* ─── Barra separadora vertical ─── */}
+                            <div className="h-4 w-px bg-white/15 flex-shrink-0" />
+
+                            {/* Auth */}
+                            {isAuthenticated ? (
+                                <div className="flex items-center gap-3">
+                                    {isAdmin && <NotificationBell />}
+
+                                    {/* ─── Bloque 1: Avatar + Email + Badge ─── */}
+                                    <div className="flex items-center gap-2.5">
+                                        {/* Círculo avatar */}
+                                        <div
+                                            className="flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-black flex-shrink-0"
+                                            style={{
+                                                background: isAdmin
+                                                    ? "rgba(212,175,55,0.20)"
+                                                    : rank === "VERIFIED"
+                                                    ? "rgba(77,255,131,0.15)"
+                                                    : "rgba(255,140,0,0.15)",
+                                                border: `1.5px solid ${isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00"}`,
+                                                color: isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
+                                            }}
+                                        >
+                                            {(user.full_name || user.email || "?")[0].toUpperCase()}
+                                        </div>
+
+                                        {/* Email */}
+                                        <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.02em" }}>
+                                            {user.email || user.full_name}
+                                        </span>
+
+                                        {/* Badge de rango */}
+                                        <span
+                                            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                                            style={{
+                                                backgroundColor: isAdmin ? "rgba(212,175,55,0.12)" : rank === "VERIFIED" ? "rgba(77,255,131,0.12)" : "rgba(255,140,0,0.12)",
+                                                color: isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
+                                                border: `1px solid ${isAdmin ? "rgba(212,175,55,0.3)" : rank === "VERIFIED" ? "rgba(77,255,131,0.3)" : "rgba(255,140,0,0.3)"}`,
+                                            }}
+                                        >
+                                            {isAdmin
+                                                ? <Shield size={11} strokeWidth={2} />
+                                                : rank === "VERIFIED"
+                                                ? <ShieldCheck size={11} strokeWidth={2} />
+                                                : <ShieldAlert size={11} strokeWidth={2} />}
+                                            {isAdmin ? "ADMIN" : rank === "VERIFIED" ? "VERIFIED" : "BASIC"}
+                                        </span>
+                                    </div>
+
+                                    {/* ─── Barra separadora vertical ─── */}
+                                    <div className="h-4 w-px bg-white/15 flex-shrink-0 mx-2" />
+
+                                    {/* ─── Bloque 2: Acciones ─── */}
+                                    {isAdmin && (
+                                        <Link
+                                            href="/admin"
+                                            className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-[#D4AF37] transition-colors duration-200"
+                                        >
+                                            <Shield size={13} strokeWidth={1.5} />
+                                            <span>Admin</span>
+                                        </Link>
+                                    )}
+
+                                    {isBasic && (
+                                        <button
+                                            onClick={() => { setVerifyMode("intro"); setIsVerifyOpen(true); }}
+                                            className="flex items-center gap-1.5 text-xs font-mono transition-colors duration-200"
+                                            style={{ color: "#8A8A8A" }}
+                                            onMouseEnter={e => (e.currentTarget.style.color = "#FF8C00")}
+                                            onMouseLeave={e => (e.currentTarget.style.color = "#8A8A8A")}
+                                            title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
+                                        >
+                                            <ShieldAlert size={13} strokeWidth={1.5} />
+                                            <span>Verificar cuenta</span>
+                                        </button>
+                                    )}
+
+                                    <span className="text-white/20 select-none">·</span>
+
+                                    <a
+                                        href="/profile"
+                                        className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-white transition-colors duration-200"
+                                    >
+                                        <UserCircle size={14} strokeWidth={1.5} />
+                                        <span>Mi Perfil</span>
+                                    </a>
+
+                                    <span className="text-white/20 select-none">·</span>
+
+                                    <button
+                                        onClick={logout}
+                                        className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-red-400 transition-colors duration-200"
+                                    >
+                                        <LogOut size={13} strokeWidth={1.5} />
+                                        <span>Salir</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 hover:bg-[#D4AF37]/10"
+                                    style={{ background: "rgba(212,175,55,0.05)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.3)", boxShadow: "0 0 10px rgba(212,175,55,0.1)" }}
+                                >
+                                    Acceso
+                                </button>
+                            )}
                         </div>
 
                         {/* ─── Hamburger Button (Mobile < lg) ─── */}
@@ -153,112 +258,6 @@ export default function NavbarClient() {
                                 )}
                             </button>
                         </div>
-                    </div>
-
-                    {/* ══ Fila 2: Auth — Desktop lg+, siempre a la derecha ══ */}
-                    <div className="hidden lg:flex justify-end items-center gap-3 mt-1.5 pt-1.5 border-t border-white/[0.06]">
-                        {isAuthenticated ? (
-                            <>
-                                {isAdmin && <NotificationBell />}
-
-                                {/* ─── Bloque 1: Avatar + Email + Badge ─── */}
-                                <div className="flex items-center gap-2.5">
-                                    {/* Círculo avatar */}
-                                    <div
-                                        className="flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-black flex-shrink-0"
-                                        style={{
-                                            background: isAdmin
-                                                ? "rgba(212,175,55,0.20)"
-                                                : rank === "VERIFIED"
-                                                ? "rgba(77,255,131,0.15)"
-                                                : "rgba(255,140,0,0.15)",
-                                            border: `1.5px solid ${isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00"}`,
-                                            color: isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
-                                        }}
-                                    >
-                                        {(user.full_name || user.email || "?")[0].toUpperCase()}
-                                    </div>
-
-                                    {/* Email */}
-                                    <span className="text-xs font-mono text-foreground" style={{ letterSpacing: "0.02em" }}>
-                                        {user.email || user.full_name}
-                                    </span>
-
-                                    {/* Badge de rango */}
-                                    <span
-                                        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                                        style={{
-                                            backgroundColor: isAdmin ? "rgba(212,175,55,0.12)" : rank === "VERIFIED" ? "rgba(77,255,131,0.12)" : "rgba(255,140,0,0.12)",
-                                            color: isAdmin ? "#D4AF37" : rank === "VERIFIED" ? "#4DFF83" : "#FF8C00",
-                                            border: `1px solid ${isAdmin ? "rgba(212,175,55,0.3)" : rank === "VERIFIED" ? "rgba(77,255,131,0.3)" : "rgba(255,140,0,0.3)"}`,
-                                        }}
-                                    >
-                                        {isAdmin
-                                            ? <Shield size={11} strokeWidth={2} />
-                                            : rank === "VERIFIED"
-                                            ? <ShieldCheck size={11} strokeWidth={2} />
-                                            : <ShieldAlert size={11} strokeWidth={2} />}
-                                        {isAdmin ? "ADMIN" : rank === "VERIFIED" ? "VERIFIED" : "BASIC"}
-                                    </span>
-                                </div>
-
-                                {/* ─── Barra separadora vertical ─── */}
-                                <div className="h-4 w-px bg-white/15 flex-shrink-0 mx-2" />
-
-                                {/* ─── Bloque 2: Acciones ─── */}
-                                {isAdmin && (
-                                    <Link
-                                        href="/admin"
-                                        className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-[#D4AF37] transition-colors duration-200"
-                                    >
-                                        <Shield size={13} strokeWidth={1.5} />
-                                        <span>Admin</span>
-                                    </Link>
-                                )}
-
-                                {isBasic && (
-                                    <button
-                                        onClick={() => { setVerifyMode("intro"); setIsVerifyOpen(true); }}
-                                        className="flex items-center gap-1.5 text-xs font-mono transition-colors duration-200"
-                                        style={{ color: "#8A8A8A" }}
-                                        onMouseEnter={e => (e.currentTarget.style.color = "#FF8C00")}
-                                        onMouseLeave={e => (e.currentTarget.style.color = "#8A8A8A")}
-                                        title="Tu voto aparece en público, pero solo los verificados cuentan en informes oficiales"
-                                    >
-                                        <ShieldAlert size={13} strokeWidth={1.5} />
-                                        <span>Verificar cuenta</span>
-                                    </button>
-                                )}
-
-                                <span className="text-white/20 select-none">·</span>
-
-                                <a
-                                    href="/profile"
-                                    className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-white transition-colors duration-200"
-                                >
-                                    <UserCircle size={14} strokeWidth={1.5} />
-                                    <span>Mi Perfil</span>
-                                </a>
-
-                                <span className="text-white/20 select-none">·</span>
-
-                                <button
-                                    onClick={logout}
-                                    className="flex items-center gap-1.5 text-xs font-mono text-foreground-muted hover:text-red-400 transition-colors duration-200"
-                                >
-                                    <LogOut size={13} strokeWidth={1.5} />
-                                    <span>Salir</span>
-                                </button>
-                            </>
-                        ) : (
-                            <button
-                                onClick={() => setIsModalOpen(true)}
-                                className="px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-300 hover:scale-105 hover:bg-[#D4AF37]/10"
-                                style={{ background: "rgba(212,175,55,0.05)", color: "#D4AF37", border: "1px solid rgba(212,175,55,0.3)", boxShadow: "0 0 10px rgba(212,175,55,0.1)" }}
-                            >
-                                Acceso
-                            </button>
-                        )}
                     </div>
 
                 </div>
@@ -333,12 +332,6 @@ export default function NavbarClient() {
 
                     <div className="flex flex-col gap-6 text-center mb-auto">
                         <Link href="/encuestas" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold uppercase tracking-widest" style={{ color: "#D4AF37" }}>Encuestas</Link>
-                        <Link href="/entities" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center justify-center gap-2 text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">
-                            Directorio
-                            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.2)", color: "#D4AF37" }}>🚧</span>
-                        </Link>
-                        <Link href="/versus" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Versus</Link>
-                        <Link href="/events" onClick={() => setIsMobileMenuOpen(false)} className="text-xl font-bold text-foreground hover:text-white tracking-widest uppercase">Eventos</Link>
                     </div>
                 </div>
             )}
