@@ -68,8 +68,6 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     Raises:
         Exception: Si el email ya existe, DISPLACED, o error en Supabase
     """
-    supabase = get_async_supabase_client()
-
     # ─── 1. Análisis Forense del DNA Scanner ───
     dna_result = {"score": 100, "classification": "HUMAN", "alerts": []}
     if request_metadata:
