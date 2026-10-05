@@ -17,7 +17,7 @@ from typing import Optional
 
 import httpx
 
-from app.core.database import get_async_supabase_client, get_supabase_anon_async
+from app.core.database import anon_auth_client, get_async_supabase_client
 from app.core.audit_logger import audit_bus
 from app.core.security.dna_scanner import gatekeeper
 from app.core.config import settings
@@ -68,8 +68,6 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
     Raises:
         Exception: Si el email ya existe, DISPLACED, o error en Supabase
     """
-    supabase = get_async_supabase_client()
-
     # ─── 1. Análisis Forense del DNA Scanner ───
     dna_result = {"score": 100, "classification": "HUMAN", "alerts": []}
     if request_metadata:
@@ -114,15 +112,16 @@ async def register_user(user_data: UserCreate, request_metadata: dict = None) ->
         # cliente service_role. Si se llama sign_up() en el cliente service_role,
         # sobrescribe su sesión interna con el JWT del nuevo usuario (no confirmado),
         # y el insert posterior a public.users devuelve 403.
-        anon_client = get_supabase_anon_async()
+        # El cliente es efímero (sin auto-refresh ni persistencia) y se cierra al salir.
         redirect_url = f"{settings.FRONTEND_URL}/auth/callback"
-        auth_response = await anon_client.auth.sign_up({
-            "email": user_data.email,
-            "password": user_data.password,
-            "options": {
-                "email_redirect_to": redirect_url,
-            },
-        })
+        async with anon_auth_client() as anon_client:
+            auth_response = await anon_client.auth.sign_up({
+                "email": user_data.email,
+                "password": user_data.password,
+                "options": {
+                    "email_redirect_to": redirect_url,
+                },
+            })
 
     if not auth_response.user:
         raise Exception("Falla al generar identidad en Supabase Auth")
