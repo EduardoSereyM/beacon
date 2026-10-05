@@ -22,6 +22,7 @@ from app.api.v1.admin.polls_admin import (
     QuestionDef,
     VALID_CATEGORIES,
     _generate_slug,
+    _validate_legacy_scale,
     require_pipeline_key,
 )
 from app.api.v1.admin.require_admin import require_admin_role
@@ -73,6 +74,10 @@ def _validate_questions(questions: List[QuestionDef]) -> None:
                 status_code=400,
                 detail=f"Pregunta '{q.text}': scale_labels debe tener exactamente {q.scale_points} etiquetas.",
             )
+        # Escala legacy por extremos: sin esta regla una serie con min >= max generaría
+        # cada mes una encuesta imposible de votar.
+        if q.type == "scale" and q.scale_points is None:
+            _validate_legacy_scale(q)
 
 
 @router.get("", summary="[ADMIN] Lista series de encuestas")

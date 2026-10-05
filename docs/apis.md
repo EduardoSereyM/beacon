@@ -1719,6 +1719,8 @@ Plantillas que se republican solas cada mes. Cada edición es una fila normal de
 
 **Límites:** `title` ≤ 280 y `slug` ≤ 100 caracteres (la edición agrega `" — Septiembre 2026"` y `-YYYY-MM`, y `polls` admite 300 / 120). Se validan en la API (422) y con `CHECK` en la migración 024.
 
+**Validación de preguntas (POST y PATCH):** `multiple_choice` requiere al menos 2 opciones; `scale` con `scale_points` requiere `scale_labels` de ese tamaño. Una `scale` por extremos (sin `scale_points`) requiere `scale_min < scale_max` (defaults 1..5), o responde **400**: el voto exige `scale_min ≤ valor ≤ scale_max`, así que con `min ≥ max` la edición de cada mes sería imposible de votar. Es la misma regla de `POST /admin/polls`.
+
 **Reglas de la edición:**
 - `edition` = mes en formato `YYYY-MM`, calculado en hora de Chile (`America/Santiago`).
 - Ventana: día 1 00:00 → último día del mes 23:59:59, hora de Chile (se guarda en UTC).

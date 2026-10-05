@@ -6,7 +6,7 @@ solo si cambia el contenido real, y 409 al borrar la edición de una serie.
 """
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.v1.admin import polls_admin, polls_series_admin
@@ -119,6 +119,21 @@ class TestCreateAndList:
         assert _create(client, questions=[bad]).status_code == 400
         assert sb.db["poll_series"] == []
 
+    @pytest.mark.parametrize("lo,hi", [(5, 3), (4, 4)])
+    def test_escala_legacy_con_min_mayor_o_igual_que_max_400(self, env, lo, hi):
+        client, sb = env
+        bad = {"text": "Nota", "type": "scale", "scale_min": lo, "scale_max": hi}
+        res = _create(client, questions=[bad])
+        assert res.status_code == 400 and "scale_min" in res.json()["detail"]
+        assert sb.db["poll_series"] == []
+
+    def test_escala_legacy_con_min_menor_que_max_se_acepta(self, env):
+        client, _ = env
+        ok = {"text": "Nota", "type": "scale", "scale_min": 2, "scale_max": 5}
+        res = _create(client, questions=[ok])
+        assert res.status_code == 201
+        assert res.json()["series"]["questions"][0]["scale_min"] == 2
+
     def test_categoria_invalida_cae_a_general(self, env):
         client, _ = env
         assert _create(client, category="inventada").json()["series"]["category"] == "general"
@@ -146,6 +161,28 @@ class TestCreateAndList:
         _create(client)
         res = client.get("/admin/polls/series")
         assert res.status_code == 200 and res.json()["total"] == 1
+
+
+# ═══ Regla de escala compartida con encuestas normales ═══
+
+class TestLegacyScaleRuleIsShared:
+    """La serie reutiliza el validador de polls_admin (no una copia)."""
+
+    def test_series_usa_el_mismo_validador_que_polls_admin(self):
+        assert polls_series_admin._validate_legacy_scale is polls_admin._validate_legacy_scale
+
+    @pytest.mark.parametrize("lo,hi", [(5, 3), (4, 4)])
+    def test_validador_rechaza_min_mayor_o_igual_que_max(self, lo, hi):
+        q = polls_admin.QuestionDef(text="Nota", type="scale", scale_min=lo, scale_max=hi)
+        with pytest.raises(HTTPException) as exc:
+            polls_admin._validate_legacy_scale(q)
+        assert exc.value.status_code == 400
+
+    def test_validador_acepta_min_menor_que_max_y_los_defaults(self):
+        polls_admin._validate_legacy_scale(
+            polls_admin.QuestionDef(text="Nota", type="scale", scale_min=2, scale_max=5))
+        # Sin extremos explícitos rigen los defaults del voto (1..5)
+        polls_admin._validate_legacy_scale(polls_admin.QuestionDef(text="Nota", type="scale"))
 
 
 # ═══ PATCH ═══
@@ -204,6 +241,21 @@ class TestUpdate:
         client, _ = env
         s = self._series(client)
         assert client.patch(f"/admin/polls/series/{s['id']}", json={"title": title}).status_code == expected
+
+    @pytest.mark.parametrize("lo,hi", [(5, 3), (4, 4)])
+    def test_patch_escala_legacy_con_min_mayor_o_igual_que_max_400(self, env, lo, hi):
+        client, _ = env
+        s = self._series(client)
+        bad = [{"text": "Nota", "type": "scale", "scale_min": lo, "scale_max": hi}]
+        res = client.patch(f"/admin/polls/series/{s['id']}", json={"questions": bad})
+        assert res.status_code == 400 and "scale_min" in res.json()["detail"]
+
+    def test_patch_escala_legacy_con_min_menor_que_max_se_acepta(self, env):
+        client, _ = env
+        s = self._series(client)
+        ok = [{"text": "Nota", "type": "scale", "scale_min": 2, "scale_max": 5}]
+        res = client.patch(f"/admin/polls/series/{s['id']}", json={"questions": ok})
+        assert res.status_code == 200 and res.json()["series"]["template_version"] == 2
 
     def test_cambio_de_titulo_no_sube_version(self, env):
         client, _ = env

@@ -61,6 +61,19 @@ class QuestionDef(BaseModel):
     order_index: int = 0
 
 
+def _validate_legacy_scale(q: QuestionDef) -> None:
+    """Escala por extremos (sin scale_points): scale_min < scale_max.
+    El voto exige scale_min <= valor <= scale_max, así que con min >= max la
+    encuesta no se podría votar."""
+    mn = q.scale_min or 1
+    mx = q.scale_max or 5
+    if mn >= mx:
+        raise HTTPException(
+            status_code=400,
+            detail=f"scale_min ({mn}) debe ser menor que scale_max ({mx}).",
+        )
+
+
 VALID_STATUSES = {"draft", "active", "paused", "closed"}
 
 
@@ -414,13 +427,7 @@ async def admin_create_poll(
                         detail=f"Pregunta '{q.text}': scale_labels debe tener exactamente {q.scale_points} etiquetas.",
                     )
             else:
-                mn = q.scale_min or 1
-                mx = q.scale_max or 5
-                if mn >= mx:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"scale_min ({mn}) debe ser menor que scale_max ({mx}).",
-                    )
+                _validate_legacy_scale(q)
 
     supabase = get_async_supabase_client()
 
