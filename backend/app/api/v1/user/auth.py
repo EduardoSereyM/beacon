@@ -138,11 +138,14 @@ async def confirm_email(request: Request):
         raise HTTPException(status_code=400, detail="token_hash es obligatorio")
 
     try:
-        from app.core.database import get_async_supabase_client
-        supabase = get_async_supabase_client()
+        from app.core.database import get_supabase_anon_async
+        # Cliente anon NUEVO por petición: verify_otp abre sesión (SIGNED_IN) y fijaría
+        # el token del usuario como Authorization del cliente; sobre el singleton
+        # service_role lo contaminaría. No se necesita service_role aquí.
+        anon_client = get_supabase_anon_async()
 
         # Verificar el OTP (token_hash + type) con Supabase Auth
-        auth_response = await supabase.auth.verify_otp({
+        auth_response = await anon_client.auth.verify_otp({
             "token_hash": token_hash,
             "type": token_type,
         })
@@ -188,11 +191,15 @@ async def login(request: Request):
         raise HTTPException(status_code=401, detail="Error de autenticación: Credenciales inválidas")
 
     try:
-        from app.core.database import get_async_supabase_client
+        from app.core.database import get_async_supabase_client, get_supabase_anon_async
         supabase = get_async_supabase_client()
 
-        # Iniciar sesión vía Supabase Auth (esto genera el JWT con claims RBAC)
-        auth_response = await supabase.auth.sign_in_with_password({
+        # Iniciar sesión vía Supabase Auth (esto genera el JWT con claims RBAC).
+        # Cliente anon NUEVO por petición: sign_in_with_password fija el token del
+        # usuario como Authorization del cliente que lo invoca; sobre el singleton
+        # service_role lo contaminaría para todas las consultas posteriores.
+        anon_client = get_supabase_anon_async()
+        auth_response = await anon_client.auth.sign_in_with_password({
             "email": email,
             "password": password
         })
