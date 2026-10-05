@@ -1674,6 +1674,8 @@ Actualiza campos parciales. Acepta los mismos campos que POST excepto `questions
 
 Elimina encuesta. Genera audit log `OVERLORD_ACTION_DELETE_POLL`.
 
+**409** si la encuesta es la edición de una serie mensual (`series_id` no nulo): el cron la recrearía al día siguiente y se perdería el histórico. Cerrarla (`status=closed`) o pausar la serie (`is_active=false`).
+
 ---
 
 ### POST `/admin/polls/upload-image` ✅
@@ -1701,6 +1703,38 @@ Ranking de usuarios por votos en encuestas, filtrable por período.
 |-------------|------|-------------|
 | `from_date` | ISO 8601 | Fecha inicio (opcional) |
 | `to_date`   | ISO 8601 | Fecha fin (opcional) |
+
+---
+
+### Series de encuestas mensuales (`/admin/polls/series`) 🚧
+
+Plantillas que se republican solas cada mes. Cada edición es una fila normal de `polls` enlazada por `series_id` (migración 024). Pendiente de aplicar en producción: migraciones 023 y 024.
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/admin/polls/series` | JWT admin | Lista las series |
+| POST | `/admin/polls/series` | JWT admin | Crea una serie (`title`, `questions`, `category`, `tags`, `context`, `requires_auth`, `slug` opcional). 409 si el slug existe (también ante creaciones simultáneas: lo decide el `UNIQUE` de la base) |
+| PATCH | `/admin/polls/series/{id}` | JWT admin | Edita o pausa (`is_active=false`). `template_version` sube en 1 solo si cambia el contenido real de las `questions`. Los `id` de pregunta los resuelve el servidor por posición (los que envíe el cliente se ignoran). Reenviar las mismas preguntas es un no-op 200 sin audit; body vacío → 400 |
+| POST | `/admin/polls/series/publish-due` | `PIPELINE_API_KEY` | Cron: publica la edición del mes en curso de cada serie activa |
+
+**Límites:** `title` ≤ 280 y `slug` ≤ 100 caracteres (la edición agrega `" — Septiembre 2026"` y `-YYYY-MM`, y `polls` admite 300 / 120). Se validan en la API (422) y con `CHECK` en la migración 024.
+
+**Reglas de la edición:**
+- `edition` = mes en formato `YYYY-MM`, calculado en hora de Chile (`America/Santiago`).
+- Ventana: día 1 00:00 → último día del mes 23:59:59, hora de Chile (se guarda en UTC).
+- Título `"<título de la serie> — Octubre 2026"`, slug `<slug>-2026-10`, preguntas con los mismos `id` en todas las ediciones.
+- `template_version` se copia a cada edición: la tendencia debe cortar la línea cuando cambia.
+- `polls.series_id` usa `ON DELETE RESTRICT`: una serie con ediciones no se borra, se pausa.
+- Idempotente: índice único `(series_id, edition)`. Cada edición publicada deja `SERIES_EDITION_PUBLISHED` en `audit_logs`.
+
+**`POST /admin/polls/series/publish-due`** no recibe parámetros. Lo dispara `.github/workflows/publish-poll-series.yml` a diario (secrets `BEACON_API_URL` y `PIPELINE_API_KEY`).
+
+```json
+// 200 — todo bien
+{ "edition": "2026-10", "published": ["aprobacion-presidencial"], "skipped": [], "failed": [], "audit_failed": [] }
+```
+
+Responde **500 con el mismo resumen** si alguna serie falla (`failed`: p.ej. slug ocupado por otra encuesta) o si una edición se publicó pero no se pudo escribir su audit (`audit_failed`), para que el job de GitHub Actions falle y avise. Reintentar es seguro.
 
 ---
 

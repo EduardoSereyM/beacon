@@ -1,0 +1,44 @@
+name: Publicar series de encuestas
+
+# Corre a diario (no solo el día 1): el endpoint es idempotente y crea la edición
+# del mes solo si no existe, así un retraso o una falla puntual se recupera al día siguiente.
+# 04:15 UTC = 00:15–01:15 hora de Chile.
+on:
+  schedule:
+    - cron: "15 4 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# Cron y ejecución manual no corren a la vez (el índice único ya protege los datos,
+# esto evita que ni siquiera lo intenten). Sin cancelar la que va en curso.
+concurrency:
+  group: publish-poll-series
+  cancel-in-progress: false
+
+jobs:
+  publish-due:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Despertar el backend (cold start de Render)
+        env:
+          BEACON_API_URL: ${{ secrets.BEACON_API_URL }}
+        run: |
+          # Solo el health se reintenta: el POST de abajo NO, porque un reintento
+          # tras un 500 vería la edición ya creada, respondería 200 y taparía el fallo.
+          curl --silent --show-error --fail \
+            --retry 8 --retry-delay 15 --retry-all-errors --max-time 30 \
+            "${BEACON_API_URL%/api/v1}/health"
+
+      - name: POST /admin/polls/series/publish-due
+        env:
+          # Secrets del repo: BEACON_API_URL (p.ej. https://<backend>/api/v1) y PIPELINE_API_KEY.
+          BEACON_API_URL: ${{ secrets.BEACON_API_URL }}
+          PIPELINE_API_KEY: ${{ secrets.PIPELINE_API_KEY }}
+        run: |
+          # --fail-with-body: el job falla con 4xx/5xx (500 si una serie falla o se
+          # pierde un audit) e imprime el resumen JSON en el log.
+          curl --silent --show-error --fail-with-body --max-time 120 \
+            -X POST "$BEACON_API_URL/admin/polls/series/publish-due" \
+            -H "Authorization: Bearer $PIPELINE_API_KEY"
