@@ -138,14 +138,17 @@ async def confirm_email(request: Request):
         raise HTTPException(status_code=400, detail="token_hash es obligatorio")
 
     try:
-        from app.core.database import get_async_supabase_client
-        supabase = get_async_supabase_client()
-
-        # Verificar el OTP (token_hash + type) con Supabase Auth
-        auth_response = await supabase.auth.verify_otp({
-            "token_hash": token_hash,
-            "type": token_type,
-        })
+        from app.core.database import anon_auth_client
+        # Cliente anon NUEVO por petición: verify_otp abre sesión (SIGNED_IN) y fijaría
+        # el token del usuario como Authorization del cliente; sobre el singleton
+        # service_role lo contaminaría. No se necesita service_role aquí.
+        # El cliente es efímero (sin auto-refresh ni persistencia) y se cierra al salir.
+        async with anon_auth_client() as anon_client:
+            # Verificar el OTP (token_hash + type) con Supabase Auth
+            auth_response = await anon_client.auth.verify_otp({
+                "token_hash": token_hash,
+                "type": token_type,
+            })
 
         if not auth_response.user:
             raise HTTPException(status_code=400, detail="Token inválido o expirado")
@@ -188,14 +191,19 @@ async def login(request: Request):
         raise HTTPException(status_code=401, detail="Error de autenticación: Credenciales inválidas")
 
     try:
-        from app.core.database import get_async_supabase_client
+        from app.core.database import anon_auth_client, get_async_supabase_client
         supabase = get_async_supabase_client()
 
-        # Iniciar sesión vía Supabase Auth (esto genera el JWT con claims RBAC)
-        auth_response = await supabase.auth.sign_in_with_password({
-            "email": email,
-            "password": password
-        })
+        # Iniciar sesión vía Supabase Auth (esto genera el JWT con claims RBAC).
+        # Cliente anon NUEVO por petición: sign_in_with_password fija el token del
+        # usuario como Authorization del cliente que lo invoca; sobre el singleton
+        # service_role lo contaminaría para todas las consultas posteriores.
+        # El cliente es efímero (sin auto-refresh ni persistencia) y se cierra al salir.
+        async with anon_auth_client() as anon_client:
+            auth_response = await anon_client.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
         
         if not auth_response.user:
             raise ValueError("Credenciales inválidas o cuenta no verificada")
@@ -348,13 +356,13 @@ async def reset_password(request: Request):
             # Flujo Recovery: verificar token_hash con cliente ANON
             # verify_otp es operación de cliente (anon), no de service_role
             # El token_hash no se consume al cargar la página, solo aquí al enviar el form
-            from app.core.database import get_supabase_anon_async
-            anon_client = get_supabase_anon_async()
+            from app.core.database import anon_auth_client
             try:
-                auth_response = await anon_client.auth.verify_otp({
-                    "token_hash": token_hash,
-                    "type": "recovery",
-                })
+                async with anon_auth_client() as anon_client:
+                    auth_response = await anon_client.auth.verify_otp({
+                        "token_hash": token_hash,
+                        "type": "recovery",
+                    })
                 if not auth_response.user:
                     raise HTTPException(status_code=400, detail="Token inválido o expirado")
                 user_id = auth_response.user.id
