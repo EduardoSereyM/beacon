@@ -27,6 +27,7 @@ Beacon es la primera plataforma de opinión ciudadana abierta y verificada de Ch
 
 ### Funcionalidades en Roadmap (P3/P4)
 - **P3 — Versus** — votación head-to-head entre dos entidades
+- **P3 — Encuestas Mensuales Recurrentes** — series que se republican solas cada mes (hora Chile) para medir la evolución de la opinión; backend listo, pendiente de aplicar migraciones 023/024 y de la UI de tendencia
 - **P3 — Propuesta Ciudadana** — usuarios verificados pueden sugerir nuevas preguntas
 - **P4 — Informes B2B** — análisis segmentado para medios y empresas (pago)
 - **P4 — Filtros Geográficos** — páginas `/politicos`, `/empresas` con región/comuna/partido

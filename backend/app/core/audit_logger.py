@@ -122,10 +122,16 @@ class AuditLogger:
         entity_type: str,
         entity_id: str,
         details: Dict[str, Any],
+        raise_on_error: bool = False,
     ) -> None:
         """
         Versión async de log_event para usar dentro de endpoints async.
         Usa el cliente async de Supabase para no bloquear el event loop.
+
+        Por defecto el audit NUNCA detiene el flujo principal: si la escritura
+        falla, se registra el error y se sigue. Con raise_on_error=True el error
+        se relanza tras registrarlo, para flujos (p.ej. cron de series) que deben
+        avisar de un audit perdido.
         """
         payload = {
             "actor_id": actor_id,
@@ -149,6 +155,8 @@ class AuditLogger:
                 f"❌ AUDIT WRITE FAILED | {action} | {e}",
                 exc_info=True,
             )
+            if raise_on_error:
+                raise
 
     def log_security_event(
         self,

@@ -15,6 +15,40 @@
 
 ---
 
+## 🔁 Feature: Encuestas mensuales recurrentes (poll_series) — EN DESARROLLO
+
+### Backend listo, pendiente de aplicar migraciones en Supabase
+- **Migración 023:** RLS defensiva e idempotente para `polls` (lectura pública solo de publicadas) y `poll_votes` (solo lectura propia). Deuda previa: ninguna migración versionada declaraba RLS ni creaba esas tablas.
+- **Migración 024:** `poll_series` + `polls.series_id/edition/template_version`, índice único `(series_id, edition)`.
+- **Servicio:** `app/core/polls_series/` (ventana mensual en hora Chile, publicación idempotente, audit en `audit_logs`).
+- **API:** `/admin/polls/series` (CRUD admin) y `POST /admin/polls/series/publish-due` (cron, `PIPELINE_API_KEY`, 500 si algo falla). Ver `docs/apis.md`.
+- **Disparador:** `.github/workflows/publish-poll-series.yml` (diario). Requiere secrets `BEACON_API_URL` y `PIPELINE_API_KEY`.
+- **Integridad:** `ON DELETE RESTRICT` en `polls.series_id`; `DELETE /admin/polls/{id}` responde 409 para ediciones; ids de pregunta resueltos en servidor (por posición).
+- **Orden de rollout:** aplicar 023 → comprobar que la web sigue funcionando → aplicar 024 → crear la serie → `workflow_dispatch` manual.
+- **Pendiente (F4):** UI admin de series, badge "Edición mensual" y gráfico de tendencia.
+- **Audit:** `alog_event(raise_on_error=True)` (por defecto `False`, los 20 llamadores no cambian) hace que un audit perdido llegue a `audit_failed` y el endpoint responda 500.
+- **Deuda anotada (audit):** si una edición se publica pero falla su escritura en `audit_logs`, `publish-due` responde 500 solo ese día; al siguiente la edición ya existe, se cuenta como `skipped` y responde 200. Falta un job de reconciliación que detecte ediciones (`polls.series_id` no nulo) sin fila `SERIES_EDITION_PUBLISHED` en `audit_logs` y la reescriba.
+- **Deuda anotada:** migración fantasma `supabase/migrations/010_polls_header_image_questions.sql` (README la cita, no existe); `admin_ingest_poll`/`admin_create_poll` aún insertan `poll_type`/`options`, columnas que la migración 021 elimina.
+
+
+### Rollout: Encuestas mensuales recurrentes
+- [ ] 1. Confirmar `poll_votes.user_id` = uuid:
+      `SELECT data_type FROM information_schema.columns WHERE table_name='poll_votes' AND column_name='user_id';`
+- [ ] 2. Aplicar `023_polls_rls_defensive.sql`
+- [ ] 3. Correr `pg_policies` y verificar que no hay políticas permisivas (`USING (true)`) en polls / poll_votes
+- [ ] 4. Probar la web (listado, detalle, voto) tras la 023
+- [ ] 5. Aplicar `024_poll_series.sql` (horario de poco tráfico)
+- [ ] 6. Push de la rama y abrir PR; revisar CI (error previo de ruff en `auth_service.py:71`)
+- [ ] 7. Merge (despliega el backend) SOLO después del paso 5
+- [ ] 8. Crear secrets en GitHub: `BEACON_API_URL` (con sufijo `/api/v1`) y `PIPELINE_API_KEY`
+- [ ] 9. Crear la primera serie (`POST /admin/polls/series`)
+- [ ] 10. Lanzar el workflow con `workflow_dispatch` DOS veces: 1ª = `published`; 2ª = `skipped`, una sola edición, una fila en `audit_logs`
+- [ ] 11. Actualizar `playbook.md` (sección IMPLEMENTADO) cuando esté en producción
+
+**Deuda abierta:** job de reconciliación de audits perdidos; versionar el esquema real de `polls`/`poll_votes` (migración fantasma 010); separar `PIPELINE_API_KEY` por función; F4 (UI).
+
+---
+
 ## ✨ UX: Separación Onboarding / Verificación — 2026-04-23
 
 ### Dos flujos independientes en VerifyIdentityModal
@@ -1636,6 +1670,7 @@ Donde:
 |---|---|---|---|
 | Propuesta ciudadana de preguntas (RE-3) | `encuestas` | IA | Design de UX para propuesta + moderación |
 | Informes B2B bajo demanda (RE-4) | `b2b` | IA | Definición de estructura de informe |
+| Encuestas mensuales recurrentes (F4: UI y tendencia) | `encuestas` | IA | Aplicar migraciones 023/024 en Supabase y configurar secrets del workflow |
 
 #### ⏸️ Pendientes (Roadmap)
 

@@ -9,7 +9,7 @@ Endpoints:
   POST   /admin/polls              → Crear encuesta (schema UI admin)
   POST   /admin/polls/ingest       → Ingestar encuesta desde pipeline de agentes (schema AGENTE_05)
   PATCH  /admin/polls/{id}         → Editar encuesta
-  DELETE /admin/polls/{id}         → Eliminar encuesta
+  DELETE /admin/polls/{id}         → Eliminar encuesta (409 si es edición de una serie mensual)
   POST   /admin/polls/upload-image → Subir imagen cabecera al bucket 'encuestas'
 """
 
@@ -59,6 +59,19 @@ class QuestionDef(BaseModel):
     scale_min_label: Optional[str] = Field(None, max_length=80)
     scale_max_label: Optional[str] = Field(None, max_length=80)
     order_index: int = 0
+
+
+def _validate_legacy_scale(q: QuestionDef) -> None:
+    """Escala por extremos (sin scale_points): scale_min < scale_max.
+    El voto exige scale_min <= valor <= scale_max, así que con min >= max la
+    encuesta no se podría votar."""
+    mn = q.scale_min or 1
+    mx = q.scale_max or 5
+    if mn >= mx:
+        raise HTTPException(
+            status_code=400,
+            detail=f"scale_min ({mn}) debe ser menor que scale_max ({mx}).",
+        )
 
 
 VALID_STATUSES = {"draft", "active", "paused", "closed"}
@@ -414,13 +427,7 @@ async def admin_create_poll(
                         detail=f"Pregunta '{q.text}': scale_labels debe tener exactamente {q.scale_points} etiquetas.",
                     )
             else:
-                mn = q.scale_min or 1
-                mx = q.scale_max or 5
-                if mn >= mx:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"scale_min ({mn}) debe ser menor que scale_max ({mx}).",
-                    )
+                _validate_legacy_scale(q)
 
     supabase = get_async_supabase_client()
 
@@ -584,13 +591,24 @@ async def admin_delete_poll(
 
     existing = await (
         supabase.table("polls")
-        .select("id, title")
+        .select("id, title, series_id, edition")
         .eq("id", poll_id)
         .maybe_single()
         .execute()
     )
     if not existing.data:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
+
+    # Una edición borrada la recrearía el cron al día siguiente (la idempotencia
+    # solo ve que "no existe") y se perdería la serie histórica.
+    if existing.data.get("series_id"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"La encuesta es la edición {existing.data.get('edition')} de una serie mensual y no se "
+                "puede eliminar. Ciérrala (status=closed) o pausa la serie (is_active=false)."
+            ),
+        )
 
     await supabase.table("polls").delete().eq("id", poll_id).execute()
 
