@@ -42,6 +42,7 @@ export default function NavbarClient() {
         if (!isAuthenticated || rank !== "BASIC") return;
         try {
             if (!localStorage.getItem("beacon_onboarding_seen")) {
+                // eslint-disable-next-line react-hooks/set-state-in-effect -- verifyMode debe fijarse ANTES de que el timer abra el modal (se pasa como initialStep); moverlo dentro del setTimeout cambiaría el orden frente a un clic en "Verificar" durante los 800 ms.
                 setVerifyMode("onboarding");
                 setTimeout(() => setIsVerifyOpen(true), 800);
             }
