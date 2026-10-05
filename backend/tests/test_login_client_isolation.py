@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from supabase._async.client import AsyncClient
 
 from app.api.v1.user import auth as auth_module
+from app.core import database
 
 USER_ID = "11111111-1111-1111-1111-111111111111"
 USER_TOKEN = "jwt-del-ciudadano"
@@ -50,7 +51,12 @@ def _real_client(key: str) -> AsyncClient:
 @pytest.fixture
 def clients(monkeypatch):
     shared = _real_client(SERVICE_KEY)
-    anon = _real_client(ANON_KEY)
+
+    # El cliente anon sale de la fábrica REAL (así se verifican sus opciones).
+    monkeypatch.setattr(database.settings, "SUPABASE_URL", URL)
+    monkeypatch.setattr(database.settings, "SUPABASE_KEY", ANON_KEY)
+    anon = database.get_supabase_anon_async()
+    anon.realtime.set_auth = AsyncMock()  # sin websocket en tests
 
     # Solo se simula la red de GoTrue (el POST /token); la lógica de sesión/eventos es la real.
     async def fake_request(self, method, path, **kwargs):
@@ -91,6 +97,16 @@ async def _login(app: FastAPI) -> httpx.Response:
         return await c.post("/login", json={"email": "ciudadano@example.com", "password": "x"})
 
 
+async def _assert_anon_efimero_y_cerrado(anon: AsyncClient) -> None:
+    """El cliente anon no deja refresco, sesión persistida ni conexión abierta."""
+    assert anon.options.auto_refresh_token is False
+    assert anon.options.persist_session is False
+    assert anon.auth._refresh_token_timer is None  # ninguna tarea de auto-refresh
+    assert await anon.auth._storage.get_item(anon.auth._storage_key) is None  # sesión no persistida
+    assert anon.auth._http_client.is_closed  # cliente HTTP de GoTrue cerrado
+
+
+
 @pytest.mark.asyncio
 async def test_login_no_contamina_cliente_service_role(app, clients):
     shared, _anon = clients
@@ -119,6 +135,31 @@ async def test_login_autentica_con_cliente_anon_y_escribe_con_service_role(app, 
 
 
 @pytest.mark.asyncio
+async def test_login_deja_cliente_anon_efimero_y_cerrado(app, clients):
+    _shared, anon = clients
+
+    resp = await _login(app)
+
+    assert resp.status_code == 200, resp.text
+    await _assert_anon_efimero_y_cerrado(anon)
+
+
+@pytest.mark.asyncio
+async def test_login_cierra_cliente_anon_si_falla_la_autenticacion(app, clients, monkeypatch):
+    _shared, anon = clients
+
+    async def boom(self, method, path, **kwargs):
+        raise RuntimeError("GoTrue caído")
+
+    monkeypatch.setattr("gotrue._async.gotrue_client.AsyncGoTrueClient._request", boom)
+
+    resp = await _login(app)
+
+    assert resp.status_code == 401
+    await _assert_anon_efimero_y_cerrado(anon)
+
+
+@pytest.mark.asyncio
 async def test_confirm_email_no_contamina_cliente_service_role(app, clients):
     shared, anon = clients
     antes = shared.options.headers["Authorization"]
@@ -133,3 +174,16 @@ async def test_confirm_email_no_contamina_cliente_service_role(app, clients):
     assert USER_TOKEN not in shared.options.headers["Authorization"]
     # La sesión que abre verify_otp vive solo en el cliente anon efímero.
     assert anon.options.headers["Authorization"] == f"Bearer {USER_TOKEN}"
+    await _assert_anon_efimero_y_cerrado(anon)
+
+
+@pytest.mark.asyncio
+async def test_anon_auth_client_cierra_aunque_el_cuerpo_falle(clients):
+    _shared, anon = clients
+
+    with pytest.raises(ValueError):
+        async with database.anon_auth_client() as client:
+            assert client is anon
+            raise ValueError("fallo dentro del bloque")
+
+    assert anon.auth._http_client.is_closed
