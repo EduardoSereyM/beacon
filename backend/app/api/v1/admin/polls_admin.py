@@ -9,7 +9,7 @@ Endpoints:
   POST   /admin/polls              → Crear encuesta (schema UI admin)
   POST   /admin/polls/ingest       → Ingestar encuesta desde pipeline de agentes (schema AGENTE_05)
   PATCH  /admin/polls/{id}         → Editar encuesta
-  DELETE /admin/polls/{id}         → Eliminar encuesta
+  DELETE /admin/polls/{id}         → Eliminar encuesta (409 si es edición de una serie mensual)
   POST   /admin/polls/upload-image → Subir imagen cabecera al bucket 'encuestas'
 """
 
@@ -584,13 +584,24 @@ async def admin_delete_poll(
 
     existing = await (
         supabase.table("polls")
-        .select("id, title")
+        .select("id, title, series_id, edition")
         .eq("id", poll_id)
         .maybe_single()
         .execute()
     )
     if not existing.data:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
+
+    # Una edición borrada la recrearía el cron al día siguiente (la idempotencia
+    # solo ve que "no existe") y se perdería la serie histórica.
+    if existing.data.get("series_id"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"La encuesta es la edición {existing.data.get('edition')} de una serie mensual y no se "
+                "puede eliminar. Ciérrala (status=closed) o pausa la serie (is_active=false)."
+            ),
+        )
 
     await supabase.table("polls").delete().eq("id", poll_id).execute()
 

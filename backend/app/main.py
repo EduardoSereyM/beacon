@@ -241,6 +241,14 @@ app.include_router(
     tags=["Admin — Polls"],
 )
 
+from app.api.v1.admin.polls_series_admin import router as admin_polls_series_router  # noqa: E402
+
+app.include_router(
+    admin_polls_series_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — Poll Series"],
+)
+
 app.include_router(
     polls_router,
     prefix=f"{settings.API_V1_PREFIX}",
