@@ -28,7 +28,8 @@
 - **Pendiente (F4):** UI admin de series, badge "Edición mensual" y gráfico de tendencia.
 - **Audit:** `alog_event(raise_on_error=True)` (por defecto `False`, los 20 llamadores no cambian) hace que un audit perdido llegue a `audit_failed` y el endpoint responda 500.
 - **Deuda anotada (audit):** si una edición se publica pero falla su escritura en `audit_logs`, `publish-due` responde 500 solo ese día; al siguiente la edición ya existe, se cuenta como `skipped` y responde 200. Falta un job de reconciliación que detecte ediciones (`polls.series_id` no nulo) sin fila `SERIES_EDITION_PUBLISHED` en `audit_logs` y la reescriba.
-- **Deuda anotada:** migración fantasma `supabase/migrations/010_polls_header_image_questions.sql` (README la cita, no existe); `admin_ingest_poll`/`admin_create_poll` aún insertan `poll_type`/`options`, columnas que la migración 021 elimina.
+- **Deuda anotada:** migración fantasma `supabase/migrations/010_polls_header_image_questions.sql` (README la cita, no existe).
+- **Fix (2026-10-06):** `POST /admin/polls`, `POST /admin/polls/ingest` y `POST /polls` (VERIFIED) enviaban `poll_type`/`options`/`scale_min`/`scale_max`, columnas que la migración 021 (aplicada en producción) eliminó, por lo que crear encuestas por esos caminos fallaba. Se quitaron de los tres inserts y `tests/test_polls_insert_columns.py` lo cubre. Las series mensuales no estaban afectadas.
 
 
 ### Rollout: Encuestas mensuales recurrentes
