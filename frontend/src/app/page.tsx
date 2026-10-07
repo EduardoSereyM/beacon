@@ -132,8 +132,8 @@ export default function Home() {
               },
               {
                 Icon: ShieldCheck,
-                title: "Cada voto, una persona real",
-                body: "Tu voto cuenta porque eres real, no porque alguien te eligió. Verificamos tu identidad una sola vez — sin bots, sin multicuentas, sin criterios de admisión.",
+                title: "Una persona, un voto",
+                body: "Participas tú, sin que nadie te elija. Verificamos tu identidad una sola vez: una persona, un voto.",
                 color: "#D4AF37",
               },
               {

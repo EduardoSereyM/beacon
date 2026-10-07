@@ -252,7 +252,7 @@ function PostVoteCard({
           </p>
           <p style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.45)", margin: 0, lineHeight: 1.6 }}>
             Tu voz cuenta al 100% en las estadísticas verificadas de Chile.{"\n"}
-            Sin panel seleccionado. Sin bots. Tú mismo.
+            Participas tú, con tu identidad validada.
           </p>
         </div>
       ) : (
@@ -1793,8 +1793,11 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
             {/* Real vote badge */}
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "8px 14px", borderRadius: 10, background: "rgba(57,255,20,0.08)", border: "1px solid rgba(57,255,20,0.2)" }}>
               <span style={{ fontSize: 11, color: "#39FF14", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                ✓ Tu voto aquí es real. Y no el de un grupo seleccionado.
+                ✓ Una persona, un voto: cada voto verificado corresponde a una identidad validada.
               </span>
+              <Link href="/metodologia" style={{ fontSize: 11, color: "#00E5FF", fontFamily: "monospace", textDecoration: "none", whiteSpace: "nowrap" }}>
+                Cómo medimos →
+              </Link>
             </div>
             {poll.description && (
               <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginBottom: 8, lineHeight: 1.6, fontWeight: 500 }}>

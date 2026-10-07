@@ -11,7 +11,7 @@
  */
 
 export type Cadence = "monthly" | "weekly";
-export type Group = "verified" | "total";
+export type Group = "verified" | "total" | "weighted";
 
 export interface ResultRow {
   option: string;
@@ -32,8 +32,20 @@ export interface TrendQuestion {
   type: "multiple_choice" | "scale";
   verified: GroupResult;
   total: GroupResult;
+  weighted: GroupResult;
   scale_min?: number;
   scale_max?: number;
+}
+
+export interface WeightingMeta {
+  status: "ok" | "unavailable";
+  reasons: string[];
+  n_input: number;
+  n_complete: number;
+  n_excluded: number;
+  n_eff: number | null;
+  design_effect: number | null;
+  targets_version: string;
 }
 
 export interface TrendPoint {
@@ -46,6 +58,8 @@ export interface TrendPoint {
   template_version: number;
   total_votes: number;
   verified_votes: number;
+  /** null en ediciones anteriores a la ponderación. */
+  weighting: WeightingMeta | null;
   questions: TrendQuestion[];
 }
 
@@ -81,6 +95,8 @@ export interface ChartData {
   unit: "%" | "nota";
   domain: [number, number];
   lines: LineSeries[];
+  /** Por qué un punto queda en blanco: depende del grupo elegido. */
+  holeReason: string;
   /** n de la pregunta en cada edición (para tooltips y tabla). */
   ns: (number | null)[];
   /** Índices i tales que template_version[i] != template_version[i-1]. */
@@ -119,6 +135,7 @@ export function buildChartData(points: TrendPoint[], questionId: string, group: 
 
   const perPoint = points.map((p) => findQuestion(p, questionId)?.[group] ?? null);
   const ns = perPoint.map((g) => (g ? g.n : null));
+  const holeReason = group === "weighted" ? "ponderación no disponible" : "n insuficiente";
   const versionBreaks = points
     .map((p, i) => (i > 0 && p.template_version !== points[i - 1].template_version ? i : -1))
     .filter((i) => i >= 0);
@@ -130,6 +147,7 @@ export function buildChartData(points: TrendPoint[], questionId: string, group: 
       question: { id: questionId, text: latestQuestion.text, type: "scale" },
       unit: "nota",
       domain: [low, high],
+      holeReason,
       ns,
       versionBreaks,
       lines: [
@@ -163,6 +181,7 @@ export function buildChartData(points: TrendPoint[], questionId: string, group: 
     question: { id: questionId, text: latestQuestion.text, type: "multiple_choice" },
     unit: "%",
     domain,
+    holeReason,
     ns,
     versionBreaks,
     lines: visible,
@@ -201,4 +220,13 @@ export function seriesSlugFromPoll(pollSlug: string, edition: string): string | 
 
 export function cadenceLabel(cadence: Cadence): string {
   return cadence === "weekly" ? "semanal" : "mensual";
+}
+
+/** Estado de la ponderación en la edición más reciente que la tenga calculada. */
+export function weightingSummary(points: TrendPoint[]): { available: boolean; latest: WeightingMeta | null; reason: string | null } {
+  const latest = [...points].reverse().find((p) => p.weighting)?.weighting ?? null;
+  const available = points.some((p) => p.weighting?.status === "ok");
+  // Con pocos votantes todos los motivos dicen lo mismo: se muestra el primero.
+  const reason = latest && latest.status !== "ok" ? latest.reasons[0] ?? "Aún no hay datos suficientes." : null;
+  return { available, latest, reason: available ? null : reason ?? "Aún no hay datos suficientes." };
 }

@@ -115,7 +115,7 @@ export default function TrendChart({ points, chart, events, cadence }: Props) {
       {points.map((p, i) =>
         chart.ns[i] !== null && chart.lines.every((line) => line.values[i] === null) ? (
           <g key={`n${p.edition}`}>
-            <title>{`${p.label}: n insuficiente (n=${chart.ns[i]})`}</title>
+            <title>{`${p.label}: ${chart.holeReason} (n=${chart.ns[i]})`}</title>
             <circle cx={x(i)} cy={HEIGHT - MARGIN.bottom} r={3.5} fill="none" stroke={MUTED} opacity={0.7} />
           </g>
         ) : null,

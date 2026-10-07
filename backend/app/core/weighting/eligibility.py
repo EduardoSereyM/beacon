@@ -31,11 +31,10 @@ def select_complete(
 
 def eligibility_problems(rows: list[dict[str, str]], targets: Targets, config: WeightingConfig) -> list[str]:
     """Motivos por los que NO se puede ponderar (lista vacía = se puede intentar)."""
-    problems: list[str] = []
     if len(rows) < config.min_complete:
-        problems.append(
-            f"Hay {len(rows)} votantes con todos los datos demográficos; se requieren al menos {config.min_complete}."
-        )
+        # Con tan pocos casos, listar categorías vacías solo repite lo mismo.
+        return [f"Hay {len(rows)} votantes con todos los datos demográficos; se requieren al menos {config.min_complete}."]
+    problems: list[str] = []
     for variable, shares in targets.marginals.items():
         counts = {category: 0 for category in shares}
         for row in rows:

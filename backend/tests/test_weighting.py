@@ -141,6 +141,10 @@ class TestCompuertas:
         assert result.status == "unavailable"
         assert any("tamaño muestral efectivo" in reason for reason in result.reasons)
 
+    def test_con_pocos_casos_el_motivo_es_uno_solo(self):
+        result = compute_weights(_sample(10), TARGETS)
+        assert len(result.reasons) == 1 and "se requieren al menos 200" in result.reasons[0]
+
     def test_produccion_de_hoy_4_verificados_no_se_pondera(self):
         result = compute_weights(_sample(4), TARGETS)
         assert result.status == "unavailable" and result.n_complete == 4
