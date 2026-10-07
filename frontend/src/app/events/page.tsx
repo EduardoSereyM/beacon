@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 
@@ -118,14 +118,12 @@ function ParticipantCard({
   eventId,
   isOpen,
   token,
-  onVoted,
   liveScore,
 }: {
   participant: Participant;
   eventId: string;
   isOpen: boolean;
   token: string | null;
-  onVoted: (entityId: string, score: number) => void;
   liveScore?: { avg: number | null; count: number };
 }) {
   const [hoveredScore, setHoveredScore] = useState(0);
@@ -168,15 +166,12 @@ function ParticipantCard({
       setVoteCount(newCount);
       setUserScore(score);
       setVoted(true);
-      onVoted(participant.id, score);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al votar");
     } finally {
       setVoting(false);
     }
   };
-
-  const displayScore = hoveredScore || userScore;
 
   return (
     <div
@@ -196,6 +191,7 @@ function ParticipantCard({
       {/* Avatar */}
       <div style={{ flexShrink: 0 }}>
         {url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- el host de SUPABASE_STORAGE no está en images.remotePatterns de next.config: next/image fallaría
           <img
             src={url}
             alt={`${participant.first_name} ${participant.last_name}`}
@@ -316,7 +312,6 @@ function ParticipantCard({
 interface LiveScore { avg: number | null; count: number }
 
 function EventCard({ event, token }: { event: EventItem; token: string | null }) {
-  const [votedMap, setVotedMap] = useState<Record<string, number>>({});
   // Efecto Kahoot — scores actualizados en tiempo real para todos los participantes
   const [liveScores, setLiveScores] = useState<Record<string, LiveScore>>({});
 
@@ -329,10 +324,6 @@ function EventCard({ event, token }: { event: EventItem; token: string | null })
       }));
     }
   });
-
-  const handleVoted = (entityId: string, score: number) => {
-    setVotedMap((prev) => ({ ...prev, [entityId]: score }));
-  };
 
   return (
     <div
@@ -424,7 +415,6 @@ function EventCard({ event, token }: { event: EventItem; token: string | null })
               eventId={event.id}
               isOpen={event.is_open}
               token={token}
-              onVoted={handleVoted}
               liveScore={liveScores[p.id]}
             />
           ))}
