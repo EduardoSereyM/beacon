@@ -28,6 +28,7 @@
 - **Pendiente (F4):** UI admin de series, badge "Edición mensual" y gráfico de tendencia.
 - **Audit:** `alog_event(raise_on_error=True)` (por defecto `False`, los 20 llamadores no cambian) hace que un audit perdido llegue a `audit_failed` y el endpoint responda 500.
 - **Audit reconciliado (resuelto):** `publish-due` ahora reescribe en `audit_logs` la fila `SERIES_EDITION_PUBLISHED` de toda edición (`polls.series_id` no nulo) que no la tenga (`core/polls_series/series_audit_reconcile.py`; append-only, idempotente, marca `details.reconciled=true`). Resumen: `audit_reconciled` y `audit_reconcile_failed` (este último no vacío → 500). También reconcilia `SERIES_EDITION_SNAPSHOT` para los snapshots de `poll_results_snapshot` sin fila de audit (`reconcile_snapshot_audit`; resumen `snapshot_audit_reconciled` y `snapshot_audit_reconcile_failed`, este último no vacío → 500). Sin deuda residual de audit en series.
+- **Deuda anotada (no urge):** acotar por fecha las consultas de reconciliación del audit (`series_audit_reconcile.py`). Hoy leen todas las polls de serie y todos los `poll_results_snapshot` en cada ejecución de `publish-due` y trocean la búsqueda en `audit_logs`; con muchas ediciones conviene limitarlas a una ventana reciente (p. ej. últimos N días) o a ediciones sin marca de reconciliación.
 - **Deuda anotada:** migración fantasma `supabase/migrations/010_polls_header_image_questions.sql` (README la cita, no existe).
 - **Fix (2026-10-06):** `POST /admin/polls`, `POST /admin/polls/ingest` y `POST /polls` (VERIFIED) enviaban `poll_type`/`options`/`scale_min`/`scale_max`, columnas que la migración 021 (aplicada en producción) eliminó, por lo que crear encuestas por esos caminos fallaba. Se quitaron de los tres inserts y `tests/test_polls_insert_columns.py` lo cubre. Las series mensuales no estaban afectadas.
 
@@ -231,7 +232,7 @@
 **Datos mostrados:**
 - ✅ Header: BEACON CHILE + categoría + badge RESULTADOS VERIFICADOS
 - ✅ Pregunta: multi-línea con wrapping
-- ✅ QR: apunta a `beaconchile.cl/encuestas/{slug}` (hardcodeado, pendiente hacer dinámico)
+- ✅ QR: apunta a `{settings.FRONTEND_URL}/encuestas/{slug}` (`poll_public_url`; sin barra final). Antes estaba fijo en `https://beaconchile.cl`. El texto de marca del pie y del CTA («beaconchile.cl») sigue siendo texto fijo, no un enlace.
 - ✅ Opciones: etiqueta + barra + "N (X%)"
 - ✅ Footer: votos verificados + totales + dominio
 - ✅ Background: header_image con blur + opacidad
@@ -259,7 +260,7 @@
 - Gestión de espacio: FOOTER_H 170px, márgenes 60px consistentes
 
 **Pendientes:**
-- [ ] QR dinámico (settings.FRONTEND_URL)
+- [x] QR dinámico (settings.FRONTEND_URL)
 - [ ] Test en Render + Vercel
 
 ---
