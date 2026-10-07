@@ -338,6 +338,7 @@ export default function EntityPage({ params }: EntityPageProps) {
                             }}
                         >
                             {entity.photo_path ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- photo_path guarda la URL pública completa (subida o editada a mano por el admin): no hay garantía de que su host esté en next.config
                                 <img
                                     src={entity.photo_path}
                                     alt={displayName}
