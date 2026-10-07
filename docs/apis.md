@@ -1764,8 +1764,12 @@ Migración 026: `series_events` (hitos del gráfico) y `poll_results_snapshot` (
       "questions": [
         { "question_id": "...", "text": "...", "type": "multiple_choice",
           "verified": { "n": 80, "suppressed": false, "results": [{ "option": "Aprueba", "count": 30, "pct": 37.5 }] },
-          "total":    { "n": 120, "suppressed": false, "results": [ ... ] } }
-      ]
+          "total":    { "n": 120, "suppressed": false, "results": [ ... ] },
+          "weighted": { "n": 78, "suppressed": false, "results": [ ... ] } }
+      ],
+      "weighting": { "status": "ok", "reasons": [], "n_input": 80, "n_complete": 78, "n_excluded": 2,
+                     "n_eff": 52.4, "design_effect": 1.49, "trimmed": 3, "max_error": 0.0001,
+                     "targets_version": "censo2024-18plus-v1", "config_version": 1 }
     }
   ],
   "events": [{ "date": "2026-10-08", "label": "Cambio de gabinete" }]
@@ -1775,6 +1779,7 @@ Migración 026: `series_events` (hitos del gráfico) y `poll_results_snapshot` (
 - **Privacidad estadística:** un grupo (`verified` o `total`) con menos de `min_n` (30) respuestas en esa pregunta devuelve `suppressed: true` y `results: null`; solo se publica `n`. El gráfico no debe dibujar ese punto.
 - **Escala:** las preguntas `scale` agregan `scale_min`/`scale_max`; el promedio va en `results[0].average`.
 - **Corte de línea:** si `template_version` cambia entre dos puntos, el gráfico corta la línea (las preguntas ya no son comparables).
+- **Ponderado (`weighted`):** raking por zona, sexo y grupo de edad hacia las marginales del Censo 2024 (población de 18 años o más; `app/core/weighting/data/targets_censo2024.json`, reproducible con `scripts/build_weighting_targets.py`). Solo votos verificados con los tres datos. `pct` y `average` salen ponderados; `count` es el número de respuestas sin ponderar. **Solo se publica si hay datos suficientes** (≥ 200 votantes con todos los datos, ≥ 5 por categoría, n efectivo ≥ 100 y ajuste convergente con pesos recortados a [0,3 ; 3,0]); si no, `weighted` llega `suppressed: true`, `results: null`, y `weighting.status = "unavailable"` con los `reasons` en lenguaje claro. `weighting` es `null` en snapshots anteriores a la migración 027. No se publica margen de error (muestra no probabilística): se publican `n_eff` y `design_effect`. Nunca se exponen pesos ni datos individuales.
 - **Snapshot:** las ediciones cerradas se leen de `poll_results_snapshot` (inmutable); la abierta y la recién cerrada (antes del primer cron) se calculan en vivo.
 - **`POST /admin/polls/series/publish-due`** ahora también fotografía las ediciones cerradas hace más de 10 minutos y agrega `snapshotted` y `snapshot_failed` al resumen. Un `snapshot_failed` no vacío responde 500, igual que `failed` y `audit_failed`. Audit `SERIES_EDITION_SNAPSHOT`.
 

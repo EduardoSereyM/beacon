@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from app.core.polls_series.series_snapshot import build_snapshot_row
+from app.core.polls_series.series_weighting import weight_edition
 from app.core.polls_series.series_window import edition_label
 
 MIN_N = 30
@@ -49,6 +50,9 @@ def _question(verified: dict[str, Any], total: dict[str, Any]) -> dict[str, Any]
     return out
 
 
+UNAVAILABLE_GROUP = {"n": 0, "suppressed": True, "results": None}
+
+
 def build_trend_point(
     poll: dict[str, Any],
     results_total: list[dict[str, Any]],
@@ -56,7 +60,16 @@ def build_trend_point(
     total_votes: int,
     verified_votes: int,
     now: datetime,
+    results_weighted: list[dict[str, Any]] | None = None,
+    weighting_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    questions = [_question(v, t) for v, t in zip(results_verified, results_total, strict=True)]
+    if results_weighted is not None:
+        for question, weighted in zip(questions, results_weighted, strict=True):
+            question["weighted"] = _group(weighted)
+    else:
+        for question in questions:
+            question["weighted"] = dict(UNAVAILABLE_GROUP)
     return {
         "edition": poll["edition"],
         "label": edition_label(poll["edition"]),
@@ -67,17 +80,19 @@ def build_trend_point(
         "template_version": poll["template_version"],
         "total_votes": total_votes,
         "verified_votes": verified_votes,
-        "questions": [_question(v, t) for v, t in zip(results_verified, results_total, strict=True)],
+        "weighting": weighting_meta,
+        "questions": questions,
     }
 
 
 async def _live_point(supabase, poll: dict[str, Any], now: datetime) -> dict[str, Any]:
     votes = await (
-        supabase.table("poll_votes").select("option_value, voter_rank").eq("poll_id", poll["id"]).execute()
+        supabase.table("poll_votes").select("user_id, option_value, voter_rank").eq("poll_id", poll["id"]).execute()
     )
-    row = build_snapshot_row(poll, votes.data or [])
+    row = build_snapshot_row(poll, votes.data or [], await weight_edition(supabase, poll, votes.data or []))
     return build_trend_point(
-        poll, row["results_total"], row["results_verified"], row["total_votes"], row["verified_votes"], now
+        poll, row["results_total"], row["results_verified"], row["total_votes"], row["verified_votes"], now,
+        row["results_weighted"], row["weighting_meta"],
     )
 
 
@@ -110,6 +125,7 @@ async def load_series_trend(supabase, series: dict[str, Any], limit: int, now: d
             points.append(build_trend_point(
                 poll, snap["results_total"], snap["results_verified"],
                 snap["total_votes"], snap["verified_votes"], now,
+                snap.get("results_weighted"), snap.get("weighting_meta"),
             ))
         else:
             points.append(await _live_point(supabase, poll, now))

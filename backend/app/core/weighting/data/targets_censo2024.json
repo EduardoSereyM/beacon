@@ -1,0 +1,44 @@
+{
+  "version": "censo2024-18plus-v1",
+  "source": "INE, Censo de Población y Vivienda 2024, cuadro D1 «Población censada por sexo y edad en grupos quinquenales» (publicado el 27-mar-2025)",
+  "source_url": "https://censo2024.ine.gob.cl/wp-content/uploads/2025/03/D1_Poblacion-censada-por-sexo-y-edad-en-grupos-quinquenales.xlsx",
+  "source_page": "https://censo2024.ine.gob.cl/estadisticas/",
+  "source_sha256": "1f3a9c97a1b3defa47a2fc3b8495688c4e08f164063cab704e7a18c41239e009",
+  "generated_on": "2026-10-07",
+  "universe": "Población censada de 18 años o más (el quinquenio 15-19 se reparte 2/5)",
+  "adult_population": 14474176,
+  "counts": {
+    "zone": {
+      "Norte": 1814068,
+      "Centro": 3150081,
+      "Metropolitana": 5836876,
+      "Sur": 3673151
+    },
+    "sex": {
+      "Masculino": 6922911,
+      "Femenino": 7551264
+    },
+    "age": {
+      "18-34": 4672090,
+      "35-54": 5003819,
+      "55+": 4798267
+    }
+  },
+  "marginals": {
+    "zone": {
+      "Norte": 0.125331,
+      "Centro": 0.217635,
+      "Metropolitana": 0.403261,
+      "Sur": 0.253773
+    },
+    "sex": {
+      "Masculino": 0.478294,
+      "Femenino": 0.521706
+    },
+    "age": {
+      "18-34": 0.322788,
+      "35-54": 0.345707,
+      "55+": 0.331505
+    }
+  }
+}
