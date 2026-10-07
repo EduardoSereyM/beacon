@@ -19,6 +19,7 @@ Línea de Tiempo de Desempeño: Gráfico que muestra cómo ha evolucionado su ra
 - Sliders Estructurales (Fijos): Deslizadores de 0 a 5 para calificar entidades — **Funcional y activo** ✅
 - Sistema de Voto Único: Un voto por usuario por entidad, no permite duplicados ✅
 - Ponderación por rango: BASIC (0.5x) / VERIFIED (1.0x) ✅
+- Series de encuestas recurrentes: Barómetro Beacon (mensual) y Pulso Beacon (semanal, lunes 04:00 hora de Chile), publicadas por cron ✅
 
 **ROADMAP (P3/P4 — Futuro):**
 - Sliders Dinámicos (Comunidad): Espacio donde aparecen preguntas temporales sugeridas por los usuarios (ej: "¿Cómo califica su reacción ante la crisis X?") — PENDIENTE
