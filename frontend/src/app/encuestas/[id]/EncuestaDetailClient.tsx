@@ -578,7 +578,7 @@ function SocialShareBar({
 
 // ─── Download Result Card Button ──────────────────────────────────────────────
 
-function DownloadResultButton({ slug, onOpen }: { slug: string; onOpen: () => void }) {
+function DownloadResultButton({ onOpen }: { onOpen: () => void }) {
   return (
     <div
       style={{
@@ -1955,7 +1955,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                         ✓ Voto registrado
                       </p>
                     </div>
-                    <DownloadResultButton slug={slug} onOpen={() => setDownloadModalOpen(true)} />
+                    <DownloadResultButton onOpen={() => setDownloadModalOpen(true)} />
                   </>
                 )}
               </div>
@@ -1965,7 +1965,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
                   Resultados finales
                 </p>
                 <PollResults poll={poll} userVote={null} />
-                <DownloadResultButton slug={slug} onOpen={() => setDownloadModalOpen(true)} />
+                <DownloadResultButton onOpen={() => setDownloadModalOpen(true)} />
               </div>
             ) : !token ? (
               <div style={{ borderRadius: 14, padding: "20px 22px", background: "rgba(0,229,255,0.04)", border: "1px solid rgba(0,229,255,0.12)", textAlign: "center" }}>

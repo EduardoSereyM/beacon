@@ -320,7 +320,7 @@ function PollCard({ poll }: { poll: PollItem }) {
 
 export default function EncuestasPage() {
   const { token } = useAuthStore();
-  const { isVerified, isAdmin } = usePermissions();
+  const { isAdmin } = usePermissions();
   const [items, setItems] = useState<PollItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -350,6 +350,8 @@ export default function EncuestasPage() {
 
   useEffect(() => {
     fetchPolls(activeCategory, searchQuery);
+  // searchQuery se excluye a propósito: la búsqueda por texto se dispara con el debounce de handleSearchChange
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchPolls, activeCategory]);
 
   // Búsqueda con debounce 400ms
