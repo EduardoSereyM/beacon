@@ -46,7 +46,7 @@ async def admin_list_events(series_id: Optional[str] = None, admin: dict = Depen
 async def admin_create_event(body: SeriesEventIn, admin: dict = Depends(require_admin_role)):
     supabase = get_async_supabase_client()
     if body.series_id:
-        series = await supabase.table("poll_series").select("id").eq("id", body.series_id).maybe_single().execute()
+        series = await supabase.table("poll_series").select("id").eq("id", body.series_id).limit(1).execute()
         if not series.data:
             raise HTTPException(status_code=404, detail="Serie no encontrada.")
 
@@ -74,9 +74,10 @@ async def admin_create_event(body: SeriesEventIn, admin: dict = Depends(require_
 @router.delete("/{event_id}", summary="[ADMIN] Eliminar evento anotado")
 async def admin_delete_event(event_id: str, admin: dict = Depends(require_admin_role)):
     supabase = get_async_supabase_client()
-    existing = await supabase.table("series_events").select("*").eq("id", event_id).maybe_single().execute()
-    if not existing.data:
+    found = await supabase.table("series_events").select("*").eq("id", event_id).limit(1).execute()
+    if not found.data:
         raise HTTPException(status_code=404, detail="Evento no encontrado.")
+    existing = found.data[0]
 
     await supabase.table("series_events").delete().eq("id", event_id).execute()
     await audit_bus.alog_event(
@@ -84,6 +85,6 @@ async def admin_delete_event(event_id: str, admin: dict = Depends(require_admin_
         action="OVERLORD_ACTION_DELETE_SERIES_EVENT",
         entity_type="SERIES_EVENT",
         entity_id=event_id,
-        details={"series_id": existing.data["series_id"], "label": existing.data["label"]},
+        details={"series_id": existing["series_id"], "label": existing["label"]},
     )
     return {"deleted": event_id}

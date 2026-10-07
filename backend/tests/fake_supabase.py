@@ -117,7 +117,8 @@ class Query:
         elif self.op == "delete":
             self.db[self.table] = [r for r in rows if r not in matched]
         if self.single:
-            return Result(matched[0] if matched else None)
+            # El cliente real devuelve None (no un resultado vacío) si maybe_single() no encuentra fila.
+            return Result(matched[0]) if matched else None
         return Result(matched)
 
 
