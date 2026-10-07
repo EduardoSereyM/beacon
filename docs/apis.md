@@ -1751,6 +1751,13 @@ Migración 026: `series_events` (hitos del gráfico) y `poll_results_snapshot` (
 | POST | `/admin/series-events` | JWT admin | Crea un evento: `event_date` (fecha), `label` (1–120), `series_id` opcional (vacío = evento general, aparece en todas las series). 404 si la serie no existe. Audit `OVERLORD_ACTION_CREATE_SERIES_EVENT` |
 | DELETE | `/admin/series-events/{id}` | JWT admin | Elimina un evento mal cargado. 404 si no existe. Audit `OVERLORD_ACTION_DELETE_SERIES_EVENT` |
 
+**Series de tipo `agenda`** (`POST /admin/polls/series` con `"kind": "agenda"`; inmutable como la cadencia): repiten la pregunta pero **las opciones las define una persona cada edición** (migración 030). La plantilla tiene exactamente una pregunta de opción única; sus opciones son las **fijas** («Otra noticia», «No sabe / No responde») y las de la semana se agregan antes. `publish-due` solo publica la edición si tiene opciones; si no, la lista en `awaiting_options` (no es un fallo: responde 200 y el workflow emite un aviso). `GET /series/{slug}/trend` devuelve `series.kind`; en una agenda la tendencia no compara opciones: el frontend muestra un ranking por edición.
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/admin/polls/series/{id}/upcoming` | JWT admin | Edición en curso y siguiente de una serie agenda, con `published` y `options`. 400 si la serie no es agenda, 404 si no existe |
+| PUT | `/admin/polls/series/{id}/editions/{edition}/options` | JWT admin | Define las opciones (`{"options": [...]}`: 2 a 8, de 3 a 140 caracteres, sin repetir; 422 si no cumple). 400 si la edición es inválida o pasada; **409 si la edición ya se publicó**. Reemplaza las anteriores si existían. Audit `OVERLORD_ACTION_SET_SERIES_EDITION_OPTIONS` |
+
 **Forma de `GET /series/{slug}/trend`:**
 
 ```json

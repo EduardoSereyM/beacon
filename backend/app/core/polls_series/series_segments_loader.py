@@ -42,7 +42,7 @@ async def load_edition_segments(
         segments = [s for s in segments if s["variable"] != "political"]
 
     return {
-        "series": {"slug": series["slug"], "title": series["title"], "cadence": series["cadence"]},
+        "series": {"slug": series["slug"], "title": series["title"], "cadence": series["cadence"], "kind": series.get("kind", "tracker")},
         "edition": poll["edition"],
         "label": edition_label(poll["edition"]),
         "is_open": is_open(poll, now),

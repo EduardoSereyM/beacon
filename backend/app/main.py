@@ -249,8 +249,15 @@ app.include_router(
     tags=["Admin — Poll Series"],
 )
 
+from app.api.v1.admin.series_agenda_admin import router as admin_series_agenda_router  # noqa: E402
 from app.api.v1.admin.series_events_admin import router as admin_series_events_router  # noqa: E402
 from app.api.v1.endpoints.series import router as series_router  # noqa: E402
+
+app.include_router(
+    admin_series_agenda_router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Admin — Series Agenda"],
+)
 
 app.include_router(
     admin_series_events_router,

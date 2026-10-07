@@ -87,3 +87,27 @@ def edition_label(edition: str) -> str:
 
     year, month = (int(part) for part in edition.split("-"))
     return f"{MONTHS_ES[month - 1]} {year}"
+
+
+def is_valid_edition(edition: str, cadence: str) -> bool:
+    """¿`edition` tiene el formato de la cadencia y existe (p. ej. no hay semana 53 en todos los años)?"""
+    if cadence == "weekly":
+        try:
+            return _weekly_monday(edition) is not None
+        except ValueError:
+            return False
+    match = re.match(r"^(\d{4})-(0[1-9]|1[0-2])$", edition)
+    return bool(match)
+
+
+def next_edition(edition: str, cadence: str) -> str:
+    """Edición siguiente a `edition` para la cadencia dada."""
+    if cadence == "weekly":
+        monday = _weekly_monday(edition)
+        if monday is None:
+            raise ValueError(f"Edición semanal inválida: {edition!r}")
+        year, week, _ = (monday + timedelta(days=7)).isocalendar()
+        return f"{year:04d}-W{week:02d}"
+    year, month = (int(part) for part in edition.split("-"))
+    year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return f"{year:04d}-{month:02d}"

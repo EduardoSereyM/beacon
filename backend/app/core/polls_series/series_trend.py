@@ -133,6 +133,7 @@ async def load_series_trend(supabase, series: dict[str, Any], limit: int, now: d
     return {
         "series": {
             "slug": series["slug"], "title": series["title"], "cadence": series["cadence"],
+            "kind": series.get("kind", "tracker"),
             "context": series.get("context"), "category": series.get("category"),
             "is_active": series.get("is_active", True),
         },

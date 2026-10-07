@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import AgendaView from "@/components/series/AgendaView";
 import SegmentStrip from "@/components/series/SegmentStrip";
 import TrendChart, { lineColor } from "@/components/series/TrendChart";
 import {
@@ -18,6 +19,7 @@ import {
   casesSummary,
   DEMOGRAPHIC_VIEW,
   eventPointIndex,
+  optionsFromSegments,
   segmentsForView,
   segmentViews,
   selectableQuestions,
@@ -51,6 +53,8 @@ export default function SeriesTrendClient({ trend, segments }: { trend: SeriesTr
   const [group, setGroup] = useState<Group>("verified");
   const [metric, setMetric] = useState<ScaleMetric>("average");
   const [view, setView] = useState(DEMOGRAPHIC_VIEW);
+  // Serie agenda: las opciones cambian cada edición; no hay línea de tendencia sino un ranking por edición.
+  const isAgenda = series.kind === "agenda";
 
   const top3 = useMemo(() => supportsTop3(points, questionId), [points, questionId]);
   // Al cambiar a una pregunta que no admite «% notas 5 a 7», la métrica efectiva vuelve a promedio.
@@ -62,9 +66,14 @@ export default function SeriesTrendClient({ trend, segments }: { trend: SeriesTr
   const segmentChart = useMemo(
     () =>
       segments && chart
-        ? buildSegmentChart(segmentsForView(segments, activeView, questionId), questionId, activeMetric, chart.lines.filter((l) => !l.muted).map((l) => l.key))
+        ? buildSegmentChart(
+            segmentsForView(segments, activeView, questionId),
+            questionId,
+            activeMetric,
+            isAgenda ? optionsFromSegments(segments, questionId) : chart.lines.filter((l) => !l.muted).map((l) => l.key),
+          )
         : null,
-    [segments, chart, questionId, activeMetric, activeView],
+    [segments, chart, questionId, activeMetric, activeView, isAgenda],
   );
   const weighting = useMemo(() => weightingSummary(points), [points]);
   const latest = points[points.length - 1];
@@ -152,6 +161,15 @@ export default function SeriesTrendClient({ trend, segments }: { trend: SeriesTr
             </p>
           )}
 
+          {isAgenda ? (
+            <>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "0 0 12px", lineHeight: 1.5 }}>
+                Las opciones de esta serie las define el equipo cada edición, así que no se comparan una a una: cada edición muestra su propio ranking.
+              </p>
+              <AgendaView points={points} group={group} minN={minN} />
+            </>
+          ) : (
+            <>
           {top3 && (
             <div role="group" aria-label="Métrica de la escala" style={{ display: "flex", gap: 6, margin: "0 0 10px" }}>
               {([["average", "Promedio"], ["top3", "% notas 5 a 7"]] as const).map(([id, label]) => (
@@ -234,6 +252,8 @@ export default function SeriesTrendClient({ trend, segments }: { trend: SeriesTr
               </table>
             </div>
           </details>
+            </>
+          )}
         </section>
       )}
 

@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.core.audit_logger import audit_bus
+from app.core.polls_series.series_agenda import AwaitingOptions, edition_questions, load_edition_options
 from app.core.polls_series.series_snapshot import snapshot_closed_editions
 from app.core.polls_series.series_window import (
     CADENCES,
@@ -23,9 +24,15 @@ from app.core.polls_series.series_window import (
 logger = logging.getLogger("beacon.polls_series")
 
 
-def build_edition_payload(series: dict[str, Any], edition: str, actor_id: str) -> dict[str, Any]:
+def build_edition_payload(
+    series: dict[str, Any],
+    edition: str,
+    actor_id: str,
+    questions: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Construye la fila de `polls` para una edición. Las preguntas se copian con
-    sus ids originales para que las ediciones sean comparables entre meses."""
+    sus ids originales para que las ediciones sean comparables entre meses; en una serie
+    agenda se pasan ya armadas con las opciones de la semana (`questions`)."""
     starts_at, ends_at = edition_window(edition)
     return {
         "title": f"{series['title']} — {edition_label(edition)}",
@@ -38,7 +45,7 @@ def build_edition_payload(series: dict[str, Any], edition: str, actor_id: str) -
         "is_active": True,
         "is_featured": False,
         "created_by": actor_id,
-        "questions": series["questions"],
+        "questions": questions if questions is not None else series["questions"],
         "category": series.get("category") or "general",
         "requires_auth": series.get("requires_auth", True),
         "series_id": series["id"],
@@ -93,9 +100,16 @@ async def publish_series_edition(
     if await _edition_exists(supabase, series["id"], edition):
         return None
 
+    questions = None
+    if series.get("kind") == "agenda":
+        options = await load_edition_options(supabase, series["id"], edition)
+        if options is None:
+            raise AwaitingOptions(series["slug"], edition)
+        questions = edition_questions(series["questions"], options)
+
     try:
         result = await supabase.table("polls").insert(
-            build_edition_payload(series, edition, actor_id)
+            build_edition_payload(series, edition, actor_id, questions)
         ).execute()
     except Exception as exc:
         # Carrera entre dos cron: el índice único (series_id, edition) rechazó el insert.
@@ -157,6 +171,7 @@ async def publish_due_series(
     skipped: list[str] = []
     failed: list[str] = []
     audit_failed: list[str] = []
+    awaiting_options: list[str] = []
 
     for series in active.data or []:
         edition = editions[series["cadence"]]
@@ -165,6 +180,11 @@ async def publish_due_series(
         except AuditWriteFailed:
             published.append(series["slug"])
             audit_failed.append(series["slug"])
+            continue
+        except AwaitingOptions:
+            # No es un fallo: una persona debe definir las opciones de la semana. Se reintenta en la siguiente ejecución.
+            logger.warning(f"series: esperando opciones | series={series['slug']} | edition={edition}")
+            awaiting_options.append(series["slug"])
             continue
         except Exception:
             logger.exception(f"series: error publicando | series={series['slug']} | edition={edition}")
@@ -176,4 +196,4 @@ async def publish_due_series(
     snapshots = await snapshot_closed_editions(supabase, actor_id, now)
 
     return {"editions": editions, "published": published, "skipped": skipped,
-            "failed": failed, "audit_failed": audit_failed, **snapshots}
+            "failed": failed, "audit_failed": audit_failed, "awaiting_options": awaiting_options, **snapshots}

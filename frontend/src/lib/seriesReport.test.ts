@@ -23,6 +23,25 @@ const trend = (points: TrendPoint[]): SeriesTrend => ({
   min_n: 30, points, events: [],
 });
 
+describe("seriesHeadline — agenda", () => {
+  const agendaPoint = (i: number, rows: [string, number][]): TrendPoint => ({
+    ...point(i, 1, group(80, 41, 51)),
+    questions: [{
+      question_id: "q1", text: "¿Noticia?", type: "multiple_choice",
+      verified: { n: 80, suppressed: false, results: rows.map(([option, pct]) => ({ option, count: 0, pct })) },
+      total: group(0, null), weighted: group(0, null),
+    }],
+  });
+  const agendaTrend = (points: TrendPoint[]): SeriesTrend => ({ ...trend(points), series: { ...trend(points).series, kind: "agenda" } });
+
+  it("titula con las dos opciones más elegidas, sin las fijas, y no compara con la semana anterior", () => {
+    const rows: [string, number][] = [["Alza de combustibles", 30], ["Cadena nacional", 45], ["Marcha", 10], ["Otra noticia", 12], ["No sabe / No responde", 3]];
+    const h = seriesHeadline(agendaTrend([agendaPoint(0, rows), agendaPoint(1, rows)]));
+    expect(h.text).toBe("Pulso Beacon · Semana 41: Cadena nacional 45%, Alza de combustibles 30%");
+    expect(h.previous).toBeNull();
+  });
+});
+
 describe("seriesHeadline", () => {
   it("describe los dos valores principales, sin «no sabe» y sin adjetivos", () => {
     const h = seriesHeadline(trend([point(0, 1, group(80, 41, 51)), point(1, 1, group(90, 38, 54))]));
