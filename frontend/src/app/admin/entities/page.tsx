@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -105,10 +105,10 @@ export default function AdminEntities() {
     const token = typeof window !== "undefined" ? localStorage.getItem("beacon_token") : null;
 
     /** Headers con JWT */
-    const authHeaders = {
+    const authHeaders = useMemo(() => ({
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-    };
+    }), [token]);
 
     /** Cargar entidades */
     const loadEntities = useCallback(async () => {
@@ -126,7 +126,7 @@ export default function AdminEntities() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [authHeaders]);
 
     useEffect(() => {
         loadEntities();
@@ -473,6 +473,7 @@ export default function AdminEntities() {
                                         style={{ border: "1px solid rgba(212,175,55,0.2)", background: "rgba(255,255,255,0.02)" }}
                                     >
                                         {formData.photo_path ? (
+                                            // eslint-disable-next-line @next/next/no-img-element -- URL escrita por el admin (cualquier dominio): next/image solo admite los dominios de next.config
                                             <img
                                                 src={formData.photo_path}
                                                 alt="preview"
@@ -677,6 +678,7 @@ export default function AdminEntities() {
                                         <td className="p-3">
                                             <div className="flex items-center gap-2">
                                                 {entity.photo_path ? (
+                                                    // eslint-disable-next-line @next/next/no-img-element -- URL escrita por el admin (cualquier dominio): next/image solo admite los dominios de next.config
                                                     <img
                                                         src={entity.photo_path}
                                                         alt={entity.first_name}

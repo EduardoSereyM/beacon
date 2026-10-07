@@ -135,6 +135,7 @@
 
 **Deuda técnica pendiente (warnings ESLint, no bloqueantes):**
 - 37 warnings preexistentes: variables sin usar en admin/polls/events/profile, `<img>` sin `<Image />`, `useEffect` con deps faltantes.
+- **Sprint de calidad (en curso, un PR por carpeta):** `app/admin` limpio (37 → 29 warnings): se retiran `API_URL` y `handleTypeChange` sin uso, `loadEntities` pasa a depender de `authHeaders` (memoizado por token) y los 5 `<img>` de vista previa llevan una excepción puntual con motivo, porque las URLs las escribe el admin y `next/image` solo admite los dominios de `next.config`.
 - No se tocaron para mantener el PR enfocado. Registrados como deuda técnica a resolver en sprint de calidad.
 
 ---
