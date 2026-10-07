@@ -320,7 +320,7 @@ export default function ProfilePage() {
         };
 
         fetchProfile();
-    }, [router, API_URL]);
+    }, [router, API_URL, setAuth]);
 
     // Validación año de nacimiento
     const birthYearNum = parseInt(birthYear, 10);
@@ -466,11 +466,6 @@ export default function ProfilePage() {
     if (!user) return null;
 
     const inputClass = "w-full text-sm text-white px-3 py-2.5 rounded-lg outline-none font-mono transition-all duration-200 bg-transparent";
-    const inputStyle = (active?: boolean): React.CSSProperties => ({
-        border: `1px solid ${active ? `${CYAN}50` : "rgba(255,255,255,0.1)"}`,
-        backgroundColor: "#0F0F0F",
-        caretColor: CYAN,
-    });
     const selectStyle = (hasValue?: boolean): React.CSSProperties => ({
         backgroundColor: "#0F0F0F",
         border: `1px solid ${hasValue ? `${CYAN}30` : "rgba(255,255,255,0.1)"}`,
