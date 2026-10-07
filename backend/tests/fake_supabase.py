@@ -1,7 +1,7 @@
 """
 Cliente Supabase falso en memoria para tests unitarios (sin red ni .env real).
 Soporta la parte de la API async que usan los endpoints de polls/series:
-select/eq/ilike/limit/order/maybe_single/insert/update/delete, defaults de columnas
+select/eq/ilike/lt/in_/is_/not_.is_/limit/order/maybe_single/insert/update/delete, defaults de columnas
 y restricciones únicas (error con código 23505, como Postgres).
 """
 
@@ -10,6 +10,7 @@ from typing import Any
 UNIQUE = {
     "polls": [("series_id", "edition"), ("slug",)],
     "poll_series": [("slug",)],
+    "poll_results_snapshot": [("poll_id",)],
 }
 DEFAULTS = {
     "poll_series": {"template_version": 1, "is_active": True, "last_published_at": None},
@@ -21,11 +22,22 @@ class Result:
         self.data = data
 
 
+class _Not:
+    def __init__(self, query):
+        self.query = query
+
+    def is_(self, key, value):
+        assert value == "null", "el fake solo soporta not_.is_(col, 'null')"
+        self.query.preds.append(lambda r: r.get(key) is not None)
+        return self.query
+
+
 class Query:
     def __init__(self, db, table):
         self.db, self.table = db, table
         self.filters, self.op, self.payload, self.single = {}, "select", None, False
         self.ilikes = {}
+        self.preds = []
 
     def select(self, *_):
         return self
@@ -37,6 +49,23 @@ class Query:
     def ilike(self, key, pattern):
         self.ilikes[key] = pattern.lower()
         return self
+
+    def lt(self, key, value):
+        self.preds.append(lambda r: r.get(key) is not None and str(r[key]) < str(value))
+        return self
+
+    def in_(self, key, values):
+        self.preds.append(lambda r: r.get(key) in values)
+        return self
+
+    def is_(self, key, value):
+        assert value == "null", "el fake solo soporta is_(col, 'null')"
+        self.preds.append(lambda r: r.get(key) is None)
+        return self
+
+    @property
+    def not_(self):
+        return _Not(self)
 
     def limit(self, *_):
         return self
@@ -80,6 +109,7 @@ class Query:
             r for r in rows
             if all(r.get(k) == v for k, v in self.filters.items())
             and all(str(r.get(k) or "").lower() == v for k, v in self.ilikes.items())
+            and all(pred(r) for pred in self.preds)
         ]
         if self.op == "update":
             for r in matched:

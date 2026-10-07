@@ -190,7 +190,7 @@ class TestPublish:
     async def test_publica_una_vez_y_registra_audit(self, _audit):
         sb = FakeSupabase([SERIES])
         summary = await publish_due_series(sb, "admin-1", now=NOW)
-        assert summary == {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["aprobacion-presidencial"], "skipped": [], "failed": [], "audit_failed": []}
+        assert summary == {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["aprobacion-presidencial"], "skipped": [], "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
         assert len(sb.db["polls"]) == 1
         assert sb.db["poll_series"][0]["last_published_at"] is not None
         assert [e["action"] for e in _audit] == ["SERIES_EDITION_PUBLISHED"]
@@ -347,21 +347,28 @@ class TestPublishDueEndpoint:
         monkeypatch.setattr(polls_series_admin, "get_async_supabase_client", lambda: object())
 
     def test_200_cuando_todo_sale_bien(self, monkeypatch):
-        ok = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["a"], "skipped": [], "failed": [], "audit_failed": []}
+        ok = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["a"], "skipped": [], "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
         self._patch(monkeypatch, ok)
         res = _client().post("/admin/polls/series/publish-due")
         assert res.status_code == 200 and res.json() == ok
 
     def test_500_con_resumen_si_una_serie_falla(self, monkeypatch):
-        bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": [], "skipped": [], "failed": ["a"], "audit_failed": []}
+        bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": [], "skipped": [], "failed": ["a"], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
         self._patch(monkeypatch, bad)
         res = _client().post("/admin/polls/series/publish-due")
         assert res.status_code == 500 and res.json() == bad
 
     def test_500_si_se_perdio_un_audit(self, monkeypatch):
-        bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["a"], "skipped": [], "failed": [], "audit_failed": ["a"]}
+        bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["a"], "skipped": [], "failed": [], "audit_failed": ["a"], "snapshotted": [], "snapshot_failed": []}
         self._patch(monkeypatch, bad)
         assert _client().post("/admin/polls/series/publish-due").status_code == 500
+
+    def test_500_si_falla_un_snapshot(self, monkeypatch):
+        bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": [], "skipped": [],
+               "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": ["a-2026-09"]}
+        self._patch(monkeypatch, bad)
+        res = _client().post("/admin/polls/series/publish-due")
+        assert res.status_code == 500 and res.json() == bad
 
     def test_sin_key_responde_401(self):
         app = FastAPI()
