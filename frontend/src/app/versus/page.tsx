@@ -65,7 +65,6 @@ function photoUrl(path: string | null): string | null {
 function EntitySide({
   entity,
   side,
-  pct,
   onVote,
   voted,
   voting,
@@ -74,7 +73,6 @@ function EntitySide({
 }: {
   entity: Entity;
   side: "A" | "B";
-  pct: number;
   onVote: (side: "A" | "B") => void;
   voted: boolean;
   voting: boolean;
@@ -90,6 +88,7 @@ function EntitySide({
       {/* Avatar */}
       <div style={{ position: "relative" }}>
         {url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- el host de SUPABASE_STORAGE no está en images.remotePatterns de next.config: next/image fallaría
           <img
             src={url}
             alt={`${entity.first_name} ${entity.last_name}`}
@@ -328,7 +327,6 @@ function VersusCard({
         <EntitySide
           entity={vs.entity_a}
           side="A"
-          pct={pctA}
           onVote={handleVote}
           voted={voted}
           voting={voting}
@@ -363,7 +361,6 @@ function VersusCard({
         <EntitySide
           entity={vs.entity_b}
           side="B"
-          pct={pctB}
           onVote={handleVote}
           voted={voted}
           voting={voting}
