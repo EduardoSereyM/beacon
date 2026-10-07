@@ -105,6 +105,7 @@ function formatDate(iso: string): string {
 
 function MiniAvatar({ photo, name }: { photo?: string; name: string }) {
     return photo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- URL escrita por el admin (cualquier dominio): next/image solo admite los dominios de next.config
         <img
             src={photo}
             alt={name}

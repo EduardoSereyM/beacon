@@ -136,14 +136,6 @@ function QuestionEditor({ index, question, total, onChange, onRemove }: Question
     outline: "none",
   };
 
-  const handleTypeChange = (t: "multiple_choice" | "scale") => {
-    if (t === "multiple_choice") {
-      onChange({ ...question, type: t, options: question.options?.length ? question.options : ["", ""], scale_points: undefined });
-    } else {
-      onChange({ ...question, type: t, scale_points: question.scale_points ?? 5, options: undefined });
-    }
-  };
-
   const handleOptionChange = (i: number, val: string) => {
     const opts = [...(question.options || [])];
     opts[i] = val;
@@ -794,6 +786,7 @@ export default function AdminPollsPage() {
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
                   {headerImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- URL escrita por el admin (cualquier dominio): next/image solo admite los dominios de next.config
                     <img src={headerImage} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
                     <span style={{ fontSize: 20, opacity: 0.3 }}>🖼</span>
@@ -1049,6 +1042,7 @@ export default function AdminPollsPage() {
                 {/* Fila 1: thumbnail + info */}
                 <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
                   {p.header_image && (
+                    // eslint-disable-next-line @next/next/no-img-element -- URL escrita por el admin (cualquier dominio): next/image solo admite los dominios de next.config
                     <img
                       src={p.header_image}
                       alt=""
