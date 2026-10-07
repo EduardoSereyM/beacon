@@ -12,6 +12,8 @@
 
 export type Cadence = "monthly" | "weekly";
 export type Group = "verified" | "total" | "weighted";
+/** Métrica de una escala: promedio, o % de notas 5 a 7 (solo escalas de 7 puntos, como en el colegio). */
+export type ScaleMetric = "average" | "top3";
 
 export interface ResultRow {
   option: string;
@@ -128,7 +130,21 @@ function paddedDomain(values: number[]): [number, number] {
   return [low, high];
 }
 
-export function buildChartData(points: TrendPoint[], questionId: string, group: Group): ChartData | null {
+/** ¿Se puede mostrar «% notas 5 a 7»? Solo en escalas de 1 a 7. */
+export function supportsTop3(points: TrendPoint[], questionId: string): boolean {
+  const latest = points[points.length - 1];
+  const question = latest && findQuestion(latest, questionId);
+  return Boolean(question && question.type === "scale" && question.scale_min === 1 && question.scale_max === 7);
+}
+
+const TOP3_OPTIONS = ["5", "6", "7"];
+
+export function buildChartData(
+  points: TrendPoint[],
+  questionId: string,
+  group: Group,
+  metric: ScaleMetric = "average",
+): ChartData | null {
   const latest = points[points.length - 1];
   const latestQuestion = latest && findQuestion(latest, questionId);
   if (!latestQuestion) return null;
@@ -139,6 +155,23 @@ export function buildChartData(points: TrendPoint[], questionId: string, group: 
   const versionBreaks = points
     .map((p, i) => (i > 0 && p.template_version !== points[i - 1].template_version ? i : -1))
     .filter((i) => i >= 0);
+
+  if (latestQuestion.type === "scale" && metric === "top3" && supportsTop3(points, questionId)) {
+    const values = perPoint.map((g) =>
+      g && !g.suppressed && g.results
+        ? Math.round(g.results.filter((r) => TOP3_OPTIONS.includes(r.option)).reduce((sum, r) => sum + r.pct, 0) * 10) / 10
+        : null,
+    );
+    return {
+      question: { id: questionId, text: latestQuestion.text, type: "scale" },
+      unit: "%",
+      domain: paddedDomain(values.filter((v): v is number => v !== null)),
+      holeReason,
+      ns,
+      versionBreaks,
+      lines: [{ key: "top3", label: "% notas 5 a 7", muted: false, values }],
+    };
+  }
 
   if (latestQuestion.type === "scale") {
     const low = latestQuestion.scale_min ?? 1;
@@ -229,4 +262,30 @@ export function weightingSummary(points: TrendPoint[]): { available: boolean; la
   // Con pocos votantes todos los motivos dicen lo mismo: se muestra el primero.
   const reason = latest && latest.status !== "ok" ? latest.reasons[0] ?? "Aún no hay datos suficientes." : null;
   return { available, latest, reason: available ? null : reason ?? "Aún no hay datos suficientes." };
+}
+
+export interface CasesSummary {
+  /** Edición a la que se refiere el resumen (la más reciente con datos para la pregunta). */
+  label: string;
+  n: number;
+  isOpen: boolean;
+  /** Para el grupo ponderado: votantes «equivalentes» tras ponderar. */
+  nEff: number | null;
+}
+
+/** «Casos» de la edición más reciente para la pregunta y el grupo elegidos (el pie de cada lámina de Cadem). */
+export function casesSummary(points: TrendPoint[], chart: ChartData, group: Group): CasesSummary | null {
+  for (let i = points.length - 1; i >= 0; i -= 1) {
+    const n = chart.ns[i];
+    if (n !== null && n !== undefined) {
+      const weighting = points[i].weighting;
+      return {
+        label: points[i].label,
+        n,
+        isOpen: points[i].is_open,
+        nEff: group === "weighted" && weighting?.status === "ok" ? weighting.n_eff : null,
+      };
+    }
+  }
+  return null;
 }
