@@ -38,7 +38,6 @@ interface Particle {
 export default function VerdictButton({
     rank,
     onVerdict,
-    entityName = "esta entidad",
     voteStatus = "idle",
     voteMessage = "",
 }: VerdictButtonProps) {
