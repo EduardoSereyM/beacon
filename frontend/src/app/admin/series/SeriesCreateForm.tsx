@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useState } from "react";
+import HelpTip from "@/components/shared/HelpTip";
 import { adminFetch } from "@/lib/adminApi";
 import {
   CATEGORIES,
@@ -78,6 +79,7 @@ export default function SeriesCreateForm({ onCreated }: { onCreated: () => void 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <label style={{ ...small, flex: "1 1 220px" }}>
           Dirección (slug) — opcional
+          <HelpTip text="Es la dirección web de la serie y de sus ediciones (por ejemplo, barometro-mensual). Solo minúsculas, números y guiones. Si la dejas vacía se genera del título. No se puede cambiar después de crear la serie; cada edición usa este slug más el mes o la semana (barometro-mensual-2026-10)." />
           <input style={box} value={draft.slug} onChange={(e) => patch({ slug: e.target.value })} placeholder={effectiveSlug(draft) || "se genera del título"} />
         </label>
         <label style={{ ...small, flex: "1 1 160px" }}>
@@ -97,6 +99,7 @@ export default function SeriesCreateForm({ onCreated }: { onCreated: () => void 
 
       <label style={small}>
         Contexto — opcional
+        <HelpTip text="Texto breve que se muestra bajo el título de la serie y de cada edición: qué mide y cómo leerla (por ejemplo, quién participa y qué no representa). Se copia a las ediciones nuevas y lo puedes cambiar después sin cortar la tendencia." />
         <textarea style={{ ...box, resize: "vertical" }} rows={2} value={draft.context} onChange={(e) => patch({ context: e.target.value })} placeholder="Qué mide la serie y cómo leerla" />
       </label>
 
