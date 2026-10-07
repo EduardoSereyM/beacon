@@ -47,7 +47,8 @@
 - **Regla de privacidad:** grupo con n < 30 no publica resultados (`suppressed`), igual que n<5 en cross-tabs.
 - **Agregación extraída** a `app/core/polls/aggregation.py` (función pura, sin cambio de comportamiento).
 - **Incidente resuelto (PR #19):** con el cliente real (`supabase==2.9.1`, `postgrest 0.17.2`) `maybe_single()` devuelve `None` —no un resultado vacío— cuando no hay fila, así que `resultado.data` daba `AttributeError` (500 en vez de 404 en `/series/{slug}/trend`, y en `polls_admin`: crear encuesta con slug libre, ingest, editar y borrar encuesta inexistente). El fake de tests devolvía un objeto y lo ocultaba; ahora es fiel al cliente real y todo el código usa `limit(1)`.
-- **Siguiente:** PR 2 (página pública `/series/[slug]` con SVG propio + badge en `PollCard`) y PR 3 (admin `/admin/series`).
+- **PR 2 (en revisión):** página pública `/series/[slug]` con gráfico SVG propio (`components/series/TrendChart.tsx`, lógica pura en `lib/series.ts`): una línea por opción, huecos donde n < 30, corte por cambio de versión, eventos numerados, selector verificados/todos, tabla de datos accesible y nota "cómo leer estos datos". Enlace "Ver la tendencia" desde el detalle de cada edición. El badge en `PollCard` no se hizo: la tarjeta entera es un `<Link>` y un enlace anidado es HTML inválido.
+- **Siguiente:** PR 3 (admin `/admin/series`: lista, crear, pausar, ediciones y eventos). Deuda: `frontend` no tiene corredor de tests; la lógica de `lib/series.ts` se validó con un script ad hoc.
 
 ### Rollout: Encuestas mensuales recurrentes
 - [x] 1. Confirmar `poll_votes.user_id` = uuid:
