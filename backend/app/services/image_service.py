@@ -23,6 +23,7 @@ from urllib.request import urlopen
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import qrcode
 
+from app.core.config import settings
 from app.core.database import get_async_supabase_client
 from app.core.redis_client import get_redis
 
@@ -289,10 +290,15 @@ def _generate_image_pillow(
     return buf.getvalue()
 
 
+def poll_public_url(poll_slug: str) -> str:
+    """URL pública de la encuesta: la base sale de settings.FRONTEND_URL (sin barra final)."""
+    return f"{settings.FRONTEND_URL.rstrip('/')}/encuestas/{poll_slug}"
+
+
 def _generate_qr_image(poll_slug: str, size: int = 120) -> Image.Image:
     """Genera QR como PIL Image."""
     qr = qrcode.QRCode(version=1, box_size=10, border=2)
-    qr.add_data(f"https://beaconchile.cl/encuestas/{poll_slug}")
+    qr.add_data(poll_public_url(poll_slug))
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white")
     return qr_img.resize((size, size))
