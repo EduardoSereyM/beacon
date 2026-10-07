@@ -142,6 +142,7 @@
   - `app/encuestas` limpio (13 → 10): `DownloadResultButton` deja de recibir el prop `slug` que no usaba, `isVerified` sale de la página de listado y el efecto de carga conserva a propósito su lista de dependencias sin `searchQuery` (la búsqueda por texto la dispara el debounce de `handleSearchChange`), ahora con una excepción de ESLint que lo explica.
   - `app/profile` limpio (10 → 8): se retira `inputStyle` (sin uso) y `setAuth` entra en las dependencias del efecto de carga del perfil (es un selector de Zustand con referencia estable, así que el efecto no se vuelve a ejecutar).
   - `app/versus` limpio (8 → 6): `EntitySide` deja de recibir el prop `pct` que no usaba (los porcentajes se siguen calculando en la página) y el `<img>` de la foto lleva una excepción puntual por el mismo motivo que en `app/events` (host de `SUPABASE_STORAGE` fuera de `images.remotePatterns`).
+  - `components/shared` limpio (6 → 4): se retiran de `BasicUserBanner.tsx` las constantes de color `GOLD` y `RED`, sin uso.
 - No se tocaron para mantener el PR enfocado. Registrados como deuda técnica a resolver en sprint de calidad.
 
 ---

@@ -14,10 +14,8 @@ import { useState, useEffect } from "react";
 import { IdCardLanyard } from "lucide-react";
 import { useAuthStore } from "@/store";
 
-const GOLD   = "#D4AF37";
 const AMBER  = "#FF8C00";
 const NEON  = "#00E5FF";
-const RED    = "#FF0000";
 const GREEN  = "#00FF00";
 
 
