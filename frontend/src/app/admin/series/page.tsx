@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AgendaOptionsEditor from "@/app/admin/series/AgendaOptionsEditor";
 import SeriesCreateForm from "@/app/admin/series/SeriesCreateForm";
+import SeriesTypesGuide from "@/app/admin/series/SeriesTypesGuide";
 import { adminFetch } from "@/lib/adminApi";
 import { cadenceLabel, type Cadence } from "@/lib/series";
 
@@ -122,6 +123,8 @@ export default function AdminSeriesPage() {
         </p>
       </header>
 
+      <SeriesTypesGuide />
+
       {error && <div role="alert" style={{ ...panel, borderColor: "#FF073A", color: "#FF073A", fontSize: 13 }}>{error}</div>}
       {message && <div role="status" style={{ ...panel, borderColor: "#39FF14", color: "#39FF14", fontSize: 13 }}>{message}</div>}
 
@@ -143,7 +146,7 @@ export default function AdminSeriesPage() {
               <thead>
                 <tr style={{ textAlign: "left", color: "rgba(255,255,255,0.5)", fontSize: 12 }}>
                   <th style={{ padding: 8 }}>Serie</th>
-                  <th style={{ padding: 8 }}>Cadencia</th>
+                  <th style={{ padding: 8 }}>Cadencia y tipo</th>
                   <th style={{ padding: 8 }}>Versión</th>
                   <th style={{ padding: 8 }}>Última edición</th>
                   <th style={{ padding: 8 }}>Estado</th>
@@ -157,7 +160,14 @@ export default function AdminSeriesPage() {
                       <Link href={`/series/${item.slug}`} style={{ color: "#00E5FF", textDecoration: "none", fontWeight: 700 }}>{item.title}</Link>
                       <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{item.slug}</div>
                     </td>
-                    <td style={{ padding: 8 }}>{cadenceLabel(item.cadence)}{item.kind === "agenda" ? " · agenda" : ""}</td>
+                    <td style={{ padding: 8 }}>{cadenceLabel(item.cadence)}
+                      <div
+                        title={item.kind === "agenda" ? "Agenda: misma pregunta, opciones distintas cada edición" : "Seguimiento: mismas preguntas y opciones cada edición"}
+                        style={{ fontSize: 11, fontWeight: 700, color: item.kind === "agenda" ? "#D4AF37" : "#00E5FF" }}
+                      >
+                        {item.kind === "agenda" ? "agenda" : "seguimiento"}
+                      </div>
+                    </td>
                     <td style={{ padding: 8 }}>v{item.template_version}</td>
                     <td style={{ padding: 8 }}>{formatDateTime(item.last_published_at)}</td>
                     <td style={{ padding: 8, color: item.is_active ? "#39FF14" : "#D4AF37", fontWeight: 700 }}>{item.is_active ? "Activa" : "Pausada"}</td>

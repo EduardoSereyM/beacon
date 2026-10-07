@@ -66,7 +66,7 @@ export default function SeriesCreateForm({ onCreated }: { onCreated: () => void 
   return (
     <form onSubmit={submit} style={{ display: "grid", gap: 14 }} noValidate>
       <p style={{ ...small, margin: 0, lineHeight: 1.6, padding: 10, borderRadius: 8, border: "1px solid rgba(212,175,55,0.4)", color: "#D4AF37" }}>
-        Una serie compara <strong>lo mismo</strong> en el tiempo: cada edición copia estas preguntas tal cual. Redáctalas con cuidado:
+        Esto crea una serie de <strong>seguimiento</strong>. Una serie de seguimiento compara <strong>lo mismo</strong> en el tiempo: cada edición copia estas preguntas tal cual. Redáctalas con cuidado:
         cambiarlas después sube la versión de la plantilla y <strong>corta la línea de tendencia</strong>.
       </p>
 
