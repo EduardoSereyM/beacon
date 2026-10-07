@@ -10,8 +10,26 @@
  */
 
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import NavbarClient from "@/components/bunker/NavbarClient";
+
+// Fuentes servidas desde nuestro propio dominio (next/font las descarga al compilar):
+// el navegador no hace ninguna petición a Google. globals.css las usa vía --font-sans / --font-mono.
+// Mismos pesos que cargaba el <link> anterior: un título con font-weight 900 sigue resolviéndose al 800, como antes.
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-jetbrains-mono",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.beaconchile.cl"),
@@ -97,15 +115,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="dark">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="es" className={`dark ${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased min-h-screen">
         {/* ═══ Navbar + AuthModal (Client Component) ═══ */}
         <NavbarClient />
