@@ -338,29 +338,39 @@ def _client():
     return TestClient(app)
 
 
+SIN_RECONCILIAR = {
+    "audit_reconciled": [], "audit_reconcile_failed": [],
+    "snapshot_audit_reconciled": [], "snapshot_audit_reconcile_failed": [],
+}
+
+
 class TestPublishDueEndpoint:
-    def _patch(self, monkeypatch, summary):
+    def _patch(self, monkeypatch, summary, reconcile=None, reconcile_snapshot=None):
         async def fake(_supabase, actor_id, now=None):
-            return summary
+            return dict(summary)
 
         async def no_reconcile(_supabase, actor_id):
-            return {"audit_reconciled": [], "audit_reconcile_failed": []}
+            return reconcile or {"audit_reconciled": [], "audit_reconcile_failed": []}
+
+        async def no_reconcile_snapshot(_supabase, actor_id):
+            return reconcile_snapshot or {"snapshot_audit_reconciled": [], "snapshot_audit_reconcile_failed": []}
 
         monkeypatch.setattr(polls_series_admin, "publish_due_series", fake)
         monkeypatch.setattr(polls_series_admin, "reconcile_edition_audit", no_reconcile)
+        monkeypatch.setattr(polls_series_admin, "reconcile_snapshot_audit", no_reconcile_snapshot)
         monkeypatch.setattr(polls_series_admin, "get_async_supabase_client", lambda: object())
 
     def test_200_cuando_todo_sale_bien(self, monkeypatch):
         ok = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["a"], "skipped": [], "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
         self._patch(monkeypatch, ok)
         res = _client().post("/admin/polls/series/publish-due")
-        assert res.status_code == 200 and res.json() == ok
+        assert res.status_code == 200 and res.json() == {**ok, **SIN_RECONCILIAR}
 
     def test_500_con_resumen_si_una_serie_falla(self, monkeypatch):
         bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": [], "skipped": [], "failed": ["a"], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
         self._patch(monkeypatch, bad)
         res = _client().post("/admin/polls/series/publish-due")
-        assert res.status_code == 500 and res.json() == bad
+        assert res.status_code == 500 and res.json() == {**bad, **SIN_RECONCILIAR}
 
     def test_500_si_se_perdio_un_audit(self, monkeypatch):
         bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["a"], "skipped": [], "failed": [], "audit_failed": ["a"], "snapshotted": [], "snapshot_failed": []}
@@ -372,7 +382,23 @@ class TestPublishDueEndpoint:
                "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": ["a-2026-09"]}
         self._patch(monkeypatch, bad)
         res = _client().post("/admin/polls/series/publish-due")
-        assert res.status_code == 500 and res.json() == bad
+        assert res.status_code == 500 and res.json() == {**bad, **SIN_RECONCILIAR}
+
+    def test_500_si_falla_la_reconciliacion_del_audit(self, monkeypatch):
+        ok = {"editions": {}, "published": [], "skipped": [], "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
+        self._patch(monkeypatch, ok, reconcile={"audit_reconciled": [], "audit_reconcile_failed": ["p-1"]})
+        assert _client().post("/admin/polls/series/publish-due").status_code == 500
+
+    def test_500_si_falla_la_reconciliacion_del_audit_de_snapshot(self, monkeypatch):
+        ok = {"editions": {}, "published": [], "skipped": [], "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
+        self._patch(monkeypatch, ok, reconcile_snapshot={"snapshot_audit_reconciled": [], "snapshot_audit_reconcile_failed": ["p-1"]})
+        assert _client().post("/admin/polls/series/publish-due").status_code == 500
+
+    def test_200_y_lista_lo_reconciliado(self, monkeypatch):
+        ok = {"editions": {}, "published": [], "skipped": [], "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
+        self._patch(monkeypatch, ok, reconcile_snapshot={"snapshot_audit_reconciled": ["p-2"], "snapshot_audit_reconcile_failed": []})
+        res = _client().post("/admin/polls/series/publish-due")
+        assert res.status_code == 200 and res.json()["snapshot_audit_reconciled"] == ["p-2"]
 
     def test_sin_key_responde_401(self):
         app = FastAPI()

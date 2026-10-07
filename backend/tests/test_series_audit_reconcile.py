@@ -8,7 +8,7 @@ Una edición publicada sin fila SERIES_EDITION_PUBLISHED se reescribe en audit_l
 import pytest
 
 from app.core.polls_series import series_audit_reconcile
-from app.core.polls_series.series_audit_reconcile import reconcile_edition_audit
+from app.core.polls_series.series_audit_reconcile import reconcile_edition_audit, reconcile_snapshot_audit
 from tests.fake_supabase import FakeSupabase
 
 
@@ -60,3 +60,57 @@ class TestReconcile:
         monkeypatch.setattr(series_audit_reconcile.audit_bus, "alog_event", flaky)
         out = await reconcile_edition_audit(FakeSupabase(polls=[_poll("p-1"), _poll("p-2")]), "pipeline")
         assert out == {"audit_reconciled": ["p-2"], "audit_reconcile_failed": ["p-1"]}
+
+
+def _snapshot(pid, status="ok"):
+    return {"poll_id": pid, "series_id": "s-1", "edition": "2026-09", "total_votes": 10, "verified_votes": 4,
+            "weighting_meta": {"status": status}, "created_at": "2026-10-01T03:20:00+00:00"}
+
+
+class TestReconcileSnapshot:
+    @pytest.mark.asyncio
+    async def test_reescribe_solo_los_snapshots_sin_audit(self, written):
+        sb = FakeSupabase()
+        sb.db["poll_results_snapshot"] = [_snapshot("p-1"), _snapshot("p-2", status="unavailable")]
+        sb.db["audit_logs"] = [{"action": "SERIES_EDITION_SNAPSHOT", "entity_id": "p-1"}]
+        out = await reconcile_snapshot_audit(sb, "pipeline")
+        assert out == {"snapshot_audit_reconciled": ["p-2"], "snapshot_audit_reconcile_failed": []}
+        event = written[0]
+        assert event["action"] == "SERIES_EDITION_SNAPSHOT" and event["entity_id"] == "p-2"
+        assert event["actor_id"] == "pipeline" and event["raise_on_error"] is True
+        assert event["details"]["reconciled"] is True and event["details"]["weighting_status"] == "unavailable"
+        assert event["details"]["total_votes"] == 10 and event["details"]["verified_votes"] == 4
+
+    @pytest.mark.asyncio
+    async def test_el_audit_de_publicacion_no_cuenta_como_audit_de_snapshot(self, written):
+        sb = FakeSupabase()
+        sb.db["poll_results_snapshot"] = [_snapshot("p-1")]
+        sb.db["audit_logs"] = [{"action": "SERIES_EDITION_PUBLISHED", "entity_id": "p-1"}]
+        assert (await reconcile_snapshot_audit(sb, "pipeline"))["snapshot_audit_reconciled"] == ["p-1"]
+
+    @pytest.mark.asyncio
+    async def test_sin_pendientes_no_escribe(self, written):
+        sb = FakeSupabase()
+        sb.db["poll_results_snapshot"] = [_snapshot("p-1")]
+        sb.db["audit_logs"] = [{"action": "SERIES_EDITION_SNAPSHOT", "entity_id": "p-1"}]
+        assert (await reconcile_snapshot_audit(sb, "pipeline"))["snapshot_audit_reconciled"] == []
+        assert written == []
+
+    @pytest.mark.asyncio
+    async def test_snapshot_sin_weighting_meta(self, written):
+        sb = FakeSupabase()
+        sb.db["poll_results_snapshot"] = [{**_snapshot("p-1"), "weighting_meta": None}]
+        await reconcile_snapshot_audit(sb, "pipeline")
+        assert written[0]["details"]["weighting_status"] is None
+
+    @pytest.mark.asyncio
+    async def test_fallo_en_uno_no_impide_los_demas(self, monkeypatch):
+        async def flaky(**kwargs):
+            if kwargs["entity_id"] == "p-1":
+                raise RuntimeError("audit caído")
+
+        monkeypatch.setattr(series_audit_reconcile.audit_bus, "alog_event", flaky)
+        sb = FakeSupabase()
+        sb.db["poll_results_snapshot"] = [_snapshot("p-1"), _snapshot("p-2")]
+        out = await reconcile_snapshot_audit(sb, "pipeline")
+        assert out == {"snapshot_audit_reconciled": ["p-2"], "snapshot_audit_reconcile_failed": ["p-1"]}
