@@ -143,6 +143,7 @@
   - `app/profile` limpio (10 → 8): se retira `inputStyle` (sin uso) y `setAuth` entra en las dependencias del efecto de carga del perfil (es un selector de Zustand con referencia estable, así que el efecto no se vuelve a ejecutar).
   - `app/versus` limpio (8 → 6): `EntitySide` deja de recibir el prop `pct` que no usaba (los porcentajes se siguen calculando en la página) y el `<img>` de la foto lleva una excepción puntual por el mismo motivo que en `app/events` (host de `SUPABASE_STORAGE` fuera de `images.remotePatterns`).
   - `components/shared` limpio (6 → 4): se retiran de `BasicUserBanner.tsx` las constantes de color `GOLD` y `RED`, sin uso.
+  - `components/status` limpio (4 → 2): `VerdictButton` deja de desestructurar `entityName` (el prop sigue en su interfaz porque `entities/[id]` lo pasa) y el `<img>` de `EntityCard` lleva una excepción puntual (`photo_path` guarda la URL pública completa, sin garantía de host).
 - No se tocaron para mantener el PR enfocado. Registrados como deuda técnica a resolver en sprint de calidad.
 
 ---
