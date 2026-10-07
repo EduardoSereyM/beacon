@@ -1,9 +1,10 @@
 """
 BEACON PROTOCOL — Publicador de ediciones de series de encuestas
 =================================================================
-Clona la plantilla de cada serie activa en una encuesta (polls) del mes en
-curso. Idempotente: si la edición del mes ya existe no hace nada, así que el
-cron puede correr a diario y reintentarse sin duplicar.
+Clona la plantilla de cada serie activa en una encuesta (polls) de su edición en
+curso (mes o semana, según la cadencia de la serie). Idempotente: si la edición
+ya existe no hace nada, así que el cron puede correr varias veces al día y
+reintentarse sin duplicar.
 """
 
 import logging
@@ -12,6 +13,7 @@ from typing import Any
 
 from app.core.audit_logger import audit_bus
 from app.core.polls_series.series_window import (
+    CADENCES,
     current_edition,
     edition_label,
     edition_window,
@@ -26,7 +28,7 @@ def build_edition_payload(series: dict[str, Any], edition: str, actor_id: str) -
     starts_at, ends_at = edition_window(edition)
     return {
         "title": f"{series['title']} — {edition_label(edition)}",
-        "slug": f"{series['slug']}-{edition}",
+        "slug": f"{series['slug']}-{edition.lower()}",
         "context": series.get("context"),
         "tags": series.get("tags") or [],
         "starts_at": starts_at.isoformat(),
@@ -116,6 +118,7 @@ async def publish_series_edition(
                 "series_id": series["id"],
                 "series_slug": series["slug"],
                 "edition": edition,
+                "cadence": series["cadence"],
                 "template_version": series["template_version"],
             },
             raise_on_error=True,
@@ -136,9 +139,10 @@ async def publish_due_series(
     actor_id: str,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Publica la edición del mes en curso para cada serie activa.
-    Un error en una serie no impide publicar las demás."""
-    edition = current_edition(now or datetime.now(timezone.utc))
+    """Publica la edición en curso (mensual o semanal, según su cadencia) de cada
+    serie activa. Un error en una serie no impide publicar las demás."""
+    now = now or datetime.now(timezone.utc)
+    editions = {cadence: current_edition(now, cadence) for cadence in CADENCES}
 
     active = await (
         supabase.table("poll_series")
@@ -153,6 +157,7 @@ async def publish_due_series(
     audit_failed: list[str] = []
 
     for series in active.data or []:
+        edition = editions[series["cadence"]]
         try:
             poll = await publish_series_edition(supabase, series, edition, actor_id)
         except AuditWriteFailed:
@@ -165,5 +170,5 @@ async def publish_due_series(
             continue
         (published if poll else skipped).append(series["slug"])
 
-    return {"edition": edition, "published": published, "skipped": skipped,
+    return {"editions": editions, "published": published, "skipped": skipped,
             "failed": failed, "audit_failed": audit_failed}

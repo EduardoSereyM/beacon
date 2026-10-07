@@ -75,7 +75,7 @@ class TestPublisherSurfacesRealAuditFailure:
 
     SERIES = {
         "id": "s-1", "slug": "aprobacion", "title": "¿Aprueba?", "context": None, "tags": [],
-        "category": "politica", "requires_auth": True, "template_version": 1, "is_active": True,
+        "category": "politica", "requires_auth": True, "template_version": 1, "is_active": True, "cadence": "monthly",
         "questions": [{"id": "q1", "text": "¿Aprueba?", "type": "multiple_choice", "options": ["Sí", "No"]}],
     }
 

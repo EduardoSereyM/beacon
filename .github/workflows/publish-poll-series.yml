@@ -1,11 +1,15 @@
 name: Publicar series de encuestas
 
-# Corre a diario (no solo el día 1): el endpoint es idempotente y crea la edición
-# del mes solo si no existe, así un retraso o una falla puntual se recupera al día siguiente.
-# 04:15 UTC = 00:15–01:15 hora de Chile.
+# Corre a diario (no solo el día 1 o el lunes): el endpoint es idempotente y crea la
+# edición en curso solo si no existe, así un retraso o una falla puntual se recupera
+# en la siguiente ejecución.
+#  - 04:15 UTC = 00:15–01:15 hora de Chile: edición mensual (empieza a las 00:00).
+#  - 08:15 UTC = 04:15–05:15 hora de Chile: edición semanal (empieza el lunes a las 04:00;
+#    antes de esa hora el endpoint aún considera vigente la semana anterior).
 on:
   schedule:
     - cron: "15 4 * * *"
+    - cron: "15 8 * * *"
   workflow_dispatch:
 
 permissions: {}

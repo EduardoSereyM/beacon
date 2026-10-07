@@ -1,18 +1,18 @@
 """
-BEACON PROTOCOL — Series de encuestas mensuales (Admin)
+BEACON PROTOCOL — Series de encuestas recurrentes (Admin)
 ========================================================
-Plantillas de encuestas que se republican cada mes (ver migración 024).
+Plantillas de encuestas que se republican cada mes o cada semana (migraciones 024 y 025).
 
 Endpoints:
   GET   /admin/polls/series              → Lista series
   POST  /admin/polls/series              → Crear serie
   PATCH /admin/polls/series/{id}         → Editar / pausar (si cambia el contenido de las preguntas sube template_version)
-  POST  /admin/polls/series/publish-due  → Cron: publica la edición del mes (PIPELINE_API_KEY)
+  POST  /admin/polls/series/publish-due  → Cron: publica la edición en curso de cada serie (PIPELINE_API_KEY)
 """
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -43,8 +43,8 @@ SERIES_SLUG_MAX = 100
 
 
 class SeriesCreateIn(BaseModel):
-    # Límites con margen para la edición: título + " — Septiembre 2026" (≤300 en polls)
-    # y slug + "-YYYY-MM" (≤120 en polls).
+    # Límites con margen para la edición: título + " — Semana 41 · 28 dic 2026 – 3 ene 2027"
+    # (≤300 en polls) y slug + "-YYYY-wWW" (≤120 en polls).
     title: str = Field(..., min_length=1, max_length=SERIES_TITLE_MAX)
     slug: Optional[str] = Field(None, min_length=2, max_length=SERIES_SLUG_MAX, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     context: Optional[str] = None
@@ -52,6 +52,8 @@ class SeriesCreateIn(BaseModel):
     tags: List[str] = []
     questions: List[QuestionDef] = Field(..., min_length=1)
     requires_auth: bool = True
+    # Inmutable tras crear: cambiarla dejaría ediciones con formato de otra cadencia.
+    cadence: Literal["monthly", "weekly"] = "monthly"
 
 
 class SeriesUpdateIn(BaseModel):
@@ -105,6 +107,7 @@ async def admin_create_series(body: SeriesCreateIn, admin: dict = Depends(requir
         "tags": body.tags,
         "questions": resolve_question_ids([q.model_dump() for q in body.questions], []),
         "requires_auth": body.requires_auth,
+        "cadence": body.cadence,
         "created_by": admin["user_id"],
     }
     try:
@@ -125,7 +128,7 @@ async def admin_create_series(body: SeriesCreateIn, admin: dict = Depends(requir
         action="OVERLORD_ACTION_CREATE_POLL_SERIES",
         entity_type="POLL_SERIES",
         entity_id=series["id"],
-        details={"slug": slug, "title": body.title, "questions": len(body.questions)},
+        details={"slug": slug, "title": body.title, "cadence": body.cadence, "questions": len(body.questions)},
     )
     return {"series": series}
 
@@ -186,10 +189,10 @@ async def admin_update_series(
     return {"series": result.data[0] if result.data else None}
 
 
-@router.post("/publish-due", summary="[PIPELINE] Publicar la edición del mes de cada serie activa")
+@router.post("/publish-due", summary="[PIPELINE] Publicar la edición en curso de cada serie activa")
 async def publish_due(pipeline: dict = Depends(require_pipeline_key)):
-    """Disparado por el cron diario. No recibe parámetros: publica el mes en curso
-    (hora de Chile) para cada serie activa y es idempotente."""
+    """Disparado por el cron. No recibe parámetros: publica la edición en curso (mes o
+    semana según la cadencia de cada serie, hora de Chile) y es idempotente."""
     supabase = get_async_supabase_client()
     summary = await publish_due_series(supabase, actor_id=pipeline["user_id"])
     if summary["failed"] or summary["audit_failed"]:
