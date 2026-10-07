@@ -20,6 +20,7 @@ from typing import Any, Optional, List, Dict
 import logging
 
 from app.core.database import get_async_supabase_client
+from app.core.polls.scale import scale_bounds
 from app.api.v1.user.auth import get_current_user
 from app.api.v1.endpoints.realtime import publish_poll_pulse
 
@@ -177,10 +178,9 @@ def _aggregate(poll: dict, votes: list) -> list:
         ]
 
     # scale: distribución completa + promedio
-    scale_min = poll.get("scale_min") or first_q.get("scale_min", 1)
-    scale_max = poll.get("scale_max") or first_q.get("scale_max") or first_q.get("scale_points", 5)
-    if isinstance(scale_max, str):
-        scale_max = int(scale_max)
+    q_min, q_max = scale_bounds(first_q)
+    scale_min = poll.get("scale_min") or q_min
+    scale_max = int(poll.get("scale_max") or q_max)
 
     point_counts: dict = {}
     values = []
@@ -257,8 +257,7 @@ def _aggregate_by_question(poll: dict, votes: list) -> list:
                 for opt, cnt in counts.items()
             ]
         elif q_type == "scale":
-            scale_min = int(q.get("scale_min", 1))
-            scale_max = int(q.get("scale_max") or q.get("scale_points", 5))
+            scale_min, scale_max = scale_bounds(q)
             point_counts: dict = {}
             values: list[float] = []
             for a in q_answers:
@@ -287,8 +286,7 @@ def _aggregate_by_question(poll: dict, votes: list) -> list:
         # Incluir scale_labels para preguntas de escala (usado en frontend para etiquetas)
         extra = {}
         if q_type == "scale":
-            extra["scale_min"] = int(q.get("scale_min", 1))
-            extra["scale_max"] = int(q.get("scale_max") or q.get("scale_points", 5))
+            extra["scale_min"], extra["scale_max"] = scale_bounds(q)
             if q.get("scale_labels"):
                 extra["scale_labels"] = q.get("scale_labels")
 
@@ -841,8 +839,7 @@ async def vote_poll(
             qid     = q.get("id", "")
             q_type  = q.get("type", "multiple_choice")
             q_opts  = q.get("options") or []
-            q_min   = q.get("scale_min", 1)
-            q_max   = q.get("scale_max") or q.get("scale_points", 5)
+            q_min, q_max = scale_bounds(q)
             answer  = all_answers.get(qid)
 
             if answer is None:
@@ -869,8 +866,7 @@ async def vote_poll(
         first_q    = questions_sorted[0]
         q_type     = first_q.get("type", "scale")
         q_options  = first_q.get("options") or []
-        q_scale_min = first_q.get("scale_min", 1)
-        q_scale_max = first_q.get("scale_max") or first_q.get("scale_points", 5)
+        q_scale_min, q_scale_max = scale_bounds(first_q)
 
         if q_type == "multiple_choice":
             # Soporta multi-select: option_value puede ser "opt1||opt2||opt3"
@@ -1091,8 +1087,7 @@ async def get_poll_crosstabs(
         q = questions[question_index]
         q_type    = q.get("type", "scale")
         q_options = q.get("options") or []
-        q_scale_min = int(q.get("scale_min", 1))
-        q_scale_max = int(q.get("scale_max") or q.get("scale_points", 5))
+        q_scale_min, q_scale_max = scale_bounds(q)
     else:
         raise HTTPException(status_code=400, detail=f"question_index {question_index} fuera de rango")
         q_scale_max = int(poll.get("scale_max", 5))
