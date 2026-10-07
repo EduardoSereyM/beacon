@@ -144,6 +144,7 @@
   - `app/versus` limpio (8 → 6): `EntitySide` deja de recibir el prop `pct` que no usaba (los porcentajes se siguen calculando en la página) y el `<img>` de la foto lleva una excepción puntual por el mismo motivo que en `app/events` (host de `SUPABASE_STORAGE` fuera de `images.remotePatterns`).
   - `components/shared` limpio (6 → 4): se retiran de `BasicUserBanner.tsx` las constantes de color `GOLD` y `RED`, sin uso.
   - `components/status` limpio (4 → 2): `VerdictButton` deja de desestructurar `entityName` (el prop sigue en su interfaz porque `entities/[id]` lo pasa) y el `<img>` de `EntityCard` lleva una excepción puntual (`photo_path` guarda la URL pública completa, sin garantía de host).
+  - `app/entities` limpio (2 → 1): el `<img>` de la foto en el detalle de la entidad lleva una excepción puntual por el mismo motivo que `EntityCard`. **Queda 1 warning** (`app/layout.tsx`, `no-page-custom-font`): las fuentes Inter y JetBrains Mono se cargan desde Google Fonts con un `<link>`; migrarlas a `next/font` es una decisión de arquitectura a confirmar (opciones en el PR de seguimiento).
 - No se tocaron para mantener el PR enfocado. Registrados como deuda técnica a resolver en sprint de calidad.
 
 ---
