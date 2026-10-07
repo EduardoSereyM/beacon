@@ -289,3 +289,102 @@ export function casesSummary(points: TrendPoint[], chart: ChartData, group: Grou
   }
   return null;
 }
+
+// ─── Segmentos de una edición (GET /series/{slug}/segments) ───
+
+export interface SegmentQuestion {
+  question_id: string;
+  type: "multiple_choice" | "scale";
+  n: number;
+  suppressed: boolean;
+  results: ResultRow[] | null;
+  scale_min?: number;
+  scale_max?: number;
+}
+
+export interface SegmentGroup {
+  key: string;
+  label: string;
+  n: number;
+  questions: SegmentQuestion[];
+}
+
+export interface Segment {
+  variable: string;
+  label: string;
+  groups: SegmentGroup[];
+}
+
+export interface SegmentsData {
+  series: { slug: string; title: string; cadence: Cadence };
+  edition: string;
+  label: string;
+  is_open: boolean;
+  min_n: number;
+  segments: Segment[];
+}
+
+export interface SegmentColumn {
+  variable: string;
+  variableLabel: string;
+  label: string;
+  n: number;
+  suppressed: boolean;
+  /** Un valor por opción (preguntas de opción) o uno solo (escala); null si el grupo no publica. */
+  values: (number | null)[];
+}
+
+export interface SegmentChart {
+  unit: "%" | "nota";
+  /** Etiquetas de las series de barras (opciones, o la métrica de la escala). */
+  seriesLabels: string[];
+  domain: [number, number];
+  columns: SegmentColumn[];
+}
+
+function rowValue(row: SegmentQuestion, metric: ScaleMetric): number | null {
+  if (row.suppressed || !row.results) return null;
+  if (row.type === "scale") {
+    if (metric === "top3") {
+      return Math.round(row.results.filter((r) => TOP3_OPTIONS.includes(r.option)).reduce((sum, r) => sum + r.pct, 0) * 10) / 10;
+    }
+    return row.results[0]?.average ?? null;
+  }
+  return null;
+}
+
+/**
+ * Columnas de la franja de segmentos para una pregunta.
+ * `options` son las opciones que el gráfico de tendencia ya dibuja (mismo orden y colores).
+ */
+export function buildSegmentChart(data: SegmentsData, questionId: string, metric: ScaleMetric, options: string[]): SegmentChart | null {
+  const sample = data.segments.flatMap((s) => s.groups).flatMap((g) => g.questions).find((q) => q.question_id === questionId);
+  if (!sample) return null;
+
+  const isScale = sample.type === "scale";
+  const useTop3 = isScale && metric === "top3" && sample.scale_min === 1 && sample.scale_max === 7;
+
+  const columns: SegmentColumn[] = data.segments.flatMap((segment) =>
+    segment.groups.map((group) => {
+      const row = group.questions.find((q) => q.question_id === questionId);
+      const hidden = !row || row.suppressed || !row.results;
+      let values: (number | null)[];
+      if (hidden) values = isScale ? [null] : options.map(() => null);
+      else if (isScale) values = [rowValue(row, useTop3 ? "top3" : "average")];
+      else values = options.map((option) => row.results!.find((r) => r.option === option)?.pct ?? null);
+      return { variable: segment.variable, variableLabel: segment.label, label: group.label, n: row?.n ?? 0, suppressed: hidden, values };
+    }),
+  );
+
+  const drawn = columns.flatMap((c) => c.values).filter((v): v is number => v !== null);
+  if (isScale && !useTop3) {
+    return { unit: "nota", seriesLabels: ["Promedio"], domain: [sample.scale_min ?? 1, sample.scale_max ?? 5], columns };
+  }
+  const top = Math.max(60, Math.ceil(Math.max(0, ...drawn) / 10) * 10);
+  return {
+    unit: "%",
+    seriesLabels: isScale ? ["% notas 5 a 7"] : options,
+    domain: [0, Math.min(100, top)],
+    columns,
+  };
+}

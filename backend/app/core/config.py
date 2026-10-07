@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # Generar con: python -c "import secrets; print(secrets.token_urlsafe(32))"
     PIPELINE_API_KEY: str = ""
 
+    # ─── Series: segmentos públicos ───
+    # La posición política es un dato sensible: su segmento público queda apagado hasta la validación legal.
+    SERIES_POLITICAL_SEGMENT_ENABLED: bool = False
+
     # ─── Aplicación ───
     APP_NAME: str = "Beacon Protocol"
     APP_VERSION: str = "0.1.0"

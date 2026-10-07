@@ -8,7 +8,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import SeriesTrendClient from "./SeriesTrendClient";
-import { cadenceLabel, type SeriesTrend } from "@/lib/series";
+import { cadenceLabel, type SegmentsData, type SeriesTrend } from "@/lib/series";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -19,6 +19,18 @@ async function fetchTrend(slug: string): Promise<SeriesTrend | null> {
     });
     if (!res.ok) return null;
     return (await res.json()) as SeriesTrend;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchSegments(slug: string): Promise<SegmentsData | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/series/${encodeURIComponent(slug)}/segments`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as SegmentsData;
   } catch {
     return null;
   }
@@ -36,7 +48,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function SeriesPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const trend = await fetchTrend(slug);
+  const [trend, segments] = await Promise.all([fetchTrend(slug), fetchSegments(slug)]);
   if (!trend) notFound();
-  return <SeriesTrendClient trend={trend} />;
+  return <SeriesTrendClient trend={trend} segments={segments} />;
 }

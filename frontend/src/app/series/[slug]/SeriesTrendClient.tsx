@@ -9,9 +9,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import SegmentStrip from "@/components/series/SegmentStrip";
 import TrendChart, { lineColor } from "@/components/series/TrendChart";
 import {
   buildChartData,
+  buildSegmentChart,
   cadenceLabel,
   casesSummary,
   eventPointIndex,
@@ -20,6 +22,7 @@ import {
   weightingSummary,
   type Group,
   type ScaleMetric,
+  type SegmentsData,
   type SeriesTrend,
 } from "@/lib/series";
 
@@ -38,7 +41,7 @@ const card = {
 const formatDate = (iso: string) =>
   new Date(`${iso}T12:00:00-03:00`).toLocaleDateString("es-CL", { day: "numeric", month: "short", timeZone: "America/Santiago" });
 
-export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
+export default function SeriesTrendClient({ trend, segments }: { trend: SeriesTrend; segments: SegmentsData | null }) {
   const { series, points, events, min_n: minN } = trend;
   const questions = useMemo(() => selectableQuestions(points), [points]);
   const [questionId, setQuestionId] = useState(questions[0]?.id ?? "");
@@ -50,6 +53,13 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
   const activeMetric: ScaleMetric = top3 ? metric : "average";
   const chart = useMemo(() => buildChartData(points, questionId, group, activeMetric), [points, questionId, group, activeMetric]);
   const cases = useMemo(() => (chart ? casesSummary(points, chart, group) : null), [points, chart, group]);
+  const segmentChart = useMemo(
+    () =>
+      segments && chart
+        ? buildSegmentChart(segments, questionId, activeMetric, chart.lines.filter((l) => !l.muted).map((l) => l.key))
+        : null,
+    [segments, chart, questionId, activeMetric],
+  );
   const weighting = useMemo(() => weightingSummary(points), [points]);
   const latest = points[points.length - 1];
   const plottedEvents = events
@@ -205,6 +215,55 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
                           </td>
                         );
                       })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+      )}
+
+      {segments && segmentChart && (
+        <section style={{ ...card, padding: 16, marginTop: 20 }} aria-label="Resultados por segmento">
+          <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Por segmento · {segments.label}{segments.is_open ? " (en curso)" : ""}</h2>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "0 0 12px", lineHeight: 1.5 }}>
+            Votos verificados de la edición, sin ponderar. Cada barra suma lo que respondieron las personas de ese grupo; con menos de {segments.min_n} respuestas el grupo no se muestra.
+          </p>
+          {chart && (
+            <ul aria-label="Leyenda de segmentos" style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", listStyle: "none", padding: 0, margin: "0 0 8px" }}>
+              {segmentChart.seriesLabels.map((label, index) => (
+                <li key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 2, background: lineColor(false, index) }} />
+                  {label}
+                </li>
+              ))}
+            </ul>
+          )}
+          <SegmentStrip chart={segmentChart} minN={segments.min_n} />
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ cursor: "pointer", fontSize: 13, color: "#00E5FF" }}>Ver los datos por segmento</summary>
+            <div style={{ overflowX: "auto", marginTop: 8 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ textAlign: "left", color: "rgba(255,255,255,0.5)" }}>
+                    <th style={{ padding: "6px 8px" }}>Segmento</th>
+                    <th style={{ padding: "6px 8px" }}>n</th>
+                    {segmentChart.seriesLabels.map((label) => (
+                      <th key={label} style={{ padding: "6px 8px" }}>{label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {segmentChart.columns.map((column) => (
+                    <tr key={`${column.variable}-${column.label}`} style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{column.variableLabel}: {column.label}</td>
+                      <td style={{ padding: "6px 8px" }}>{column.n}</td>
+                      {column.values.map((value, index) => (
+                        <td key={segmentChart.seriesLabels[index]} style={{ padding: "6px 8px", color: value === null ? "rgba(255,255,255,0.35)" : "#f5f5f5" }}>
+                          {value === null ? (column.suppressed ? "n insuficiente" : "—") : `${value.toLocaleString("es-CL", { maximumFractionDigits: 1 })}${segmentChart.unit === "%" ? "%" : ""}`}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

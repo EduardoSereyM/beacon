@@ -14,10 +14,10 @@ from datetime import datetime
 from typing import Any
 
 from app.core.polls_series.series_snapshot import build_snapshot_row
-from app.core.polls_series.series_weighting import weight_edition
+from app.core.polls_series.series_analysis import analyze_edition
+from app.core.polls_series.privacy import MIN_N
 from app.core.polls_series.series_window import edition_label
 
-MIN_N = 30
 DEFAULT_LIMIT = 52
 MAX_LIMIT = 104
 
@@ -89,7 +89,7 @@ async def _live_point(supabase, poll: dict[str, Any], now: datetime) -> dict[str
     votes = await (
         supabase.table("poll_votes").select("user_id, option_value, voter_rank").eq("poll_id", poll["id"]).execute()
     )
-    row = build_snapshot_row(poll, votes.data or [], await weight_edition(supabase, poll, votes.data or []))
+    row = build_snapshot_row(poll, votes.data or [], await analyze_edition(supabase, poll, votes.data or []))
     return build_trend_point(
         poll, row["results_total"], row["results_verified"], row["total_votes"], row["verified_votes"], now,
         row["results_weighted"], row["weighting_meta"],

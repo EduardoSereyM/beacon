@@ -54,6 +54,11 @@ export default function MetodologiaPage() {
         con tan pocos casos, una variación de unos puntos es azar y no una noticia.
       </p>
 
+      <p style={p}>
+        Bajo el gráfico mostramos también los resultados <strong>por segmento</strong> (sexo, edad y zona) de la edición más reciente, solo con votos
+        verificados y <strong>sin ponderar</strong>: cada barra refleja lo que respondieron las personas de ese grupo. Un grupo con menos de 30 respuestas no se muestra.
+      </p>
+
       <h2 id="que-no-es" style={h2}>Qué no es</h2>
       <ul style={ul}>
         <li>No es una muestra probabilística: nadie fue elegido al azar. Por eso <strong>no publicamos margen de error</strong>, que supone un muestreo aleatorio.</li>

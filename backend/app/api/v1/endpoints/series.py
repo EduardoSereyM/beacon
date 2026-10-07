@@ -4,6 +4,7 @@ BEACON PROTOCOL — Series de encuestas (público)
 Endpoints:
   GET /series                 → Series activas
   GET /series/{slug}/trend    → Resultados edición por edición + eventos anotados
+  GET /series/{slug}/segments → Resultados de una edición por sexo, edad y zona
 
 Sin autenticación: son datos agregados. Un grupo con menos de `min_n` respuestas no
 publica resultados (ver app/core/polls_series/series_trend.py).
@@ -14,6 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, Response
 
 from app.core.database import get_async_supabase_client
+from app.core.polls_series.series_segments_loader import load_edition_segments
 from app.core.polls_series.series_trend import DEFAULT_LIMIT, MAX_LIMIT, load_series_trend
 
 router = APIRouter(prefix="/series", tags=["Series"])
@@ -49,3 +51,23 @@ async def get_series_trend(
     trend = await load_series_trend(supabase, found.data[0], limit, datetime.now(timezone.utc))
     response.headers["Cache-Control"] = CACHE_CONTROL
     return trend
+
+
+EDITION_PATTERN = r"^\d{4}-(\d{2}|W\d{2})$"
+
+
+@router.get("/{slug}/segments", summary="Resultados de una edición por segmento (sexo, edad, zona)")
+async def get_series_segments(
+    slug: str,
+    response: Response,
+    edition: str | None = Query(None, pattern=EDITION_PATTERN, description="p. ej. 2026-W41 o 2026-10; por defecto la más reciente"),
+):
+    supabase = get_async_supabase_client()
+    found = await supabase.table("poll_series").select("*").eq("slug", slug).limit(1).execute()
+    if not found.data:
+        raise HTTPException(status_code=404, detail="Serie no encontrada.")
+    segments = await load_edition_segments(supabase, found.data[0], edition, datetime.now(timezone.utc))
+    if segments is None:
+        raise HTTPException(status_code=404, detail="Edición no encontrada.")
+    response.headers["Cache-Control"] = CACHE_CONTROL
+    return segments
