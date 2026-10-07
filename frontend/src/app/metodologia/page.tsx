@@ -56,7 +56,9 @@ export default function MetodologiaPage() {
 
       <p style={p}>
         Bajo el gráfico mostramos también los resultados <strong>por segmento</strong> (sexo, edad y zona) de la edición más reciente, solo con votos
-        verificados y <strong>sin ponderar</strong>: cada barra refleja lo que respondieron las personas de ese grupo. Un grupo con menos de 30 respuestas no se muestra.
+        verificados y <strong>sin ponderar</strong>: cada barra refleja lo que respondieron las personas de ese grupo. También se puede ver una pregunta según la respuesta
+        a otra de la misma edición (por ejemplo, la aprobación de quienes dieron notas 5 a 7 frente a quienes dieron 1 a 4): es una asociación entre dos respuestas, no una causa.
+        Un grupo con menos de 30 respuestas no se muestra.
       </p>
 
       <p style={p}>

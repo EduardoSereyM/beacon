@@ -324,6 +324,34 @@ export interface SegmentsData {
   segments: Segment[];
 }
 
+export const DEMOGRAPHIC_VIEW = "demographics";
+
+export interface SegmentView {
+  id: string;
+  label: string;
+}
+
+/** Formas de ver una pregunta por segmento: demografía, o según la respuesta a otra pregunta de la edición. */
+export function segmentViews(data: SegmentsData, questionId: string): SegmentView[] {
+  const views: SegmentView[] = [{ id: DEMOGRAPHIC_VIEW, label: "Sexo, edad y zona" }];
+  for (const segment of data.segments) {
+    // Cruzar una pregunta consigo misma no dice nada.
+    if (segment.variable.startsWith("q:") && segment.variable !== `q:${questionId}`) {
+      views.push({ id: segment.variable, label: segment.label });
+    }
+  }
+  return views;
+}
+
+/** Segmentos de la vista elegida; una vista que ya no aplica a la pregunta vuelve a la demografía. */
+export function segmentsForView(data: SegmentsData, viewId: string, questionId: string): SegmentsData {
+  const valid = segmentViews(data, questionId).some((v) => v.id === viewId) ? viewId : DEMOGRAPHIC_VIEW;
+  const segments = data.segments.filter((s) =>
+    valid === DEMOGRAPHIC_VIEW ? !s.variable.startsWith("q:") : s.variable === valid,
+  );
+  return { ...data, segments };
+}
+
 export interface SegmentColumn {
   variable: string;
   variableLabel: string;

@@ -217,3 +217,79 @@ class TestEndpoint:
     @pytest.mark.parametrize("edition", ["hoy", "2026-13-01", "2026-w41", "' OR 1=1"])
     def test_422_edicion_con_formato_invalido(self, monkeypatch, edition):
         assert _client(monkeypatch, _sb()).get("/series/pulso/segments", params={"edition": edition}).status_code == 422
+
+
+# ═══ Cruce por la respuesta a otra pregunta ═══
+
+Q_SUPO = {"id": "qa", "text": "¿Supo de la medida?", "type": "multiple_choice", "options": ["Sí", "No"], "order_index": 0}
+Q_APRUEBA = {"id": "qb", "text": "¿Aprueba?", "type": "multiple_choice", "options": ["Aprueba", "Desaprueba"], "order_index": 1}
+Q_NOTA = {"id": "qc", "text": "Nota", "type": "scale", "scale_points": 7, "order_index": 2}
+Q_MULTI = {"id": "qd", "text": "Temas", "type": "multiple_choice", "allow_multiple": True, "options": ["A", "B"], "order_index": 3}
+POLL_MULTI = {**POLL_OPEN, "questions": [Q_SUPO, Q_APRUEBA, Q_NOTA, Q_MULTI]}
+
+
+def _multi_votes(n_si=40, n_no=35):
+    """Quienes supieron aprueban 75 %; quienes no, 20 %. Notas altas (6) para quienes supieron, bajas (3) para el resto."""
+    votes = []
+    for i in range(n_si + n_no):
+        supo = i < n_si
+        approves = (i % 4 != 0) if supo else (i % 5 == 0)
+        votes.append({
+            "user_id": f"m{i}", "voter_rank": "VERIFIED",
+            "option_value": json.dumps({"qa": "Sí" if supo else "No", "qb": "Aprueba" if approves else "Desaprueba",
+                                        "qc": "6" if supo else "3", "qd": "A"}),
+        })
+    return votes
+
+
+def _cross(segments, question_id):
+    return next((s for s in segments if s["variable"] == f"q:{question_id}"), None)
+
+
+class TestCrossQuestion:
+    def test_agrupa_por_cada_respuesta_y_muestra_las_otras_preguntas(self):
+        segments = compute_segments({}, POLL_MULTI, _multi_votes(), 2026)
+        cross = _cross(segments, "qa")
+        assert cross["label"] == "Según su respuesta a «¿Supo de la medida?»"
+        si, no = cross["groups"]
+        assert (si["key"], si["n"], no["key"], no["n"]) == ("Sí", 40, "No", 35)
+        approve = next(q for q in si["questions"] if q["question_id"] == "qb")
+        assert approve["n"] == 40 and approve["results"][0] == {"option": "Aprueba", "count": 30, "pct": 75.0}
+        approve_no = next(q for q in no["questions"] if q["question_id"] == "qb")
+        assert approve_no["results"][0]["pct"] == 20.0
+
+    def test_escala_de_7_se_parte_en_notas_1_a_4_y_5_a_7(self):
+        cross = _cross(compute_segments({}, POLL_MULTI, _multi_votes(), 2026), "qc")
+        low, high = cross["groups"]
+        assert (low["label"], low["n"], high["label"], high["n"]) == ("Notas 1 a 4", 35, "Notas 5 a 7", 40)
+
+    def test_seleccion_multiple_no_se_cruza(self):
+        assert _cross(compute_segments({}, POLL_MULTI, _multi_votes(), 2026), "qd") is None
+
+    def test_encuesta_de_una_sola_pregunta_no_tiene_cruces(self):
+        users, votes = _population()
+        segments = compute_segments(_by_user(users), POLL_OPEN, votes, 2026)
+        assert all(not s["variable"].startswith("q:") for s in segments)
+
+    def test_grupo_bajo_el_minimo_no_publica_resultados(self):
+        cross = _cross(compute_segments({}, POLL_MULTI, _multi_votes(n_si=50, n_no=10), 2026), "qa")
+        no = cross["groups"][1]
+        assert no["n"] == 10 and all(q["suppressed"] and q["results"] is None for q in no["questions"])
+
+    def test_quien_no_contesto_esa_pregunta_queda_fuera_del_cruce(self):
+        votes = _multi_votes()
+        votes[0] = {**votes[0], "option_value": json.dumps({"qb": "Aprueba"})}
+        si = _cross(compute_segments({}, POLL_MULTI, votes, 2026), "qa")["groups"][0]
+        assert si["n"] == 39
+
+    def test_voto_con_formato_invalido_no_rompe(self):
+        votes = _multi_votes() + [{"user_id": "x", "voter_rank": "VERIFIED", "option_value": "{no es json"}]
+        assert _cross(compute_segments({}, POLL_MULTI, votes, 2026), "qa")["groups"][0]["n"] == 40
+
+    def test_el_orden_es_demografia_luego_cruces_y_la_politica_al_final(self):
+        order = [s["variable"] for s in compute_segments({}, POLL_MULTI, _multi_votes(), 2026, include_political=True)]
+        assert order == ["sex", "age", "zone", "q:qa", "q:qb", "q:qc", "political"]
+
+    def test_sin_datos_individuales(self):
+        text = json.dumps(compute_segments({}, POLL_MULTI, _multi_votes(), 2026))
+        assert "user_id" not in text and '"m1"' not in text

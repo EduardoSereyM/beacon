@@ -5,6 +5,9 @@ import {
   eventPointIndex,
   lineSegments,
   buildSegmentChart,
+  DEMOGRAPHIC_VIEW,
+  segmentsForView,
+  segmentViews,
   selectableQuestions,
   seriesSlugFromPoll,
   supportsTop3,
@@ -230,5 +233,37 @@ describe("buildSegmentChart", () => {
 
   it("devuelve null si la pregunta no existe", () => {
     expect(buildSegmentChart(DATA, "no-existe", "average", [])).toBeNull();
+  });
+});
+
+describe("vistas de segmentos", () => {
+  const group = (key: string) => ({ key, label: key, n: 40, questions: [] });
+  const DATA: SegmentsData = {
+    series: { slug: "barometro", title: "Barómetro", cadence: "monthly" },
+    edition: "2026-10", label: "Octubre 2026", is_open: true, min_n: 30,
+    segments: [
+      { variable: "sex", label: "Sexo", groups: [group("Masculino")] },
+      { variable: "zone", label: "Zona", groups: [group("Sur")] },
+      { variable: "q:qa", label: "Según su respuesta a «¿Supo?»", groups: [group("Sí")] },
+      { variable: "q:qb", label: "Según su respuesta a «¿Aprueba?»", groups: [group("Aprueba")] },
+    ],
+  };
+
+  it("ofrece la demografía y los cruces por otras preguntas, nunca la pregunta consigo misma", () => {
+    expect(segmentViews(DATA, "qb").map((v) => v.id)).toEqual([DEMOGRAPHIC_VIEW, "q:qa"]);
+    expect(segmentViews(DATA, "qa").map((v) => v.id)).toEqual([DEMOGRAPHIC_VIEW, "q:qb"]);
+  });
+
+  it("la vista demográfica deja solo variables demográficas; el cruce deja solo ese segmento", () => {
+    expect(segmentsForView(DATA, DEMOGRAPHIC_VIEW, "qb").segments.map((s) => s.variable)).toEqual(["sex", "zone"]);
+    expect(segmentsForView(DATA, "q:qa", "qb").segments.map((s) => s.variable)).toEqual(["q:qa"]);
+  });
+
+  it("una vista que ya no aplica a la pregunta vuelve a la demografía", () => {
+    expect(segmentsForView(DATA, "q:qb", "qb").segments.map((s) => s.variable)).toEqual(["sex", "zone"]);
+  });
+
+  it("sin cruces solo hay una vista", () => {
+    expect(segmentViews({ ...DATA, segments: DATA.segments.slice(0, 2) }, "qb")).toHaveLength(1);
   });
 });
