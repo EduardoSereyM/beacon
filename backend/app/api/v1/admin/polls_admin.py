@@ -274,7 +274,7 @@ async def admin_ingest_poll(
         supabase.table("polls")
         .select("id")
         .ilike("slug", slug)
-        .maybe_single()
+        .limit(1)
         .execute()
     )
     if existing_slug.data:
@@ -435,7 +435,7 @@ async def admin_create_poll(
             supabase.table("polls")
             .select("id")
             .ilike("slug", slug)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
         if not existing_slug.data:
@@ -514,11 +514,12 @@ async def admin_update_poll(
         supabase.table("polls")
         .select("id, title")
         .eq("id", poll_id)
-        .maybe_single()
+        .limit(1)
         .execute()
     )
     if not existing.data:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
+    current = existing.data[0]
 
     patch: dict[str, Any] = {}
     if body.title is not None:
@@ -564,7 +565,7 @@ async def admin_update_poll(
         action="OVERLORD_ACTION_UPDATE_POLL",
         entity_type="POLL",
         entity_id=poll_id,
-        details={"changes": list(patch.keys()), "old_title": existing.data["title"]},
+        details={"changes": list(patch.keys()), "old_title": current["title"]},
     )
 
     return {"poll": result.data[0] if result.data else None}
@@ -581,19 +582,20 @@ async def admin_delete_poll(
         supabase.table("polls")
         .select("id, title, series_id, edition")
         .eq("id", poll_id)
-        .maybe_single()
+        .limit(1)
         .execute()
     )
     if not existing.data:
         raise HTTPException(status_code=404, detail="Encuesta no encontrada.")
+    current = existing.data[0]
 
     # Una edición borrada la recrearía el cron al día siguiente (la idempotencia
     # solo ve que "no existe") y se perdería la serie histórica.
-    if existing.data.get("series_id"):
+    if current.get("series_id"):
         raise HTTPException(
             status_code=409,
             detail=(
-                f"La encuesta es la edición {existing.data.get('edition')} de una serie mensual y no se "
+                f"La encuesta es la edición {current.get('edition')} de una serie mensual y no se "
                 "puede eliminar. Ciérrala (status=closed) o pausa la serie (is_active=false)."
             ),
         )
@@ -605,7 +607,7 @@ async def admin_delete_poll(
         action="OVERLORD_ACTION_DELETE_POLL",
         entity_type="POLL",
         entity_id=poll_id,
-        details={"title": existing.data["title"]},
+        details={"title": current["title"]},
     )
 
     return {"ok": True, "deleted_id": poll_id}

@@ -43,9 +43,9 @@ async def get_series_trend(
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT, description="Últimas N ediciones"),
 ):
     supabase = get_async_supabase_client()
-    found = await supabase.table("poll_series").select("*").eq("slug", slug).maybe_single().execute()
+    found = await supabase.table("poll_series").select("*").eq("slug", slug).limit(1).execute()
     if not found.data:
         raise HTTPException(status_code=404, detail="Serie no encontrada.")
-    trend = await load_series_trend(supabase, found.data, limit, datetime.now(timezone.utc))
+    trend = await load_series_trend(supabase, found.data[0], limit, datetime.now(timezone.utc))
     response.headers["Cache-Control"] = CACHE_CONTROL
     return trend

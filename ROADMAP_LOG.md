@@ -46,6 +46,7 @@
 - **API:** `GET /series`, `GET /series/{slug}/trend` (público, caché 60 s) y `/admin/series-events` (CRUD con audit). `publish-due` fotografía ediciones cerradas.
 - **Regla de privacidad:** grupo con n < 30 no publica resultados (`suppressed`), igual que n<5 en cross-tabs.
 - **Agregación extraída** a `app/core/polls/aggregation.py` (función pura, sin cambio de comportamiento).
+- **Incidente resuelto (PR #19):** con el cliente real (`supabase==2.9.1`, `postgrest 0.17.2`) `maybe_single()` devuelve `None` —no un resultado vacío— cuando no hay fila, así que `resultado.data` daba `AttributeError` (500 en vez de 404 en `/series/{slug}/trend`, y en `polls_admin`: crear encuesta con slug libre, ingest, editar y borrar encuesta inexistente). El fake de tests devolvía un objeto y lo ocultaba; ahora es fiel al cliente real y todo el código usa `limit(1)`.
 - **Siguiente:** PR 2 (página pública `/series/[slug]` con SVG propio + badge en `PollCard`) y PR 3 (admin `/admin/series`).
 
 ### Rollout: Encuestas mensuales recurrentes

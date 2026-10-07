@@ -140,12 +140,10 @@ async def admin_update_series(
     admin: dict = Depends(require_admin_role),
 ):
     supabase = get_async_supabase_client()
-    existing = await (
-        supabase.table("poll_series").select("*").eq("id", series_id).maybe_single().execute()
-    )
+    existing = await supabase.table("poll_series").select("*").eq("id", series_id).limit(1).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Serie no encontrada.")
-    current = existing.data
+    current = existing.data[0]
 
     patch: dict[str, Any] = {}
     if body.title is not None:
