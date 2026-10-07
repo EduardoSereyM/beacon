@@ -343,7 +343,11 @@ class TestPublishDueEndpoint:
         async def fake(_supabase, actor_id, now=None):
             return summary
 
+        async def no_reconcile(_supabase, actor_id):
+            return {"audit_reconciled": [], "audit_reconcile_failed": []}
+
         monkeypatch.setattr(polls_series_admin, "publish_due_series", fake)
+        monkeypatch.setattr(polls_series_admin, "reconcile_edition_audit", no_reconcile)
         monkeypatch.setattr(polls_series_admin, "get_async_supabase_client", lambda: object())
 
     def test_200_cuando_todo_sale_bien(self, monkeypatch):
