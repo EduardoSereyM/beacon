@@ -1791,6 +1791,7 @@ Migración 026: `series_events` (hitos del gráfico) y `poll_results_snapshot` (
 - **Snapshot:** las ediciones cerradas se leen de `poll_results_snapshot` (inmutable); la abierta y la recién cerrada (antes del primer cron) se calculan en vivo.
 - **`POST /admin/polls/series/publish-due`** ahora también fotografía las ediciones cerradas hace más de 10 minutos y agrega `snapshotted` y `snapshot_failed` al resumen. Un `snapshot_failed` no vacío responde 500, igual que `failed` y `audit_failed`. Audit `SERIES_EDITION_SNAPSHOT`.
 - **`POST /admin/polls/series/publish-due`** ahora también reconcilia el audit: toda edición publicada sin fila `SERIES_EDITION_PUBLISHED` en `audit_logs` se reescribe (`details.reconciled=true`). Agrega `audit_reconciled` y `audit_reconcile_failed` al resumen; este último no vacío responde 500.
+- **`POST /admin/polls/series/publish-due`** reconcilia también el audit de los snapshots: todo `poll_results_snapshot` sin fila `SERIES_EDITION_SNAPSHOT` en `audit_logs` se reescribe (`details.reconciled=true`). Agrega `snapshot_audit_reconciled` y `snapshot_audit_reconcile_failed` al resumen; este último no vacío responde 500. `audit_logs` es inmutable: la reconciliación solo inserta filas.
 
 ### Posición política autodeclarada (dato sensible, opcional)
 

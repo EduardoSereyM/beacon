@@ -28,7 +28,7 @@ from app.api.v1.admin.polls_admin import (
 from app.api.v1.admin.require_admin import require_admin_role
 from app.core.audit_logger import audit_bus
 from app.core.database import get_async_supabase_client
-from app.core.polls_series.series_audit_reconcile import reconcile_edition_audit
+from app.core.polls_series.series_audit_reconcile import reconcile_edition_audit, reconcile_snapshot_audit
 from app.core.polls_series.series_publisher import is_duplicate_error, publish_due_series
 from app.core.polls_series.series_questions import (
     questions_content_changed,
@@ -213,10 +213,13 @@ async def publish_due(pipeline: dict = Depends(require_pipeline_key)):
     summary = await publish_due_series(supabase, actor_id=pipeline["user_id"])
     # Cura los audit perdidos de ediciones ya publicadas (p.ej. el de ayer): sin esto el 500 se repetiría o se perdería.
     summary.update(await reconcile_edition_audit(supabase, actor_id=pipeline["user_id"]))
-    if summary["failed"] or summary["audit_failed"] or summary["snapshot_failed"] or summary["audit_reconcile_failed"]:
+    summary.update(await reconcile_snapshot_audit(supabase, actor_id=pipeline["user_id"]))
+    reconcile_failed = summary["audit_reconcile_failed"] or summary["snapshot_audit_reconcile_failed"]
+    if summary["failed"] or summary["audit_failed"] or summary["snapshot_failed"] or reconcile_failed:
         logger.error(
             f"publish-due: failed={summary['failed']} audit_failed={summary['audit_failed']} "
-            f"snapshot_failed={summary['snapshot_failed']} audit_reconcile_failed={summary['audit_reconcile_failed']}"
+            f"snapshot_failed={summary['snapshot_failed']} audit_reconcile_failed={summary['audit_reconcile_failed']} "
+            f"snapshot_audit_reconcile_failed={summary['snapshot_audit_reconcile_failed']}"
         )
         # 5xx para que el job de GitHub Actions (curl --fail) falle y avise;
         # el resumen va en el cuerpo y el reintento diario es idempotente.
