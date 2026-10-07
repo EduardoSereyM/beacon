@@ -597,27 +597,11 @@ async def create_user_poll(
     if payload.requires_login is not None:
         requires_auth = not payload.requires_login  # BEACON: requires_login=False → requires_auth=True
 
-    # Determinar poll_type y options desde la primera pregunta (retrocompatibilidad)
-    first_q = questions_clean[0]
-    if first_q["type"] == "multiple_choice":
-        poll_type = first_q["type"]
-        options   = first_q["options"]
-        scale_min, scale_max = 1, 5
-    else:
-        poll_type = "scale"
-        options   = None
-        scale_min = first_q.get("scale_min", 1)
-        scale_max = first_q.get("scale_max", 5)
-
     supabase = get_async_supabase_client()
     row = {
         "title":       payload.title.strip(),
         "description": payload.description,
         "category":    category,
-        "poll_type":   poll_type,
-        "options":     options,
-        "scale_min":   scale_min,
-        "scale_max":   scale_max,
         "questions":   questions_clean,
         "is_active":   True,
         "requires_auth": requires_auth,

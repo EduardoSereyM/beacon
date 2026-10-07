@@ -1,7 +1,7 @@
 """
 Cliente Supabase falso en memoria para tests unitarios (sin red ni .env real).
 Soporta la parte de la API async que usan los endpoints de polls/series:
-select/eq/limit/order/maybe_single/insert/update/delete, defaults de columnas
+select/eq/ilike/limit/order/maybe_single/insert/update/delete, defaults de columnas
 y restricciones únicas (error con código 23505, como Postgres).
 """
 
@@ -25,12 +25,17 @@ class Query:
     def __init__(self, db, table):
         self.db, self.table = db, table
         self.filters, self.op, self.payload, self.single = {}, "select", None, False
+        self.ilikes = {}
 
     def select(self, *_):
         return self
 
     def eq(self, key, value):
         self.filters[key] = value
+        return self
+
+    def ilike(self, key, pattern):
+        self.ilikes[key] = pattern.lower()
         return self
 
     def limit(self, *_):
@@ -71,7 +76,11 @@ class Query:
             row = {"id": f"{self.table}-{len(rows) + 1}", **DEFAULTS.get(self.table, {}), **self.payload}
             rows.append(row)
             return Result([row])
-        matched = [r for r in rows if all(r.get(k) == v for k, v in self.filters.items())]
+        matched = [
+            r for r in rows
+            if all(r.get(k) == v for k, v in self.filters.items())
+            and all(str(r.get(k) or "").lower() == v for k, v in self.ilikes.items())
+        ]
         if self.op == "update":
             for r in matched:
                 r.update(self.payload)
