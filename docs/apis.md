@@ -1783,6 +1783,14 @@ Migración 026: `series_events` (hitos del gráfico) y `poll_results_snapshot` (
 - **Snapshot:** las ediciones cerradas se leen de `poll_results_snapshot` (inmutable); la abierta y la recién cerrada (antes del primer cron) se calculan en vivo.
 - **`POST /admin/polls/series/publish-due`** ahora también fotografía las ediciones cerradas hace más de 10 minutos y agrega `snapshotted` y `snapshot_failed` al resumen. Un `snapshot_failed` no vacío responde 500, igual que `failed` y `audit_failed`. Audit `SERIES_EDITION_SNAPSHOT`.
 
+### Posición política autodeclarada (dato sensible, opcional)
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| PUT | `/user/auth/profile/political-position` | JWT | Body `{ "position": "Derecha"\|"Centro"\|"Izquierda"\|"Independiente"\|null, "consent": bool }`. Informar una posición exige `consent: true` (**422** si falta o si el valor no es una de las cuatro opciones). `position: null` borra el dato **y** el consentimiento. Respuesta `{ "political_position": ... }`. No afecta el rango ni la verificación |
+
+`GET /user/auth/profile` incluye `political_position` (solo el dato propio del usuario). Migración 028: `users.political_position` y `users.political_position_consent_at`, con `CHECK` que impide tener el dato sin consentimiento. El `audit_log` registra `POLITICAL_POSITION_SET` / `POLITICAL_POSITION_CLEARED` **sin el valor**. Uso exclusivamente agregado (segmentos con n ≥ 30); nunca individual y nunca para ponderar. Los segmentos públicos por esta variable permanecen apagados hasta la validación legal.
+
 ---
 
 ## Pipeline de Agentes

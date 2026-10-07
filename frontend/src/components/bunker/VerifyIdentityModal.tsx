@@ -7,6 +7,7 @@
 
 "use client";
 
+import PoliticalPositionField from "@/components/profile/PoliticalPositionField";
 import { useState, useMemo, useEffect } from "react";
 import { BadgeCheck, SmilePlus, UserLock, Vote } from "lucide-react";
 import { useAuthStore } from "@/store";
@@ -421,6 +422,9 @@ export default function VerifyIdentityModal({ isOpen, onClose, initialStep = "in
     const [gender, setGender] = useState(user?.gender ?? "");
     const [region, setRegion] = useState(user?.region ?? "");
     const [commune, setCommune] = useState(user?.commune ?? "");
+    // Opcional y sensible: solo se guarda con consentimiento expreso.
+    const [politicalPosition, setPoliticalPosition] = useState("");
+    const [politicalConsent, setPoliticalConsent] = useState(false);
 
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
@@ -456,6 +460,7 @@ export default function VerifyIdentityModal({ isOpen, onClose, initialStep = "in
             newErrors.birthYear = `Ingresa un año válido (1920–${CURRENT_YEAR - 18}).`;
         }
         if (!gender) newErrors.gender = "Selecciona tu género.";
+        if (politicalPosition && !politicalConsent) newErrors.political = "Marca la autorización o elige «Prefiero no decir».";
         if (!region) newErrors.region = "Selecciona tu región.";
         if (!commune) newErrors.commune = "Selecciona tu comuna.";
         setErrors(newErrors);
@@ -492,6 +497,17 @@ export default function VerifyIdentityModal({ isOpen, onClose, initialStep = "in
             const rutData = await rutRes.json();
             if (!rutRes.ok) { setServerError(rutData.detail ?? "Error al verificar RUT."); return; }
 
+            if (politicalPosition) {
+                // Opcional: si falla no bloquea la verificación; se puede informar después desde el perfil.
+                try {
+                    await fetch(`${apiUrl}/api/v1/user/auth/profile/political-position`, {
+                        method: "PUT",
+                        headers,
+                        body: JSON.stringify({ position: politicalPosition, consent: politicalConsent }),
+                    });
+                } catch { /* opcional */ }
+            }
+
             if (user) {
                 const updatedUser = { ...user, rank: rutData.new_rank as typeof user.rank, region, commune };
                 setAuth(token, updatedUser);
@@ -510,6 +526,7 @@ export default function VerifyIdentityModal({ isOpen, onClose, initialStep = "in
 
     const handleClose = () => {
         setRut(""); setBirthYear(""); setGender(""); setRegion(""); setCommune("");
+        setPoliticalPosition(""); setPoliticalConsent(false);
         setErrors({}); setServerError(""); setSuccess(null);
         onClose();
     };
@@ -627,6 +644,17 @@ export default function VerifyIdentityModal({ isOpen, onClose, initialStep = "in
                                 </select>
                                 {errors.gender && <p className="text-xs mt-1" style={{ color: "#ff5050" }}>{errors.gender}</p>}
                             </div>
+
+                            {/* Posición política (opcional, dato sensible) */}
+                            <PoliticalPositionField
+                                value={politicalPosition}
+                                consent={politicalConsent}
+                                onChange={(v, c) => { setPoliticalPosition(v); setPoliticalConsent(c); setErrors((err) => ({ ...err, political: "" })); }}
+                                error={errors.political}
+                                inputClass={inputClass}
+                                labelClass={labelClass}
+                                inputStyle={INPUT_STYLE}
+                            />
 
                             {/* País */}
                             <div>

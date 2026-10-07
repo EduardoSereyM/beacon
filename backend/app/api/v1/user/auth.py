@@ -21,11 +21,13 @@ from app.domain.schemas.user import (
     UserCreate,
     UserVerifyRUT,
     UserProfileUpdate,
+    PoliticalPositionUpdate,
 )
 from app.services.auth_service import (
     register_user,
     get_user_by_id,
 )
+from app.services.political_position_service import set_political_position
 from app.services.identity_service import (
     verify_rut,
     update_demographic_profile,
@@ -448,6 +450,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "country": current_user.get("country"),
         "birth_year": current_user.get("birth_year"),
         "gender": current_user.get("gender"),
+        "political_position": current_user.get("political_position"),   # dato propio del usuario
     }
 
 
@@ -477,3 +480,15 @@ async def update_profile(
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/profile/political-position", summary="Informar o borrar la posición política (opcional, dato sensible)")
+async def update_political_position(
+    body: PoliticalPositionUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Autodeclaración opcional. `position: null` borra el dato y el consentimiento.
+    Informar una posición exige `consent: true` (422 si falta). No afecta el rango ni la verificación.
+    """
+    return await set_political_position(current_user["id"], body.position)
