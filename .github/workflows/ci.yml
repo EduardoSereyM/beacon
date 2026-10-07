@@ -73,5 +73,8 @@ jobs:
       - name: Type-check (tsc)
         run: npx tsc --noEmit
 
+      - name: Unit tests (Vitest)
+        run: npm test
+
       - name: Lint (eslint)
         run: npm run lint
