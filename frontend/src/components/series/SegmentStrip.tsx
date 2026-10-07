@@ -16,6 +16,12 @@ const PLOT_H = HEIGHT - MARGIN.top - MARGIN.bottom;
 
 const format = (value: number) => value.toLocaleString("es-CL", { maximumFractionDigits: 1 });
 
+/** Recorta un encabezado largo al ancho de sus columnas (~6 px por carácter a 11 px). */
+const fit = (text: string, width: number) => {
+  const max = Math.max(8, Math.floor(width / 6.2));
+  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
+};
+
 interface Props {
   chart: SegmentChart;
   minN: number;
@@ -63,7 +69,8 @@ export default function SegmentStrip({ chart, minN }: Props) {
           <g key={heading.label}>
             {index > 0 && <line x1={x1} x2={x1} y1={MARGIN.top - 8} y2={HEIGHT - MARGIN.bottom + 28} stroke="rgba(255,255,255,0.12)" strokeDasharray="3 4" />}
             <text x={(x1 + x2) / 2} y={MARGIN.top - 14} textAnchor="middle" fontSize={11} fontWeight={700} fill="rgba(255,255,255,0.65)">
-              {heading.label}
+              <title>{heading.label}</title>
+              {fit(heading.label, x2 - x1)}
             </text>
           </g>
         );

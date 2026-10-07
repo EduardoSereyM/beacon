@@ -16,7 +16,10 @@ import {
   buildSegmentChart,
   cadenceLabel,
   casesSummary,
+  DEMOGRAPHIC_VIEW,
   eventPointIndex,
+  segmentsForView,
+  segmentViews,
   selectableQuestions,
   supportsTop3,
   weightingSummary,
@@ -47,18 +50,21 @@ export default function SeriesTrendClient({ trend, segments }: { trend: SeriesTr
   const [questionId, setQuestionId] = useState(questions[0]?.id ?? "");
   const [group, setGroup] = useState<Group>("verified");
   const [metric, setMetric] = useState<ScaleMetric>("average");
+  const [view, setView] = useState(DEMOGRAPHIC_VIEW);
 
   const top3 = useMemo(() => supportsTop3(points, questionId), [points, questionId]);
   // Al cambiar a una pregunta que no admite «% notas 5 a 7», la métrica efectiva vuelve a promedio.
   const activeMetric: ScaleMetric = top3 ? metric : "average";
   const chart = useMemo(() => buildChartData(points, questionId, group, activeMetric), [points, questionId, group, activeMetric]);
   const cases = useMemo(() => (chart ? casesSummary(points, chart, group) : null), [points, chart, group]);
+  const views = useMemo(() => (segments ? segmentViews(segments, questionId) : []), [segments, questionId]);
+  const activeView = views.some((v) => v.id === view) ? view : DEMOGRAPHIC_VIEW;
   const segmentChart = useMemo(
     () =>
       segments && chart
-        ? buildSegmentChart(segments, questionId, activeMetric, chart.lines.filter((l) => !l.muted).map((l) => l.key))
+        ? buildSegmentChart(segmentsForView(segments, activeView, questionId), questionId, activeMetric, chart.lines.filter((l) => !l.muted).map((l) => l.key))
         : null,
-    [segments, chart, questionId, activeMetric],
+    [segments, chart, questionId, activeMetric, activeView],
   );
   const weighting = useMemo(() => weightingSummary(points), [points]);
   const latest = points[points.length - 1];
@@ -237,6 +243,20 @@ export default function SeriesTrendClient({ trend, segments }: { trend: SeriesTr
           <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "0 0 12px", lineHeight: 1.5 }}>
             Votos verificados de la edición, sin ponderar. Cada barra suma lo que respondieron las personas de ese grupo; con menos de {segments.min_n} respuestas el grupo no se muestra.
           </p>
+          {views.length > 1 && (
+            <label style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.5)", margin: "0 0 10px" }}>
+              Ver por
+              <select
+                value={activeView}
+                onChange={(e) => setView(e.target.value)}
+                style={{ display: "block", width: "100%", marginTop: 4, padding: "8px 10px", borderRadius: 8, background: "#111", color: "#f5f5f5", border: "1px solid rgba(255,255,255,0.15)", fontSize: 13 }}
+              >
+                {views.map((v) => (
+                  <option key={v.id} value={v.id}>{v.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {chart && (
             <ul aria-label="Leyenda de segmentos" style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", listStyle: "none", padding: 0, margin: "0 0 8px" }}>
               {segmentChart.seriesLabels.map((label, index) => (
