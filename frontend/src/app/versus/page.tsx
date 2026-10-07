@@ -13,9 +13,6 @@ import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const SUPABASE_STORAGE =
-  "https://xvuqhhpzxiqbepbokncv.supabase.co/storage/v1/object/public/entity-photos/";
-
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Entity {
@@ -56,10 +53,6 @@ function formatDate(iso: string): string {
   });
 }
 
-function photoUrl(path: string | null): string | null {
-  return path ? `${SUPABASE_STORAGE}${path}` : null;
-}
-
 // ─── EntitySide ───────────────────────────────────────────────────────────────
 
 function EntitySide({
@@ -81,14 +74,14 @@ function EntitySide({
 }) {
   const COLOR = side === "A" ? "#D4AF37" : "#8A2BE2";
   const isMyVote = userVote === side;
-  const url = photoUrl(entity.photo_path);
+  const url = entity.photo_path;
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
       {/* Avatar */}
       <div style={{ position: "relative" }}>
         {url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- el host de SUPABASE_STORAGE no está en images.remotePatterns de next.config: next/image fallaría
+          // eslint-disable-next-line @next/next/no-img-element -- photo_path guarda la URL pública completa (subida o editada a mano por el admin): no hay garantía de que su host esté en next.config
           <img
             src={url}
             alt={`${entity.first_name} ${entity.last_name}`}

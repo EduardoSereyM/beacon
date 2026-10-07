@@ -13,9 +13,6 @@ import { useAuthStore } from "@/store";
 import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const SUPABASE_STORAGE =
-  "https://xvuqhhpzxiqbepbokncv.supabase.co/storage/v1/object/public/entity-photos/";
-
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Participant {
@@ -52,10 +49,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   evento:     "Evento",
   artista:    "Artista",
 };
-
-function photoUrl(path: string | null): string | null {
-  return path ? `${SUPABASE_STORAGE}${path}` : null;
-}
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -142,7 +135,7 @@ function ParticipantCard({
   const [voted, setVoted] = useState(!!participant.user_score);
   const [error, setError] = useState<string | null>(null);
 
-  const url = photoUrl(participant.photo_path);
+  const url = participant.photo_path;
 
   const handleVote = async (score: number) => {
     if (voted || voting || !isOpen) return;
@@ -191,7 +184,7 @@ function ParticipantCard({
       {/* Avatar */}
       <div style={{ flexShrink: 0 }}>
         {url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- el host de SUPABASE_STORAGE no está en images.remotePatterns de next.config: next/image fallaría
+          // eslint-disable-next-line @next/next/no-img-element -- photo_path guarda la URL pública completa (subida o editada a mano por el admin): no hay garantía de que su host esté en next.config
           <img
             src={url}
             alt={`${participant.first_name} ${participant.last_name}`}
