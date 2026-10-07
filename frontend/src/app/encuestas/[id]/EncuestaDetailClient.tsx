@@ -15,6 +15,7 @@ import { useBeaconPulse } from "@/hooks/useBeaconPulse";
 import usePermissions from "@/hooks/usePermissions";
 import PollCommentsSection from "@/components/polls/PollCommentsSection";
 import ImageDownloadModal from "@/components/polls/ImageDownloadModal";
+import SeriesTrendLink from "@/components/series/SeriesTrendLink";
 import { Lock, BadgeCheck } from "lucide-react";
 
 // ─── Logos de redes sociales ──────────────────────────────────────────────────
@@ -121,6 +122,8 @@ interface Poll {
   requires_auth: boolean;
   is_private?: boolean;
   user_vote?: string | null;  // voto previo del usuario autenticado (desde el backend)
+  series_id?: string | null;   // presente si la encuesta es una edición de una serie recurrente
+  edition?: string | null;     // 'YYYY-MM' (mensual) o 'YYYY-Www' (semanal)
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -1786,6 +1789,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
             <h1 className="text-2xl sm:text-3xl" style={{ fontWeight: 900, color: "#f5f5f5", marginBottom: 8, lineHeight: 1.3, letterSpacing: "-0.02em" }}>
               {poll.title}
             </h1>
+            {poll.series_id && <SeriesTrendLink pollSlug={poll.slug} edition={poll.edition} />}
             {/* Real vote badge */}
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "8px 14px", borderRadius: 10, background: "rgba(57,255,20,0.08)", border: "1px solid rgba(57,255,20,0.2)" }}>
               <span style={{ fontSize: 11, color: "#39FF14", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
