@@ -1,9 +1,8 @@
 /**
  * BEACON PROTOCOL — Admin Series (Búnker de Control)
  * ====================================================
- * Series de encuestas recurrentes: ver, pausar/activar y anotar eventos que se
+ * Series de encuestas recurrentes: crear, ver, pausar/activar y anotar eventos que se
  * dibujan sobre el gráfico de tendencia pública.
- * Crear una serie sigue siendo por API (POST /admin/polls/series).
  */
 
 "use client";
@@ -11,6 +10,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AgendaOptionsEditor from "@/app/admin/series/AgendaOptionsEditor";
+import SeriesCreateForm from "@/app/admin/series/SeriesCreateForm";
 import { adminFetch } from "@/lib/adminApi";
 import { cadenceLabel, type Cadence } from "@/lib/series";
 
@@ -125,11 +125,18 @@ export default function AdminSeriesPage() {
       {error && <div role="alert" style={{ ...panel, borderColor: "#FF073A", color: "#FF073A", fontSize: 13 }}>{error}</div>}
       {message && <div role="status" style={{ ...panel, borderColor: "#39FF14", color: "#39FF14", fontSize: 13 }}>{message}</div>}
 
+      <details style={panel}>
+        <summary style={{ cursor: "pointer", fontSize: 15, fontWeight: 800 }}>Crear una serie</summary>
+        <div style={{ marginTop: 14 }}>
+          <SeriesCreateForm onCreated={() => void load()} />
+        </div>
+      </details>
+
       <section style={panel} aria-label="Series">
         {loading ? (
           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>Cargando…</p>
         ) : series.length === 0 ? (
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>No hay series. Se crean con POST /admin/polls/series.</p>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>Aún no hay series. Crea la primera con «Crear una serie».</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

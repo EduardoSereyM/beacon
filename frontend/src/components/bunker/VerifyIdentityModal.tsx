@@ -99,7 +99,7 @@ const SLIDES = [
         Icon: BadgeCheck,
         title: "Valor único",
         subtitle: "Por qué Beacon es diferente",
-        body: "Beacon es la primera plataforma de opinión ciudadana verificada de Chile. Cada voz es real, cada dato es auditable.",
+        body: "Beacon es una plataforma de opinión ciudadana con identidad verificada: una persona, un voto. Los resultados y su método son públicos.",
         accent: GOLD,
     },
     {
@@ -228,7 +228,7 @@ const VERIFY_STEPS = [
     },
     {
         title: "Votos verificados",
-        desc: "Cada voto que emitas ahora vale 1 punto completo. Tu voz tiene más peso porque eres real.",
+        desc: "Cada voto que emitas ahora vale 1 punto completo. Tu voto pesa más porque tu identidad está validada.",
     },
 ];
 
