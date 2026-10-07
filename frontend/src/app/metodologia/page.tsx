@@ -59,6 +59,11 @@ export default function MetodologiaPage() {
         verificados y <strong>sin ponderar</strong>: cada barra refleja lo que respondieron las personas de ese grupo. Un grupo con menos de 30 respuestas no se muestra.
       </p>
 
+      <p style={p}>
+        Cada serie tiene un <strong>informe imprimible</strong> por edición y una imagen para compartir. Describen los resultados, con los de la edición anterior
+        al lado, pero no los interpretan: no decimos que algo «sube» o «baja», porque sin margen de error no podemos distinguir una diferencia de unos puntos del azar.
+      </p>
+
       <h2 id="que-no-es" style={h2}>Qué no es</h2>
       <ul style={ul}>
         <li>No es una muestra probabilística: nadie fue elegido al azar. Por eso <strong>no publicamos margen de error</strong>, que supone un muestreo aleatorio.</li>

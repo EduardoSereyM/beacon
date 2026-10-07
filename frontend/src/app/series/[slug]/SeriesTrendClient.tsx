@@ -87,6 +87,13 @@ export default function SeriesTrendClient({ trend, segments }: { trend: SeriesTr
         </Link>
       )}
 
+      {latest && (
+        <p style={{ display: "flex", flexWrap: "wrap", gap: 16, margin: "0 0 16px", fontSize: 13 }}>
+          <Link href={`/series/${series.slug}/informe`} style={{ color: "#00E5FF" }}>Informe de la edición (PDF) →</Link>
+          <a href={`/api/og/serie/${series.slug}?download=1`} style={{ color: "#00E5FF" }}>Descargar imagen para compartir →</a>
+        </p>
+      )}
+
       {points.length === 0 || !chart ? (
         <div style={{ ...card, padding: 24, color: "rgba(255,255,255,0.6)" }}>Esta serie aún no tiene ediciones publicadas.</div>
       ) : (
