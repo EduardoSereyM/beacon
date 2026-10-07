@@ -92,7 +92,6 @@ export default function NotificationBell() {
         // Polling cada 60 s para notificaciones nuevas
         const interval = setInterval(fetchNotifications, 60_000);
         return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ── Cerrar al click fuera ──────────────────────────────────────────────

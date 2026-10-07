@@ -58,61 +58,6 @@ const GEOGRAPHY: Record<string, Record<string, string[]>> = {
 const COUNTRIES = Object.keys(GEOGRAPHY);
 
 // ═══════════════════════════════════════════
-//  VALIDACIÓN + MÁSCARA RUT MÓDULO 11
-// ═══════════════════════════════════════════
-
-/** Limpia un RUT a solo dígitos + K */
-function cleanRut(rut: string): string {
-    return rut.replace(/[^0-9kK]/g, "").toUpperCase();
-}
-
-/** Aplica máscara XX.XXX.XXX-X mientras se escribe */
-function formatRutMask(raw: string): string {
-    const clean = cleanRut(raw);
-    if (clean.length <= 1) return clean;
-
-    const body = clean.slice(0, -1);
-    const dv = clean.slice(-1);
-
-    // Insertar puntos cada 3 dígitos desde la derecha
-    const reversed = body.split("").reverse();
-    const groups: string[] = [];
-    for (let i = 0; i < reversed.length; i += 3) {
-        groups.push(reversed.slice(i, i + 3).reverse().join(""));
-    }
-    const formatted = groups.reverse().join(".");
-
-    return `${formatted}-${dv}`;
-}
-
-/** Valida un RUT chileno con Módulo 11 — estándar SII (ciclo 2→7) */
-function validateRutMod11(rut: string): boolean {
-    const clean = cleanRut(rut);
-    if (clean.length < 2) return false;
-
-    const body = clean.slice(0, -1);
-    const dv = clean.slice(-1);
-
-    if (body.length < 7) return false;             // mínimo 7 dígitos en el cuerpo
-    if (!/^[\dK]$/.test(dv)) return false;         // DV solo puede ser dígito o K
-
-    let sum = 0;
-    let multiplier = 2;
-    for (let i = body.length - 1; i >= 0; i--) {
-        sum += parseInt(body[i]) * multiplier;
-        multiplier = multiplier === 7 ? 2 : multiplier + 1;
-    }
-
-    const remainder = 11 - (sum % 11);
-    let expectedDV: string;
-    if (remainder === 11) expectedDV = "0";
-    else if (remainder === 10) expectedDV = "K";
-    else expectedDV = remainder.toString();
-
-    return dv === expectedDV;
-}
-
-// ═══════════════════════════════════════════
 //  ICONOS SVG MINIMALISTAS
 // ═══════════════════════════════════════════
 
@@ -142,7 +87,6 @@ function EyeIcon({ open }: { open: boolean }) {
 
 function ForgotPasswordForm({ onBack, apiUrl }: { onBack: () => void; apiUrl: string }) {
     const CYAN = "#00E5FF";
-    const GOLD = "#D4AF37";
     const RED = "#FF073A";
     const GREEN = "#00FF87";
 
@@ -349,7 +293,7 @@ export default function AuthModal({ isOpen, onClose, sessionExpired = false }: A
             commune.length > 0 &&
             ageRange.length > 0
         );
-    }, [mode, email, password, confirmPassword, fullName, country, region, commune, ageRange, gender, pwdValidations]);
+    }, [mode, email, password, confirmPassword, fullName, country, region, commune, ageRange, pwdValidations]);
 
     // Timestamp de inicio para DNA Scanner (fill_duration)
     const [formStartTime] = useState(() => performance.now());
