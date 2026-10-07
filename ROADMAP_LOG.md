@@ -32,6 +32,14 @@
 - **Fix (2026-10-06):** `POST /admin/polls`, `POST /admin/polls/ingest` y `POST /polls` (VERIFIED) enviaban `poll_type`/`options`/`scale_min`/`scale_max`, columnas que la migración 021 (aplicada en producción) eliminó, por lo que crear encuestas por esos caminos fallaba. Se quitaron de los tres inserts y `tests/test_polls_insert_columns.py` lo cubre. Las series mensuales no estaban afectadas.
 
 
+### Cadencia semanal y primeras series (2026-10-07, en PR)
+- **Migración 025:** `poll_series.cadence` (`monthly`/`weekly`) y `polls.edition` acepta `YYYY-Www`. Se aplica **antes** del merge (el publicador lee `cadence`).
+- **Ventana semanal:** lunes 04:00 → lunes 03:59:59 hora de Chile (el cambio de horario cae el sábado 24:00, nunca en un borde). `publish-due` devuelve `editions: {monthly, weekly}`; el workflow corre a 04:15 y 08:15 UTC.
+- **Serie mensual "Barómetro Beacon"** (`barometro-mensual`): aprobación (Aprueba/Desaprueba/No responde), nota 1–7, prioridad del Gobierno, expectativa a 12 meses.
+- **Serie semanal "Pulso Beacon"** (`pulso-semanal`): aprobación (misma redacción) y rumbo del país (buen/mal camino). 2 preguntas fijas a propósito: rotar preguntas subiría `template_version` y cortaría la línea de tendencia; lo coyuntural va en encuestas puntuales.
+- **Riesgos abiertos:** dos cifras de aprobación (semanal vs "balance del mes"); sin ponderación el votante más activo pesa más; validar marco legal (Ley 18.700/Servel) antes de publicar resultados de aprobación.
+- **Orden:** aplicar 025 → merge → crear ambas series → `workflow_dispatch` y verificar `published`/`skipped`.
+
 ### Rollout: Encuestas mensuales recurrentes
 - [x] 1. Confirmar `poll_votes.user_id` = uuid:
       `SELECT data_type FROM information_schema.columns WHERE table_name='poll_votes' AND column_name='user_id';`
@@ -1671,7 +1679,7 @@ Donde:
 |---|---|---|---|
 | Propuesta ciudadana de preguntas (RE-3) | `encuestas` | IA | Design de UX para propuesta + moderación |
 | Informes B2B bajo demanda (RE-4) | `b2b` | IA | Definición de estructura de informe |
-| Encuestas mensuales recurrentes (F4: UI y tendencia) | `encuestas` | IA | Crear la primera serie y verificar el workflow (paso 9–10) |
+| Series recurrentes: cadencia semanal (PR) y F4 (UI y tendencia) | `encuestas` | IA | Aplicar 025, mergear, crear Barómetro y Pulso y verificar el workflow |
 
 #### ⏸️ Pendientes (Roadmap)
 

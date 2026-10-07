@@ -91,6 +91,23 @@ class TestCreateAndList:
         assert [e["action"] for e in audit_events] == ["OVERLORD_ACTION_CREATE_POLL_SERIES"]
         assert len(sb.db["poll_series"]) == 1
 
+    def test_cadencia_por_defecto_mensual_y_semanal_si_se_pide(self, env):
+        client, _ = env
+        assert _create(client).json()["series"]["cadence"] == "monthly"
+        weekly = _create(client, title="Pulso Beacon", cadence="weekly")
+        assert weekly.status_code == 201 and weekly.json()["series"]["cadence"] == "weekly"
+
+    def test_cadencia_invalida_422(self, env):
+        client, sb = env
+        assert _create(client, cadence="daily").status_code == 422
+        assert sb.db["poll_series"] == []
+
+    def test_cadencia_no_se_puede_cambiar_con_patch(self, env):
+        client, _ = env
+        s = _create(client, cadence="weekly").json()["series"]
+        res = client.patch(f"/admin/polls/series/{s['id']}", json={"cadence": "monthly", "is_active": False})
+        assert res.status_code == 200 and res.json()["series"]["cadence"] == "weekly"
+
     def test_slug_duplicado_409(self, env):
         client, _ = env
         assert _create(client).status_code == 201

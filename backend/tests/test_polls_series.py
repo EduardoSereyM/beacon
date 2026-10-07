@@ -39,7 +39,9 @@ SERIES = {
     "requires_auth": True,
     "template_version": 2,
     "is_active": True,
+    "cadence": "monthly",
 }
+WEEKLY = {**SERIES, "id": "s-2", "slug": "pulso-semanal", "title": "Pulso Beacon", "cadence": "weekly"}
 
 
 # ═══ Ventana de edición ═══
@@ -117,6 +119,70 @@ def _audit(monkeypatch):
 NOW = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
 
+# ═══ Ventana semanal (lunes 04:00 → lunes 03:59:59, hora de Chile) ═══
+
+def _utc(*args):
+    return datetime(*args, tzinfo=timezone.utc)
+
+
+class TestWeeklyWindow:
+    def test_semana_de_verano_UTC_menos_3(self):
+        starts, ends = edition_window("2026-W41")
+        assert starts == _utc(2026, 10, 5, 7, 0, 0)
+        assert ends == _utc(2026, 10, 12, 6, 59, 59)
+
+    def test_semana_de_invierno_UTC_menos_4(self):
+        starts, ends = edition_window("2027-W14")
+        assert starts == _utc(2027, 4, 5, 8, 0, 0)
+        assert ends == _utc(2027, 4, 12, 7, 59, 59)
+
+    def test_cambio_de_horario_cae_dentro_de_la_semana_no_en_los_bordes(self):
+        # Chile pasa a verano el sábado 5-sep-2026 a las 24:00: la semana 36 dura 1 h menos,
+        # pero inicio y cierre siguen en 04:00 / 03:59:59 hora local.
+        starts, ends = edition_window("2026-W36")
+        assert starts == _utc(2026, 8, 31, 8, 0, 0)    # lunes 04:00 con UTC-4
+        assert ends == _utc(2026, 9, 7, 6, 59, 59)     # lunes 03:59:59 con UTC-3
+        assert (ends - starts).total_seconds() == 7 * 86400 - 3600 - 1
+
+    def test_semanas_consecutivas_no_se_solapan_ni_dejan_huecos(self):
+        _, end_prev = edition_window("2026-W40")
+        start_next, _ = edition_window("2026-W41")
+        assert (start_next - end_prev).total_seconds() == 1
+
+    def test_antes_del_lunes_04_rige_la_semana_anterior(self):
+        assert current_edition(_utc(2026, 10, 5, 6, 59), "weekly") == "2026-W40"
+        assert current_edition(_utc(2026, 10, 5, 7, 0), "weekly") == "2026-W41"
+
+    def test_domingo_23_59_sigue_en_la_semana(self):
+        assert current_edition(_utc(2026, 10, 12, 2, 59), "weekly") == "2026-W41"  # domingo 23:59 Chile
+
+    def test_anio_iso_distinto_al_calendario(self):
+        # 2026 tiene 53 semanas ISO; el 29-dic-2025 ya es la semana 1 de 2026.
+        assert current_edition(_utc(2026, 12, 29, 12, 0), "weekly") == "2026-W53"
+        assert current_edition(_utc(2025, 12, 29, 12, 0), "weekly") == "2026-W01"
+
+    def test_semana_53_inexistente_se_rechaza(self):
+        with pytest.raises(ValueError):
+            edition_window("2027-W53")
+
+    def test_cadencia_desconocida_se_rechaza(self):
+        with pytest.raises(ValueError):
+            current_edition(_utc(2026, 10, 5, 12, 0), "daily")
+
+    def test_etiquetas(self):
+        assert edition_label("2026-W41") == "Semana 41 · 5–11 oct 2026"
+        assert edition_label("2026-W36") == "Semana 36 · 31 ago – 6 sep 2026"
+        assert edition_label("2026-W53") == "Semana 53 · 28 dic 2026 – 3 ene 2027"
+
+    def test_payload_semanal(self):
+        p = build_edition_payload(WEEKLY, "2026-W41", "admin-1")
+        assert p["edition"] == "2026-W41"
+        assert p["slug"] == "pulso-semanal-2026-w41"
+        assert p["title"] == "Pulso Beacon — Semana 41 · 5–11 oct 2026"
+        assert p["starts_at"] == "2026-10-05T07:00:00+00:00"
+        assert p["ends_at"] == "2026-10-12T06:59:59+00:00"
+
+
 # ═══ Publicación idempotente ═══
 
 class TestPublish:
@@ -124,7 +190,7 @@ class TestPublish:
     async def test_publica_una_vez_y_registra_audit(self, _audit):
         sb = FakeSupabase([SERIES])
         summary = await publish_due_series(sb, "admin-1", now=NOW)
-        assert summary == {"edition": "2026-10", "published": ["aprobacion-presidencial"], "skipped": [], "failed": [], "audit_failed": []}
+        assert summary == {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["aprobacion-presidencial"], "skipped": [], "failed": [], "audit_failed": []}
         assert len(sb.db["polls"]) == 1
         assert sb.db["poll_series"][0]["last_published_at"] is not None
         assert [e["action"] for e in _audit] == ["SERIES_EDITION_PUBLISHED"]
@@ -170,8 +236,33 @@ class TestPublish:
         await publish_due_series(sb, "admin-1", now=NOW)
         nov = datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc)
         summary = await publish_due_series(sb, "admin-1", now=nov)
-        assert summary["edition"] == "2026-11" and summary["published"] == ["aprobacion-presidencial"]
+        assert summary["editions"]["monthly"] == "2026-11" and summary["published"] == ["aprobacion-presidencial"]
         assert len(sb.db["polls"]) == 2
+
+
+class TestPublishWeekly:
+    @pytest.mark.asyncio
+    async def test_cada_serie_publica_su_propia_cadencia(self):
+        sb = FakeSupabase([SERIES, WEEKLY])
+        summary = await publish_due_series(sb, "admin-1", now=NOW)
+        assert summary["published"] == ["aprobacion-presidencial", "pulso-semanal"]
+        assert sorted(p["edition"] for p in sb.db["polls"]) == ["2026-10", "2026-W41"]
+
+    @pytest.mark.asyncio
+    async def test_la_misma_semana_no_se_duplica(self):
+        sb = FakeSupabase([WEEKLY])
+        await publish_due_series(sb, "admin-1", now=NOW)
+        later = _utc(2026, 10, 8, 12, 0)
+        summary = await publish_due_series(sb, "admin-1", now=later)
+        assert summary["skipped"] == ["pulso-semanal"] and len(sb.db["polls"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_lunes_antes_de_las_04_no_abre_la_semana_nueva(self):
+        sb = FakeSupabase([WEEKLY])
+        await publish_due_series(sb, "admin-1", now=_utc(2026, 10, 5, 4, 15))   # lunes 01:15 Chile
+        assert [p["edition"] for p in sb.db["polls"]] == ["2026-W40"]
+        await publish_due_series(sb, "admin-1", now=_utc(2026, 10, 5, 8, 15))   # lunes 05:15 Chile
+        assert [p["edition"] for p in sb.db["polls"]] == ["2026-W40", "2026-W41"]
 
 
 # ═══ Casos que se rompen en la práctica ═══
@@ -256,19 +347,19 @@ class TestPublishDueEndpoint:
         monkeypatch.setattr(polls_series_admin, "get_async_supabase_client", lambda: object())
 
     def test_200_cuando_todo_sale_bien(self, monkeypatch):
-        ok = {"edition": "2026-10", "published": ["a"], "skipped": [], "failed": [], "audit_failed": []}
+        ok = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["a"], "skipped": [], "failed": [], "audit_failed": []}
         self._patch(monkeypatch, ok)
         res = _client().post("/admin/polls/series/publish-due")
         assert res.status_code == 200 and res.json() == ok
 
     def test_500_con_resumen_si_una_serie_falla(self, monkeypatch):
-        bad = {"edition": "2026-10", "published": [], "skipped": [], "failed": ["a"], "audit_failed": []}
+        bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": [], "skipped": [], "failed": ["a"], "audit_failed": []}
         self._patch(monkeypatch, bad)
         res = _client().post("/admin/polls/series/publish-due")
         assert res.status_code == 500 and res.json() == bad
 
     def test_500_si_se_perdio_un_audit(self, monkeypatch):
-        bad = {"edition": "2026-10", "published": ["a"], "skipped": [], "failed": [], "audit_failed": ["a"]}
+        bad = {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["a"], "skipped": [], "failed": [], "audit_failed": ["a"]}
         self._patch(monkeypatch, bad)
         assert _client().post("/admin/polls/series/publish-due").status_code == 500
 
