@@ -457,7 +457,7 @@ export default function AdminDashboard() {
 
             {/* ── Terminal de Audit Logs ──────────────────────────────── */}
             <div className="rounded-xl p-5"
-                style={{ background: "rgba(8,8,8,0.95)", border: "1px solid rgba(255,255,255,0.04)", fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>
+                style={{ background: "rgba(8,8,8,0.95)", border: "1px solid rgba(255,255,255,0.04)", fontFamily: "var(--font-mono), 'Fira Code', monospace" }}>
                 <h2 className="text-[10px] uppercase tracking-wider mb-4" style={{ color: "#D4AF37" }}>
                     $ Últimas Acciones del Overlord (Audit Log)
                 </h2>
