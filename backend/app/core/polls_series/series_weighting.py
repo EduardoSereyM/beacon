@@ -20,12 +20,16 @@ from app.core.weighting.targets_loader import load_targets
 IN_CHUNK = 100
 
 
-async def _load_user_demographics(supabase, user_ids: list[str]) -> dict[str, dict[str, Any]]:
+async def load_user_demographics(
+    supabase, user_ids: list[str], include_political: bool = False
+) -> dict[str, dict[str, Any]]:
+    """Demografía de los votantes por id. La posición política solo se lee si el segmento está habilitado."""
+    columns = "id, region, gender, birth_year" + (", political_position" if include_political else "")
     users: dict[str, dict[str, Any]] = {}
     for start in range(0, len(user_ids), IN_CHUNK):
         found = await (
             supabase.table("users")
-            .select("id, region, gender, birth_year")
+            .select(columns)
             .in_("id", user_ids[start:start + IN_CHUNK])
             .execute()
         )
@@ -33,19 +37,15 @@ async def _load_user_demographics(supabase, user_ids: list[str]) -> dict[str, di
     return users
 
 
-def _reference_year(poll: dict[str, Any]) -> int:
+def reference_year(poll: dict[str, Any]) -> int:
     return datetime.fromisoformat(str(poll["starts_at"]).replace("Z", "+00:00")).year
 
 
-async def weight_edition(
-    supabase, poll: dict[str, Any], votes: list[dict[str, Any]]
+def weight_from_users(
+    users: dict[str, dict[str, Any]], poll: dict[str, Any], verified: list[dict[str, Any]]
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
-    """(resultados ponderados o None, metadatos) para los votos VERIFIED de una edición."""
-    verified = [v for v in votes if v.get("voter_rank") == "VERIFIED"]
-    user_ids = sorted({v["user_id"] for v in verified if v.get("user_id")})
-    users = await _load_user_demographics(supabase, user_ids) if user_ids else {}
-
-    year = _reference_year(poll)
+    """(resultados ponderados o None, metadatos) a partir de la demografía ya cargada. Función pura."""
+    year = reference_year(poll)
     respondents = [
         respondent_from_user(users.get(v.get("user_id"), {}), year) for v in verified
     ]
@@ -56,3 +56,13 @@ async def weight_edition(
     kept = [(vote, weight) for vote, weight in zip(verified, result.weights, strict=True) if weight is not None]
     results = aggregate_by_question(poll, [vote for vote, _ in kept], [weight for _, weight in kept])
     return results, result.meta()
+
+
+async def weight_edition(
+    supabase, poll: dict[str, Any], votes: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]:
+    """Como `weight_from_users`, cargando la demografía de los votantes verificados de `votes`."""
+    verified = [v for v in votes if v.get("voter_rank") == "VERIFIED"]
+    user_ids = sorted({v["user_id"] for v in verified if v.get("user_id")})
+    users = await load_user_demographics(supabase, user_ids) if user_ids else {}
+    return weight_from_users(users, poll, verified)

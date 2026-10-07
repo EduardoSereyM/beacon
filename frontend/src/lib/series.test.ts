@@ -4,11 +4,13 @@ import {
   casesSummary,
   eventPointIndex,
   lineSegments,
+  buildSegmentChart,
   selectableQuestions,
   seriesSlugFromPoll,
   supportsTop3,
   weightingSummary,
   type GroupResult,
+  type SegmentsData,
   type TrendPoint,
   type WeightingMeta,
 } from "@/lib/series";
@@ -174,5 +176,59 @@ describe("selectableQuestions / casesSummary / weightingSummary", () => {
     const none = POINTS.map((p) => ({ ...p, weighting: weighting("unavailable", ["Hay 0 votantes.", "Otro motivo."]) }));
     expect(weightingSummary(none)).toMatchObject({ available: false, reason: "Hay 0 votantes." });
     expect(weightingSummary([]).available).toBe(false);
+  });
+});
+
+describe("buildSegmentChart", () => {
+  const rows = (a: number, d: number) => [
+    { option: "Aprueba", count: 0, pct: a },
+    { option: "Desaprueba", count: 0, pct: d },
+  ];
+  const mc = (n: number, results: ReturnType<typeof rows> | null) => ({
+    question_id: "q1", type: "multiple_choice" as const, n, suppressed: results === null, results,
+  });
+  const scale = (n: number, average: number | null) => ({
+    question_id: "q2", type: "scale" as const, n, suppressed: average === null, scale_min: 1, scale_max: 7,
+    results: average === null ? null : [{ option: "1", count: 0, pct: 5, average }, { option: "5", count: 0, pct: 30 }, { option: "6", count: 0, pct: 20 }, { option: "7", count: 0, pct: 10 }],
+  });
+  const DATA: SegmentsData = {
+    series: { slug: "pulso", title: "Pulso", cadence: "weekly" },
+    edition: "2026-W41", label: "Semana 41", is_open: true, min_n: 30,
+    segments: [
+      { variable: "sex", label: "Sexo", groups: [
+        { key: "Masculino", label: "Hombres", n: 60, questions: [mc(60, rows(50, 40)), scale(60, 4.8)] },
+        { key: "Femenino", label: "Mujeres", n: 10, questions: [mc(10, null), scale(10, null)] },
+      ] },
+      { variable: "zone", label: "Zona", groups: [{ key: "Sur", label: "Sur", n: 40, questions: [mc(40, rows(25, 65)), scale(40, 4.1)] }] },
+    ],
+  };
+
+  it("una columna por grupo, con las opciones en el orden del gráfico", () => {
+    const chart = buildSegmentChart(DATA, "q1", "average", ["Aprueba", "Desaprueba"])!;
+    expect(chart.columns.map((c) => c.label)).toEqual(["Hombres", "Mujeres", "Sur"]);
+    expect(chart.columns[0].values).toEqual([50, 40]);
+    expect(chart.unit).toBe("%");
+  });
+
+  it("un grupo suprimido no publica valores y conserva su n", () => {
+    const women = buildSegmentChart(DATA, "q1", "average", ["Aprueba", "Desaprueba"])!.columns[1];
+    expect(women).toMatchObject({ suppressed: true, n: 10, values: [null, null] });
+  });
+
+  it("el eje llega al menos a 60 y sube en múltiplos de 10 si hace falta", () => {
+    expect(buildSegmentChart(DATA, "q1", "average", ["Aprueba", "Desaprueba"])!.domain).toEqual([0, 70]);
+  });
+
+  it("escala: promedio o % notas 5 a 7", () => {
+    const avg = buildSegmentChart(DATA, "q2", "average", [])!;
+    expect(avg).toMatchObject({ unit: "nota", domain: [1, 7], seriesLabels: ["Promedio"] });
+    expect(avg.columns.map((c) => c.values[0])).toEqual([4.8, null, 4.1]);
+    const top3 = buildSegmentChart(DATA, "q2", "top3", [])!;
+    expect(top3.unit).toBe("%");
+    expect(top3.columns[0].values).toEqual([60]);
+  });
+
+  it("devuelve null si la pregunta no existe", () => {
+    expect(buildSegmentChart(DATA, "no-existe", "average", [])).toBeNull();
   });
 });

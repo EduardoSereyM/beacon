@@ -1746,6 +1746,7 @@ Migración 026: `series_events` (hitos del gráfico) y `poll_results_snapshot` (
 |--------|------|------|-------------|
 | GET | `/series` | — | Series activas (`slug`, `title`, `cadence`, `context`, `category`, `tags`, `last_published_at`). No expone preguntas |
 | GET | `/series/{slug}/trend?limit=52` | — | Resultados edición por edición y eventos. `limit` 1–104 (últimas N ediciones). 404 si el slug no existe. `Cache-Control: public, max-age=60` |
+| GET | `/series/{slug}/segments?edition=` | — | Resultados de **una edición** (por defecto la más reciente; `edition` = `2026-W41` o `2026-10`, 422 si el formato es inválido, 404 si la serie o la edición no existen) por **sexo, edad y zona**, solo con votos verificados y **sin ponderar**. Cada grupo trae `n` y, por pregunta, `{n, suppressed, results}`; un grupo con menos de 30 respuestas llega `suppressed: true` y `results: null`. Edición cerrada: se lee del snapshot (`results_segments`, migración 029); abierta o snapshot previo: en vivo. `Cache-Control: public, max-age=60` |
 | GET | `/admin/series-events?series_id=` | JWT admin | Lista eventos (sin filtro: todos) |
 | POST | `/admin/series-events` | JWT admin | Crea un evento: `event_date` (fecha), `label` (1–120), `series_id` opcional (vacío = evento general, aparece en todas las series). 404 si la serie no existe. Audit `OVERLORD_ACTION_CREATE_SERIES_EVENT` |
 | DELETE | `/admin/series-events/{id}` | JWT admin | Elimina un evento mal cargado. 404 si no existe. Audit `OVERLORD_ACTION_DELETE_SERIES_EVENT` |
