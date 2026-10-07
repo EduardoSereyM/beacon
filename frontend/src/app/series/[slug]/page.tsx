@@ -8,41 +8,21 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import SeriesTrendClient from "./SeriesTrendClient";
-import { cadenceLabel, type SegmentsData, type SeriesTrend } from "@/lib/series";
+import { cadenceLabel } from "@/lib/series";
+import { fetchSegments, fetchTrend } from "@/lib/seriesApi";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-async function fetchTrend(slug: string): Promise<SeriesTrend | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/series/${encodeURIComponent(slug)}/trend`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as SeriesTrend;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchSegments(slug: string): Promise<SegmentsData | null> {
-  try {
-    const res = await fetch(`${API_URL}/api/v1/series/${encodeURIComponent(slug)}/segments`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as SegmentsData;
-  } catch {
-    return null;
-  }
-}
+const BASE_URL = "https://www.beaconchile.cl";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const trend = await fetchTrend(slug);
   if (!trend) return { title: "Serie — Beacon Chile" };
+  const image = `${BASE_URL}/api/og/serie/${encodeURIComponent(slug)}?format=wide`;
   return {
     title: `${trend.series.title} — tendencia ${cadenceLabel(trend.series.cadence)} | Beacon Chile`,
     description: `Cómo cambia en el tiempo la opinión de los ciudadanos verificados de Beacon Chile. Serie ${cadenceLabel(trend.series.cadence)}, resultados abiertos.`,
+    openGraph: { images: [{ url: image, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", images: [image] },
   };
 }
 
