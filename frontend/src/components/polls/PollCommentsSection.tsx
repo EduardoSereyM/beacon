@@ -51,7 +51,7 @@ interface PollCommentsSectionProps {
   isOpen: boolean;
 }
 
-export default function PollCommentsSection({ pollId, isOpen }: PollCommentsSectionProps) {
+export default function PollCommentsSection({ pollId }: PollCommentsSectionProps) {
   const { isAuthenticated } = usePermissions();
   const { token, user } = useAuthStore();
 

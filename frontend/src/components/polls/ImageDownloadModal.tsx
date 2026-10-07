@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/store";
 
 interface Question {
@@ -24,10 +24,7 @@ export default function ImageDownloadModal({
   open,
   onClose,
   slug,
-  title,
   questions,
-  totalVotes,
-  verifiedVotes,
 }: ImageDownloadModalProps) {
   const [selectedQuestion, setSelectedQuestion] = useState<string>("");
   const [format, setFormat] = useState<"1080x1080" | "1200x630">("1080x1080");
@@ -46,14 +43,7 @@ export default function ImageDownloadModal({
     }
   }, [questions, selectedQuestion]);
 
-  // Cargar preview cuando cambia formato
-  useEffect(() => {
-    if (selectedQuestion && open) {
-      handleLoadPreview();
-    }
-  }, [format, selectedQuestion, open]);
-
-  async function handleLoadPreview() {
+  const handleLoadPreview = useCallback(async () => {
     if (!selectedQuestion) return;
 
     setLoading(true);
@@ -89,7 +79,14 @@ export default function ImageDownloadModal({
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedQuestion, format, token, API_URL, slug]);
+
+  // Cargar preview cuando cambia formato
+  useEffect(() => {
+    if (selectedQuestion && open) {
+      handleLoadPreview();
+    }
+  }, [selectedQuestion, open, handleLoadPreview]);
 
   async function handleDownload() {
     if (!selectedQuestion || !previewUrl) return;
@@ -302,6 +299,7 @@ export default function ImageDownloadModal({
                 </div>
               )}
               {previewUrl && !loading && (
+                // eslint-disable-next-line @next/next/no-img-element -- vista previa con blob: URL generada en el navegador, next/image no la optimiza
                 <img
                   src={previewUrl}
                   alt="Vista previa"

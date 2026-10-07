@@ -137,6 +137,7 @@
 - 37 warnings preexistentes: variables sin usar en admin/polls/events/profile, `<img>` sin `<Image />`, `useEffect` con deps faltantes.
 - **Sprint de calidad (en curso, un PR por carpeta):** `app/admin` limpio (37 → 29 warnings): se retiran `API_URL` y `handleTypeChange` sin uso, `loadEntities` pasa a depender de `authHeaders` (memoizado por token) y los 5 `<img>` de vista previa llevan una excepción puntual con motivo, porque las URLs las escribe el admin y `next/image` solo admite los dominios de `next.config`.
   - `components/bunker` limpio (29 → 23): se retira de `AuthModal.tsx` el bloque de validación y máscara de RUT (`cleanRut`, `formatRutMask`, `validateRutMod11`, sin uso: el RUT se valida en el backend), la constante `GOLD` sobrante de `ForgotPasswordForm`, `gender` de las dependencias de `isFormValid` (no se leía) y dos directivas `eslint-disable` obsoletas.
+  - `components/polls` limpio (23 → 17): `ImageDownloadModal` carga la vista previa con `useCallback` (el efecto declara sus dependencias; ahora también recarga si cambian `slug` o el token), deja de desestructurar `title`, `totalVotes` y `verifiedVotes` (siguen en la interfaz de props porque `EncuestaDetailClient` los pasa), el `<img>` de la vista previa lleva una excepción puntual (URL `blob:` local) y `PollCommentsSection` deja de desestructurar `isOpen`, que no usaba.
 - No se tocaron para mantener el PR enfocado. Registrados como deuda técnica a resolver en sprint de calidad.
 
 ---
