@@ -9,7 +9,7 @@ devolvía None.
 import json
 
 
-from app.api.v1.endpoints.polls import _aggregate, _aggregate_by_question
+from app.core.polls.aggregation import aggregate_by_question, aggregate_votes
 from app.core.polls.scale import scale_bounds
 
 POR_PUNTOS = {
@@ -37,14 +37,14 @@ class TestAggregateConScalePoints:
     def test_agregado_por_pregunta_no_revienta_y_cubre_los_7_puntos(self):
         poll = {"questions": [POR_PUNTOS]}
         votes = [{"option_value": "5", "voter_rank": "VERIFIED"}, {"option_value": "7", "voter_rank": "BASIC"}]
-        out = _aggregate_by_question(poll, votes)[0]
+        out = aggregate_by_question(poll, votes)[0]
         assert [r["option"] for r in out["results"]] == ["1", "2", "3", "4", "5", "6", "7"]
         assert out["results"][0]["average"] == 6.0
         assert (out["scale_min"], out["scale_max"]) == (1, 7)
 
     def test_agregado_de_una_pregunta(self):
         poll = {"questions": [POR_PUNTOS]}
-        res = _aggregate(poll, [{"option_value": "3", "voter_rank": "VERIFIED"}])
+        res = aggregate_votes(poll, [{"option_value": "3", "voter_rank": "VERIFIED"}])
         assert len(res) == 7 and res[2]["count"] == 1
 
     def test_multi_pregunta_con_escala_por_puntos(self):
@@ -53,6 +53,6 @@ class TestAggregateConScalePoints:
             {**POR_PUNTOS, "id": "b", "order_index": 1},
         ]}
         votes = [{"option_value": json.dumps({"a": "Sí", "b": "6"}), "voter_rank": "VERIFIED"}]
-        by_q = _aggregate_by_question(poll, votes)
+        by_q = aggregate_by_question(poll, votes)
         assert by_q[0]["results"][0] == {"option": "Sí", "count": 1, "pct": 100.0}
         assert by_q[1]["results"][0]["average"] == 6.0

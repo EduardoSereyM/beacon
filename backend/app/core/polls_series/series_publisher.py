@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.core.audit_logger import audit_bus
+from app.core.polls_series.series_snapshot import snapshot_closed_editions
 from app.core.polls_series.series_window import (
     CADENCES,
     current_edition,
@@ -140,7 +141,8 @@ async def publish_due_series(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Publica la edición en curso (mensual o semanal, según su cadencia) de cada
-    serie activa. Un error en una serie no impide publicar las demás."""
+    serie activa y fotografía las ediciones cerradas. Un error en una serie no
+    impide publicar las demás."""
     now = now or datetime.now(timezone.utc)
     editions = {cadence: current_edition(now, cadence) for cadence in CADENCES}
 
@@ -170,5 +172,8 @@ async def publish_due_series(
             continue
         (published if poll else skipped).append(series["slug"])
 
+    # Las ediciones que ya cerraron quedan fotografiadas para la tendencia.
+    snapshots = await snapshot_closed_editions(supabase, actor_id, now)
+
     return {"editions": editions, "published": published, "skipped": skipped,
-            "failed": failed, "audit_failed": audit_failed}
+            "failed": failed, "audit_failed": audit_failed, **snapshots}

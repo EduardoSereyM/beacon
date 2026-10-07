@@ -1738,6 +1738,46 @@ Plantillas que se republican solas cada mes o cada semana (`cadence`). Cada edic
 
 Responde **500 con el mismo resumen** si alguna serie falla (`failed`: p.ej. slug ocupado por otra encuesta) o si una edición se publicó pero no se pudo escribir su audit (`audit_failed`), para que el job de GitHub Actions falle y avise. Reintentar es seguro.
 
+### Tendencia de series (público) y eventos anotados (admin)
+
+Migración 026: `series_events` (hitos del gráfico) y `poll_results_snapshot` (resultado inmutable de cada edición cerrada). **La 026 debe aplicarse antes del merge que despliega el backend**: `publish-due` ahora fotografía las ediciones cerradas.
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/series` | — | Series activas (`slug`, `title`, `cadence`, `context`, `category`, `tags`, `last_published_at`). No expone preguntas |
+| GET | `/series/{slug}/trend?limit=52` | — | Resultados edición por edición y eventos. `limit` 1–104 (últimas N ediciones). 404 si el slug no existe. `Cache-Control: public, max-age=60` |
+| GET | `/admin/series-events?series_id=` | JWT admin | Lista eventos (sin filtro: todos) |
+| POST | `/admin/series-events` | JWT admin | Crea un evento: `event_date` (fecha), `label` (1–120), `series_id` opcional (vacío = evento general, aparece en todas las series). 404 si la serie no existe. Audit `OVERLORD_ACTION_CREATE_SERIES_EVENT` |
+| DELETE | `/admin/series-events/{id}` | JWT admin | Elimina un evento mal cargado. 404 si no existe. Audit `OVERLORD_ACTION_DELETE_SERIES_EVENT` |
+
+**Forma de `GET /series/{slug}/trend`:**
+
+```json
+{
+  "series": { "slug": "pulso-semanal", "title": "Pulso Beacon", "cadence": "weekly", "context": "...", "category": "politica", "is_active": true },
+  "min_n": 30,
+  "points": [
+    {
+      "edition": "2026-W41", "label": "Semana 41 · 5–11 oct 2026", "poll_slug": "pulso-semanal-2026-w41",
+      "starts_at": "...", "ends_at": "...", "is_open": true, "template_version": 1,
+      "total_votes": 120, "verified_votes": 80,
+      "questions": [
+        { "question_id": "...", "text": "...", "type": "multiple_choice",
+          "verified": { "n": 80, "suppressed": false, "results": [{ "option": "Aprueba", "count": 30, "pct": 37.5 }] },
+          "total":    { "n": 120, "suppressed": false, "results": [ ... ] } }
+      ]
+    }
+  ],
+  "events": [{ "date": "2026-10-08", "label": "Cambio de gabinete" }]
+}
+```
+
+- **Privacidad estadística:** un grupo (`verified` o `total`) con menos de `min_n` (30) respuestas en esa pregunta devuelve `suppressed: true` y `results: null`; solo se publica `n`. El gráfico no debe dibujar ese punto.
+- **Escala:** las preguntas `scale` agregan `scale_min`/`scale_max`; el promedio va en `results[0].average`.
+- **Corte de línea:** si `template_version` cambia entre dos puntos, el gráfico corta la línea (las preguntas ya no son comparables).
+- **Snapshot:** las ediciones cerradas se leen de `poll_results_snapshot` (inmutable); la abierta y la recién cerrada (antes del primer cron) se calculan en vivo.
+- **`POST /admin/polls/series/publish-due`** ahora también fotografía las ediciones cerradas hace más de 10 minutos y agrega `snapshotted` y `snapshot_failed` al resumen. Un `snapshot_failed` no vacío responde 500, igual que `failed` y `audit_failed`. Audit `SERIES_EDITION_SNAPSHOT`.
+
 ---
 
 ## Pipeline de Agentes

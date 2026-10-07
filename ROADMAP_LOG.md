@@ -40,6 +40,14 @@
 - **Riesgos abiertos:** dos cifras de aprobación (semanal vs "balance del mes"); sin ponderación el votante más activo pesa más; validar marco legal (Ley 18.700/Servel) antes de publicar resultados de aprobación.
 - **Orden (ejecutado):** 025 aplicada → merge (#13, #15) → series creadas por API → `workflow_dispatch` ×2: 1ª `published` (ambas), 2ª `skipped`; una edición por serie y un `SERIES_EDITION_PUBLISHED` en `audit_logs` cada una (`2026-10` y `2026-W41`).
 
+### F4 — Tendencia de series (2026-10-07, backend en PR)
+- **Incidente resuelto (PR #17):** `GET /polls/by-slug/barometro-mensual-2026-10` daba 500 porque una pregunta de escala por puntos se guarda con `scale_min/scale_max = None` y `dict.get(clave, 1)` devolvía `None`. Único helper `scale_bounds` en `app/core/polls/scale.py`; ~30 min de caída de esa edición, 0 votos afectados.
+- **Migración 026:** `series_events` (hitos anotados) y `poll_results_snapshot` (resultado inmutable por edición cerrada). Se aplica antes del merge.
+- **API:** `GET /series`, `GET /series/{slug}/trend` (público, caché 60 s) y `/admin/series-events` (CRUD con audit). `publish-due` fotografía ediciones cerradas.
+- **Regla de privacidad:** grupo con n < 30 no publica resultados (`suppressed`), igual que n<5 en cross-tabs.
+- **Agregación extraída** a `app/core/polls/aggregation.py` (función pura, sin cambio de comportamiento).
+- **Siguiente:** PR 2 (página pública `/series/[slug]` con SVG propio + badge en `PollCard`) y PR 3 (admin `/admin/series`).
+
 ### Rollout: Encuestas mensuales recurrentes
 - [x] 1. Confirmar `poll_votes.user_id` = uuid:
       `SELECT data_type FROM information_schema.columns WHERE table_name='poll_votes' AND column_name='user_id';`

@@ -195,8 +195,11 @@ async def publish_due(pipeline: dict = Depends(require_pipeline_key)):
     semana según la cadencia de cada serie, hora de Chile) y es idempotente."""
     supabase = get_async_supabase_client()
     summary = await publish_due_series(supabase, actor_id=pipeline["user_id"])
-    if summary["failed"] or summary["audit_failed"]:
-        logger.error(f"publish-due: failed={summary['failed']} audit_failed={summary['audit_failed']}")
+    if summary["failed"] or summary["audit_failed"] or summary["snapshot_failed"]:
+        logger.error(
+            f"publish-due: failed={summary['failed']} audit_failed={summary['audit_failed']} "
+            f"snapshot_failed={summary['snapshot_failed']}"
+        )
         # 5xx para que el job de GitHub Actions (curl --fail) falle y avise;
         # el resumen va en el cuerpo y el reintento diario es idempotente.
         return JSONResponse(status_code=500, content=summary)
