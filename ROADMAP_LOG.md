@@ -15,9 +15,9 @@
 
 ---
 
-## 🔁 Feature: Encuestas mensuales recurrentes (poll_series) — EN DESARROLLO
+## 🔁 Feature: Encuestas mensuales recurrentes (poll_series) — EN PRODUCCIÓN (sin serie creada)
 
-### Backend listo, pendiente de aplicar migraciones en Supabase
+### Backend desplegado (PR #11, 2026-10-05); migraciones 023/024 aplicadas
 - **Migración 023:** RLS defensiva e idempotente para `polls` (lectura pública solo de publicadas) y `poll_votes` (solo lectura propia). Deuda previa: ninguna migración versionada declaraba RLS ni creaba esas tablas.
 - **Migración 024:** `poll_series` + `polls.series_id/edition/template_version`, índice único `(series_id, edition)`.
 - **Servicio:** `app/core/polls_series/` (ventana mensual en hora Chile, publicación idempotente, audit en `audit_logs`).
@@ -33,16 +33,16 @@
 
 
 ### Rollout: Encuestas mensuales recurrentes
-- [ ] 1. Confirmar `poll_votes.user_id` = uuid:
+- [x] 1. Confirmar `poll_votes.user_id` = uuid:
       `SELECT data_type FROM information_schema.columns WHERE table_name='poll_votes' AND column_name='user_id';`
-- [ ] 2. Aplicar `023_polls_rls_defensive.sql`
-- [ ] 3. Correr `pg_policies` y verificar que no hay políticas permisivas (`USING (true)`) en polls / poll_votes
-- [ ] 4. Probar la web (listado, detalle, voto) tras la 023
-- [ ] 5. Aplicar `024_poll_series.sql` (horario de poco tráfico)
-- [ ] 6. Push de la rama y abrir PR; revisar CI (error previo de ruff en `auth_service.py:71`)
-- [ ] 7. Merge (despliega el backend) SOLO después del paso 5
-- [ ] 8. Crear secrets en GitHub: `BEACON_API_URL` (con sufijo `/api/v1`) y `PIPELINE_API_KEY`
-- [ ] 9. Crear la primera serie (`POST /admin/polls/series`)
+- [x] 2. Aplicar `023_polls_rls_defensive.sql`
+- [x] 3. Correr `pg_policies` y verificar que no hay políticas permisivas (`USING (true)`) en polls / poll_votes
+- [x] 4. Probar la web (listado, detalle, voto) tras la 023
+- [x] 5. Aplicar `024_poll_series.sql` (horario de poco tráfico)
+- [x] 6. Push de la rama y abrir PR; revisar CI (error previo de ruff en `auth_service.py:71`)
+- [x] 7. Merge (despliega el backend) SOLO después del paso 5
+- [x] 8. Crear secrets en GitHub: `BEACON_API_URL` (con sufijo `/api/v1`) y `PIPELINE_API_KEY`
+- [ ] 9. Crear la primera serie (pendiente: definir nombre, plantilla y escala; el cron ya corre y devuelve `published: []`) (`POST /admin/polls/series`)
 - [ ] 10. Lanzar el workflow con `workflow_dispatch` DOS veces: 1ª = `published`; 2ª = `skipped`, una sola edición, una fila en `audit_logs`
 - [ ] 11. Actualizar `playbook.md` (sección IMPLEMENTADO) cuando esté en producción
 
@@ -1671,7 +1671,7 @@ Donde:
 |---|---|---|---|
 | Propuesta ciudadana de preguntas (RE-3) | `encuestas` | IA | Design de UX para propuesta + moderación |
 | Informes B2B bajo demanda (RE-4) | `b2b` | IA | Definición de estructura de informe |
-| Encuestas mensuales recurrentes (F4: UI y tendencia) | `encuestas` | IA | Aplicar migraciones 023/024 en Supabase y configurar secrets del workflow |
+| Encuestas mensuales recurrentes (F4: UI y tendencia) | `encuestas` | IA | Crear la primera serie y verificar el workflow (paso 9–10) |
 
 #### ⏸️ Pendientes (Roadmap)
 
@@ -1694,7 +1694,7 @@ Donde:
 
 Este documento ha sido chequeado y aprobado bajo los estándares de las **Technical Directives 2026**.
 
-Última actualización: `2026-04-12T00:00:00-03:00`
+Última actualización: `2026-10-07T00:00:00-03:00`
 Autor: Beacon Protocol — Motor de Integridad Digital
 Commits de referencia:
 - `223bafd` — Home Server Component + ISR + CORS fix producción
