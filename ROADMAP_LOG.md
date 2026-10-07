@@ -1718,6 +1718,7 @@ Donde:
 
 | Feature | Módulo | Prioridad | Notas |
 |---|---|---|---|
+| **Cumplimiento Ley 21.719** (vigencia 2026-12-01) | `privacy` | **Alta** | Auditoría hecha el 2026-10-07 con plan P0/P1/P2. El detalle se mantiene **fuera del repositorio** (es público); retomar desde la memoria privada del proyecto («PENDIENTE Ley 21.719») |
 | P3 — VS/Versus (head-to-head) | `events` | Alta | Event votes, UI comparativa lado a lado |
 | P4 — Páginas de sección con filtros | `entities` | Alta | `/politicos`, `/empresas` con filtros region/partido |
 | P5 — Flujo de upgrade RUT → Verificado | `identity` | Media | SMS 2FA opcional, UI de perfil |
