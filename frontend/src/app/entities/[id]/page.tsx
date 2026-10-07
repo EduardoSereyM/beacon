@@ -668,7 +668,6 @@ export default function EntityPage({ params }: EntityPageProps) {
                         <div className="mt-6">
                             <VerdictButton
                                 rank={userRank}
-                                entityName={displayName}
                                 voteStatus={voteStatus}
                                 voteMessage={voteMessage}
                                 onVerdict={async () => {
