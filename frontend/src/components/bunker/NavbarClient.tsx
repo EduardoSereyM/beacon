@@ -32,7 +32,6 @@ export default function NavbarClient() {
         if (isAuthenticated) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setSessionExpiredMsg(false);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsModalOpen(false);
         }
     }, [isAuthenticated]);
