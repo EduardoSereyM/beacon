@@ -194,12 +194,12 @@
 **Estado:** ✅ COMPLETADO — Datos + Funcionalidad operativa. Diseño gráfico refinable en próxima iteración.
 
 **Archivos creados:**
-- `backend/app/services/image_service.py` (~340 líneas) — Servicio Pillow + QR
+- `backend/app/services/image_service.py` (~340 líneas) — Servicio Pillow (imagen de resultados; sin QR)
 - `backend/app/api/v1/endpoints/images.py` (~50 líneas) — Endpoint StreamingResponse
 - `frontend/src/components/polls/ImageDownloadModal.tsx` (~425 líneas) — Modal + blob download
 
 **Archivos modificados:**
-- `backend/requirements.txt` — Pillow, qrcode
+- `backend/requirements.txt` — Pillow (la dependencia `qrcode` se retiró: nadie la usaba)
 - `backend/app/main.py` — Registrar router
 - `frontend/src/app/encuestas/[id]/EncuestaDetailClient.tsx` — Botón trigger
 
@@ -207,7 +207,7 @@
 - **Generación:** Pillow (simple, confiable, sin dependencias externas)
 - **Descarga:** Blob PNG + `Content-Disposition: attachment` (descarga automática en navegador)
 - **Storage:** No guardar en Supabase (cada descarga es nueva generación; caché en Redis por metadata)
-- **QR:** Generado en backend como data URL base64, embebido en PNG
+- **QR:** la imagen generada no lleva QR. El QR vive en el frontend (`react-qr-code`: `ShareQR`, detalle de encuesta y admin).
 
 **Características por tipo de pregunta:**
 
@@ -225,14 +225,14 @@
 
 **Implementación técnica:**
 - **Backend:** `_generate_image_pillow()` renderiza PNG con PIL.ImageDraw (primitivos)
-- **QR:** `_generate_qr_image()` → PIL Image (120x120px)
+- **QR:** no hay QR en la imagen (se retiró `_generate_qr_image`, código muerto que nadie llamaba).
 - **Descarga:** Endpoint retorna `StreamingResponse(io.BytesIO(image_bytes), headers={"Content-Disposition": "attachment"})`
 - **Frontend:** `fetch() → blob → URL.createObjectURL() → link.download`
 
 **Datos mostrados:**
 - ✅ Header: BEACON CHILE + categoría + badge RESULTADOS VERIFICADOS
 - ✅ Pregunta: multi-línea con wrapping
-- ✅ QR: apunta a `{settings.FRONTEND_URL}/encuestas/{slug}` (`poll_public_url`; sin barra final). Antes estaba fijo en `https://beaconchile.cl`. El texto de marca del pie y del CTA («beaconchile.cl») sigue siendo texto fijo, no un enlace.
+- ✅ Sin QR en la imagen: el pie y el CTA llevan solo el texto de marca «beaconchile.cl» (no es un enlace).
 - ✅ Opciones: etiqueta + barra + "N (X%)"
 - ✅ Footer: votos verificados + totales + dominio
 - ✅ Background: header_image con blur + opacidad
@@ -260,7 +260,7 @@
 - Gestión de espacio: FOOTER_H 170px, márgenes 60px consistentes
 
 **Pendientes:**
-- [x] QR dinámico (settings.FRONTEND_URL)
+- [x] QR dinámico — resuelto: no existía QR en las imágenes; el del frontend ya usa www
 - [ ] Test en Render + Vercel
 
 ---
