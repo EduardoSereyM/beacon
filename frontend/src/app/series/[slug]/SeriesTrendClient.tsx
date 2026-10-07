@@ -13,10 +13,13 @@ import TrendChart, { lineColor } from "@/components/series/TrendChart";
 import {
   buildChartData,
   cadenceLabel,
+  casesSummary,
   eventPointIndex,
   selectableQuestions,
+  supportsTop3,
   weightingSummary,
   type Group,
+  type ScaleMetric,
   type SeriesTrend,
 } from "@/lib/series";
 
@@ -40,8 +43,13 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
   const questions = useMemo(() => selectableQuestions(points), [points]);
   const [questionId, setQuestionId] = useState(questions[0]?.id ?? "");
   const [group, setGroup] = useState<Group>("verified");
+  const [metric, setMetric] = useState<ScaleMetric>("average");
 
-  const chart = useMemo(() => buildChartData(points, questionId, group), [points, questionId, group]);
+  const top3 = useMemo(() => supportsTop3(points, questionId), [points, questionId]);
+  // Al cambiar a una pregunta que no admite «% notas 5 a 7», la métrica efectiva vuelve a promedio.
+  const activeMetric: ScaleMetric = top3 ? metric : "average";
+  const chart = useMemo(() => buildChartData(points, questionId, group, activeMetric), [points, questionId, group, activeMetric]);
+  const cases = useMemo(() => (chart ? casesSummary(points, chart, group) : null), [points, chart, group]);
   const weighting = useMemo(() => weightingSummary(points), [points]);
   const latest = points[points.length - 1];
   const plottedEvents = events
@@ -121,6 +129,22 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
             </p>
           )}
 
+          {top3 && (
+            <div role="group" aria-label="Métrica de la escala" style={{ display: "flex", gap: 6, margin: "0 0 10px" }}>
+              {([["average", "Promedio"], ["top3", "% notas 5 a 7"]] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={activeMetric === id}
+                  onClick={() => setMetric(id)}
+                  style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${activeMetric === id ? "#00E5FF" : "rgba(255,255,255,0.15)"}`, background: activeMetric === id ? "rgba(0,229,255,0.12)" : "transparent", color: activeMetric === id ? "#00E5FF" : "rgba(255,255,255,0.6)" }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
           <TrendChart points={points} chart={chart} events={events} cadence={series.cadence} />
 
           <ul aria-label="Leyenda" style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", listStyle: "none", padding: 0, margin: "10px 0 0" }}>
@@ -131,6 +155,17 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
               </li>
             ))}
           </ul>
+
+          {cases && (
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "12px 0 0" }}>
+              <strong style={{ color: "rgba(255,255,255,0.8)" }}>Casos:</strong> {cases.n.toLocaleString("es-CL")}
+              {cases.nEff !== null && <> (equivalen a {Math.round(cases.nEff).toLocaleString("es-CL")} tras ponderar)</>}
+              {" · "}
+              <strong style={{ color: "rgba(255,255,255,0.8)" }}>Terreno:</strong> {cases.label}
+              {cases.isOpen ? " (en curso)" : ""}
+              {activeMetric === "top3" ? " · Notas de 1 a 7: «% notas 5 a 7» suma las notas 5, 6 y 7." : ""}
+            </p>
+          )}
 
           {plottedEvents.length > 0 && (
             <ol style={{ listStyle: "none", padding: 0, margin: "14px 0 0", fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
