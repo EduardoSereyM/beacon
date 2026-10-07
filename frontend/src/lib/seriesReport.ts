@@ -9,6 +9,7 @@
 import type { SeriesTrend, TrendPoint, TrendQuestion } from "@/lib/series";
 
 const NO_ANSWER = /^no (sabe|responde)/i;
+const FIXED_OPTION = /^(otra|no sabe|no responde)/i;
 export const NOT_ENOUGH = "Aún no hay suficientes respuestas verificadas para publicar resultados (mínimo 30).";
 
 export interface Headline {
@@ -24,14 +25,17 @@ export interface Headline {
 
 const pct = (value: number) => `${value.toLocaleString("es-CL", { maximumFractionDigits: 1 })}%`;
 
-function lead(question: TrendQuestion): { label: string; value: number }[] | null {
+function lead(question: TrendQuestion, agenda: boolean): { label: string; value: number }[] | null {
   const results = question.verified.suppressed ? null : question.verified.results;
   if (!results) return null;
   if (question.type === "scale") {
     const average = results[0]?.average;
     return average == null ? null : [{ label: "Nota promedio", value: average }];
   }
-  const options = results.filter((r) => !NO_ANSWER.test(r.option)).slice(0, 2);
+  // Agenda: las dos opciones más elegidas de la semana (las fijas «Otra…» y «No sabe» no titulan).
+  const options = agenda
+    ? results.filter((r) => !FIXED_OPTION.test(r.option)).sort((a, b) => b.pct - a.pct).slice(0, 2)
+    : results.filter((r) => !NO_ANSWER.test(r.option)).slice(0, 2);
   return options.length ? options.map((r) => ({ label: r.option, value: r.pct })) : null;
 }
 
@@ -49,17 +53,19 @@ export function seriesHeadline(trend: SeriesTrend): Headline {
   const empty: Headline = { text: NOT_ENOUGH, previous: null, n: null, edition: null, edition_label: null, available: false };
   if (!questionId) return empty;
 
+  const agenda = series.kind === "agenda";
   const withData = points
     .map((point) => ({ point, question: point.questions.find((q) => q.question_id === questionId) }))
-    .filter((entry): entry is { point: TrendPoint; question: TrendQuestion } => Boolean(entry.question && lead(entry.question)));
+    .filter((entry): entry is { point: TrendPoint; question: TrendQuestion } => Boolean(entry.question && lead(entry.question, agenda)));
   const current = withData[withData.length - 1];
   if (!current) return empty;
 
   const isScale = current.question.type === "scale";
-  const items = lead(current.question)!;
+  const items = lead(current.question, agenda)!;
   const before = withData.length > 1 ? withData[withData.length - 2] : null;
-  const sameVersion = before && before.point.template_version === current.point.template_version;
-  const previousItems = sameVersion ? lead(before.question) : null;
+  // En una agenda las opciones cambian cada semana: no hay edición anterior comparable.
+  const sameVersion = !agenda && before && before.point.template_version === current.point.template_version;
+  const previousItems = sameVersion ? lead(before.question, agenda) : null;
 
   return {
     text: `${series.title} · ${current.point.label}: ${formatLead(items, isScale)}`,

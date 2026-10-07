@@ -10,6 +10,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import AgendaOptionsEditor from "@/app/admin/series/AgendaOptionsEditor";
 import { adminFetch } from "@/lib/adminApi";
 import { cadenceLabel, type Cadence } from "@/lib/series";
 
@@ -18,6 +19,7 @@ interface SeriesItem {
   slug: string;
   title: string;
   cadence: Cadence;
+  kind?: "tracker" | "agenda";
   is_active: boolean;
   template_version: number;
   last_published_at: string | null;
@@ -148,7 +150,7 @@ export default function AdminSeriesPage() {
                       <Link href={`/series/${item.slug}`} style={{ color: "#00E5FF", textDecoration: "none", fontWeight: 700 }}>{item.title}</Link>
                       <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{item.slug}</div>
                     </td>
-                    <td style={{ padding: 8 }}>{cadenceLabel(item.cadence)}</td>
+                    <td style={{ padding: 8 }}>{cadenceLabel(item.cadence)}{item.kind === "agenda" ? " · agenda" : ""}</td>
                     <td style={{ padding: 8 }}>v{item.template_version}</td>
                     <td style={{ padding: 8 }}>{formatDateTime(item.last_published_at)}</td>
                     <td style={{ padding: 8, color: item.is_active ? "#39FF14" : "#D4AF37", fontWeight: 700 }}>{item.is_active ? "Activa" : "Pausada"}</td>
@@ -164,6 +166,12 @@ export default function AdminSeriesPage() {
           </div>
         )}
       </section>
+
+      {series.filter((s) => s.kind === "agenda" && s.is_active).map((s) => (
+        <section key={s.id} style={panel} aria-label={`Agenda: ${s.title}`}>
+          <AgendaOptionsEditor seriesId={s.id} title={s.title} />
+        </section>
+      ))}
 
       <section style={panel} aria-label="Eventos anotados">
         <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Eventos anotados</h2>

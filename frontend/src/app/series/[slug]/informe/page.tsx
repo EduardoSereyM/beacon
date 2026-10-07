@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PrintButton from "./PrintButton";
+import AgendaView from "@/components/series/AgendaView";
 import SegmentStrip from "@/components/series/SegmentStrip";
 import TrendChart, { lineColor } from "@/components/series/TrendChart";
 import {
@@ -18,6 +19,7 @@ import {
   cadenceLabel,
   casesSummary,
   eventPointIndex,
+  optionsFromSegments,
   selectableQuestions,
   weightingSummary,
   type ChartData,
@@ -78,6 +80,7 @@ export default async function InformePage({ params, searchParams }: Props) {
   const plottedEvents = events
     .map((event, number) => ({ ...event, number: number + 1, shown: eventPointIndex(points, event.date) !== null }))
     .filter((event) => event.shown);
+  const isAgenda = series.kind === "agenda";
   const generated = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric", timeZone: "America/Santiago" });
 
   return (
@@ -131,12 +134,16 @@ export default async function InformePage({ params, searchParams }: Props) {
         if (!chart) return null;
         const cases = casesSummary(points, chart, "verified");
         const segmentChart = segments
-          ? buildSegmentChart(segments, question.id, "average", chart.lines.filter((l) => !l.muted).map((l) => l.key))
+          ? buildSegmentChart(segments, question.id, "average", isAgenda ? optionsFromSegments(segments, question.id) : chart.lines.filter((l) => !l.muted).map((l) => l.key))
           : null;
         return (
           <section key={question.id} className="informe-section" style={{ ...card, marginTop: 24 }} aria-label={question.text}>
             <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 4px" }}>{question.text}</h2>
             <p style={{ fontSize: 12, margin: "0 0 10px", ...muted }}>Votos verificados, sin ponderar{chart.unit === "nota" ? " · promedio de la nota" : ""}.</p>
+            {isAgenda ? (
+              <AgendaView points={points} group="verified" minN={minN} limit={4} />
+            ) : (
+              <>
             <TrendChart points={points} chart={chart} events={events} cadence={series.cadence} />
             <Legend chart={chart} />
             {cases && (
@@ -150,6 +157,8 @@ export default async function InformePage({ params, searchParams }: Props) {
                   <li key={`${event.number}-${event.date}`}><strong style={{ color: "#f5f5f5" }}>{event.number}</strong> · {event.date.split("-").reverse().join("-")} — {event.label}</li>
                 ))}
               </ol>
+            )}
+              </>
             )}
             {segmentChart && segments && (
               <div style={{ marginTop: 16 }}>

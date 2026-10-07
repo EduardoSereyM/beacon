@@ -42,7 +42,14 @@ jobs:
           PIPELINE_API_KEY: ${{ secrets.PIPELINE_API_KEY }}
         run: |
           # --fail-with-body: el job falla con 4xx/5xx (500 si una serie falla o se
-          # pierde un audit) e imprime el resumen JSON en el log.
+          # pierde un audit); el resumen JSON se imprime siempre.
+          status=0
           curl --silent --show-error --fail-with-body --max-time 120 \
             -X POST "$BEACON_API_URL/admin/polls/series/publish-due" \
-            -H "Authorization: Bearer $PIPELINE_API_KEY"
+            -H "Authorization: Bearer $PIPELINE_API_KEY" -o summary.json || status=$?
+          cat summary.json; echo
+          # Una serie agenda sin opciones no es un fallo, pero alguien debe definirlas: aviso visible en el run.
+          if [ -s summary.json ] && [ "$(jq '(.awaiting_options // []) | length' summary.json)" != "0" ]; then
+            echo "::warning title=Series agenda sin opciones::Definir las opciones de la edición en /admin/series: $(jq -c '.awaiting_options' summary.json)"
+          fi
+          exit $status

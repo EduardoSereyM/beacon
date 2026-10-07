@@ -11,6 +11,8 @@
  */
 
 export type Cadence = "monthly" | "weekly";
+/** tracker: mismas opciones cada edición (se compara en el tiempo). agenda: las opciones cambian cada edición. */
+export type SeriesKind = "tracker" | "agenda";
 export type Group = "verified" | "total" | "weighted";
 /** Métrica de una escala: promedio, o % de notas 5 a 7 (solo escalas de 7 puntos, como en el colegio). */
 export type ScaleMetric = "average" | "top3";
@@ -75,6 +77,7 @@ export interface SeriesTrend {
     slug: string;
     title: string;
     cadence: Cadence;
+    kind?: SeriesKind;
     context: string | null;
     category: string | null;
     is_active: boolean;
@@ -316,7 +319,7 @@ export interface Segment {
 }
 
 export interface SegmentsData {
-  series: { slug: string; title: string; cadence: Cadence };
+  series: { slug: string; title: string; cadence: Cadence; kind?: SeriesKind };
   edition: string;
   label: string;
   is_open: boolean;
@@ -415,4 +418,17 @@ export function buildSegmentChart(data: SegmentsData, questionId: string, metric
     domain: [0, Math.min(100, top)],
     columns,
   };
+}
+
+/** Opciones de una pregunta tomadas de los segmentos (las de la edición actual; sirve a las series agenda). */
+export function optionsFromSegments(data: SegmentsData, questionId: string): string[] {
+  for (const segment of data.segments) {
+    for (const group of segment.groups) {
+      const row = group.questions.find((q) => q.question_id === questionId);
+      if (row?.results && row.type === "multiple_choice") {
+        return row.results.filter((r) => !/^(otra|no sabe|no responde)/i.test(r.option)).map((r) => r.option);
+      }
+    }
+  }
+  return [];
 }

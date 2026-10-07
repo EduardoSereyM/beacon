@@ -190,7 +190,7 @@ class TestPublish:
     async def test_publica_una_vez_y_registra_audit(self, _audit):
         sb = FakeSupabase([SERIES])
         summary = await publish_due_series(sb, "admin-1", now=NOW)
-        assert summary == {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["aprobacion-presidencial"], "skipped": [], "failed": [], "audit_failed": [], "snapshotted": [], "snapshot_failed": []}
+        assert summary == {"editions": {"monthly": "2026-10", "weekly": "2026-W41"}, "published": ["aprobacion-presidencial"], "skipped": [], "failed": [], "audit_failed": [], "awaiting_options": [], "snapshotted": [], "snapshot_failed": []}
         assert len(sb.db["polls"]) == 1
         assert sb.db["poll_series"][0]["last_published_at"] is not None
         assert [e["action"] for e in _audit] == ["SERIES_EDITION_PUBLISHED"]

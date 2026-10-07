@@ -54,6 +54,9 @@ class SeriesCreateIn(BaseModel):
     requires_auth: bool = True
     # Inmutable tras crear: cambiarla dejaría ediciones con formato de otra cadencia.
     cadence: Literal["monthly", "weekly"] = "monthly"
+    # tracker: mismas preguntas y opciones cada edición. agenda: misma pregunta, opciones curadas por edición.
+    # Inmutable tras crear, por la misma razón que la cadencia.
+    kind: Literal["tracker", "agenda"] = "tracker"
 
 
 class SeriesUpdateIn(BaseModel):
@@ -64,6 +67,17 @@ class SeriesUpdateIn(BaseModel):
     questions: Optional[List[QuestionDef]] = Field(None, min_length=1)
     requires_auth: Optional[bool] = None
     is_active: Optional[bool] = None
+
+
+def _validate_agenda_template(questions: List[QuestionDef]) -> None:
+    """Una serie agenda tiene una sola pregunta de opción única: sus opciones fijas (p. ej. «Otra noticia»)
+    quedan al final y las de cada semana se agregan antes."""
+    only = questions[0]
+    if len(questions) != 1 or only.type != "multiple_choice" or only.allow_multiple:
+        raise HTTPException(
+            status_code=400,
+            detail="Una serie agenda requiere exactamente una pregunta de opción única.",
+        )
 
 
 def _validate_questions(questions: List[QuestionDef]) -> None:
@@ -92,6 +106,8 @@ async def admin_list_series(admin: dict = Depends(require_admin_role)):
 @router.post("", summary="[ADMIN] Crear serie de encuestas", status_code=201)
 async def admin_create_series(body: SeriesCreateIn, admin: dict = Depends(require_admin_role)):
     _validate_questions(body.questions)
+    if body.kind == "agenda":
+        _validate_agenda_template(body.questions)
     supabase = get_async_supabase_client()
 
     slug = body.slug or _generate_slug(body.title)
@@ -108,6 +124,7 @@ async def admin_create_series(body: SeriesCreateIn, admin: dict = Depends(requir
         "questions": resolve_question_ids([q.model_dump() for q in body.questions], []),
         "requires_auth": body.requires_auth,
         "cadence": body.cadence,
+        "kind": body.kind,
         "created_by": admin["user_id"],
     }
     try:
@@ -128,7 +145,7 @@ async def admin_create_series(body: SeriesCreateIn, admin: dict = Depends(requir
         action="OVERLORD_ACTION_CREATE_POLL_SERIES",
         entity_type="POLL_SERIES",
         entity_id=series["id"],
-        details={"slug": slug, "title": body.title, "cadence": body.cadence, "questions": len(body.questions)},
+        details={"slug": slug, "title": body.title, "cadence": body.cadence, "kind": body.kind, "questions": len(body.questions)},
     )
     return {"series": series}
 
