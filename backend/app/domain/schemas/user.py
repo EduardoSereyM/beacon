@@ -11,9 +11,9 @@ Reglas de oro:
 "Lo que no pasa por Pydantic, no existe."
 """
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 import re
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime
 
 from app.domain.enums import UserRank
@@ -124,3 +124,23 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+# ─── Posición política (dato sensible, opcional) ───
+PoliticalPosition = Literal["Derecha", "Centro", "Izquierda", "Independiente"]
+
+
+class PoliticalPositionUpdate(BaseModel):
+    """
+    Autodeclaración opcional de posición política.
+    - `position` = None borra el dato y el consentimiento (retiro).
+    - Informar una posición exige `consent=True`: sin consentimiento expreso no se guarda nada.
+    """
+    position: Optional[PoliticalPosition] = Field(None, description="Derecha | Centro | Izquierda | Independiente; null para borrar")
+    consent: bool = Field(False, description="Consentimiento expreso para tratar este dato sensible")
+
+    @model_validator(mode="after")
+    def _consent_required(self) -> "PoliticalPositionUpdate":
+        if self.position is not None and not self.consent:
+            raise ValueError("Se requiere consentimiento expreso para guardar la posición política.")
+        return self

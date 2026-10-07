@@ -18,6 +18,7 @@
 
 "use client";
 
+import PoliticalPositionPanel from "@/components/profile/PoliticalPositionPanel";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore, BeaconUser } from "@/store";
@@ -114,6 +115,7 @@ interface UserProfile {
     gender?: string;
     birth_year?: number;
     verification_level?: number;
+    political_position?: string | null;
 }
 
 // ═══════════════════════════════════════════
@@ -728,6 +730,27 @@ export default function ProfilePage() {
                         )}
                     </form>
                 </div>
+
+                {/* ═══════════════════════════════════
+                    POSICIÓN POLÍTICA — opcional, dato sensible
+                ═══════════════════════════════════ */}
+                {token && (
+                    <div
+                        className={sectionClass}
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                    >
+                        <h2 className="text-[11px] font-bold uppercase tracking-widest mb-4" style={{ color: GOLD }}>
+                            Posición política (opcional)
+                        </h2>
+                        <PoliticalPositionPanel
+                            token={token}
+                            initial={user.political_position ?? null}
+                            inputClass={inputClass}
+                            labelClass={labelClass}
+                            inputStyle={selectStyle(true)}
+                        />
+                    </div>
+                )}
 
                 {/* ═══════════════════════════════════
                     SECCIÓN 3 — VERIFICACIÓN DE IDENTIDAD

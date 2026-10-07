@@ -34,6 +34,7 @@ export interface BeaconUser {
   region: string | null;
   age_range: string | null;
   gender: string | null;
+  political_position?: string | null;
   birth_year: number | null;
   created_at: string | null;
   role: string;

@@ -109,6 +109,11 @@ export default function MetodologiaPage() {
         Los datos demográficos de cada votante se usan solo dentro del cálculo y no se publican. Nunca se publican pesos ni respuestas individuales, y los
         cruces por grupo se suprimen cuando son demasiado pequeños para proteger a las personas.
       </p>
+      <p style={p}>
+        <strong>Posición política (opcional).</strong> Al verificarte puedes decir si te defines más de derecha, centro, izquierda o independiente. Es un dato
+        sensible: solo se guarda si lo autorizas expresamente, se usa únicamente de forma agregada y anónima, nunca se publica asociado a una persona, no se usa
+        para ponderar y puedes borrarlo cuando quieras desde tu perfil. Responderlo no cambia tu rango ni el valor de tu voto.
+      </p>
 
       <h2 id="versiones" style={h2}>Versiones y cambios</h2>
       <p style={p}>
