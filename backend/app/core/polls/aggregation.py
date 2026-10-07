@@ -71,13 +71,17 @@ def aggregate_votes(poll: dict, votes: list) -> list:
     return result
 
 
-def aggregate_by_question(poll: dict, votes: list) -> list:
+def aggregate_by_question(poll: dict, votes: list, weights: list[float] | None = None) -> list:
     """
     Agrega resultados separados por pregunta.
     - Polls multi-pregunta: option_value es JSON string {"qid": "respuesta", ...}
     - Polls de 1 pregunta (compat): option_value es string plano
+    - `weights` (opcional, alineado con `votes`): `pct` y `average` salen ponderados;
+      `count` y `total_votes` siguen siendo el número de respuestas sin ponderar.
     Retorna lista de {question_id, question_text, question_type, total_votes, results}.
     """
+    if weights is not None and len(weights) != len(votes):
+        raise ValueError("weights debe tener un peso por voto")
     questions = sorted(poll.get("questions") or [], key=lambda x: x.get("order_index", 0))
     if not questions:
         return []
@@ -92,48 +96,59 @@ def aggregate_by_question(poll: dict, votes: list) -> list:
 
         # Extraer la respuesta de cada voto para esta pregunta
         q_answers: list[str] = []
-        for v in votes:
+        q_weights: list[float] = []
+        for index, v in enumerate(votes):
             raw = v.get("option_value", "")
+            weight = 1.0 if weights is None else weights[index]
             if is_multi and raw.startswith("{"):
                 try:
                     parsed = _json.loads(raw)
                     if qid in parsed:
                         q_answers.append(parsed[qid])
+                        q_weights.append(weight)
                 except Exception:
                     pass
             elif not is_multi:
                 q_answers.append(raw)
+                q_weights.append(weight)
 
         q_total = len(q_answers)
+        w_total = sum(q_weights)
 
         if q_type == "multiple_choice":
             counts = {opt: 0 for opt in q_opts}
-            for a in q_answers:
+            w_counts = {opt: 0.0 for opt in q_opts}
+            for a, w in zip(q_answers, q_weights, strict=True):
                 for sel in (s.strip() for s in a.split("||") if s.strip()):
                     if sel in counts:
                         counts[sel] += 1
+                        w_counts[sel] += w
             q_results = [
-                {"option": opt, "count": cnt, "pct": round(cnt / q_total * 100, 1) if q_total else 0}
+                {"option": opt, "count": cnt, "pct": round(w_counts[opt] / w_total * 100, 1) if q_total else 0}
                 for opt, cnt in counts.items()
             ]
         elif q_type == "scale":
             scale_min, scale_max = scale_bounds(q)
             point_counts: dict = {}
+            point_weights: dict = {}
             values: list[float] = []
-            for a in q_answers:
+            value_weights: list[float] = []
+            for a, w in zip(q_answers, q_weights, strict=True):
                 try:
                     pt = float(a)
                     values.append(pt)
+                    value_weights.append(w)
                     key = str(int(pt))
                     point_counts[key] = point_counts.get(key, 0) + 1
+                    point_weights[key] = point_weights.get(key, 0.0) + w
                 except (ValueError, TypeError):
                     pass
-            avg = round(sum(values) / len(values), 2) if values else 0
+            avg = round(sum(v * w for v, w in zip(values, value_weights, strict=True)) / sum(value_weights), 2) if values else 0
             q_results = [
                 {
                     "option": str(pt),
                     "count": point_counts.get(str(pt), 0),
-                    "pct": round(point_counts.get(str(pt), 0) / q_total * 100, 1) if q_total else 0,
+                    "pct": round(point_weights.get(str(pt), 0.0) / w_total * 100, 1) if q_total else 0,
                 }
                 for pt in range(scale_min, scale_max + 1)
             ]

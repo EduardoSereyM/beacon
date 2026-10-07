@@ -12,6 +12,7 @@ from typing import Any
 
 from app.core.audit_logger import audit_bus
 from app.core.polls.aggregation import aggregate_by_question
+from app.core.polls_series.series_weighting import weight_edition
 
 logger = logging.getLogger("beacon.polls_series")
 
@@ -27,8 +28,13 @@ def _chunks(items: list[str]):
         yield items[start:start + IN_CHUNK]
 
 
-def build_snapshot_row(poll: dict[str, Any], votes: list[dict[str, Any]]) -> dict[str, Any]:
-    """Fila de `poll_results_snapshot` para una edición cerrada (función pura)."""
+def build_snapshot_row(
+    poll: dict[str, Any],
+    votes: list[dict[str, Any]],
+    weighting: tuple[list[dict[str, Any]] | None, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Fila de `poll_results_snapshot` para una edición cerrada (función pura).
+    `weighting` = (resultados ponderados o None, metadatos) de series_weighting.weight_edition."""
     verified = [v for v in votes if v.get("voter_rank") == "VERIFIED"]
     return {
         "poll_id": poll["id"],
@@ -39,6 +45,8 @@ def build_snapshot_row(poll: dict[str, Any], votes: list[dict[str, Any]]) -> dic
         "verified_votes": len(verified),
         "results_total": aggregate_by_question(poll, votes),
         "results_verified": aggregate_by_question(poll, verified),
+        "results_weighted": weighting[0] if weighting else None,
+        "weighting_meta": weighting[1] if weighting else None,
         "closed_at": str(poll["ends_at"]),
     }
 
@@ -63,9 +71,9 @@ async def _pending_poll_ids(supabase, cutoff: str) -> list[str]:
 
 async def _snapshot_one(supabase, poll: dict[str, Any], actor_id: str) -> None:
     votes = await (
-        supabase.table("poll_votes").select("option_value, voter_rank").eq("poll_id", poll["id"]).execute()
+        supabase.table("poll_votes").select("user_id, option_value, voter_rank").eq("poll_id", poll["id"]).execute()
     )
-    row = build_snapshot_row(poll, votes.data or [])
+    row = build_snapshot_row(poll, votes.data or [], await weight_edition(supabase, poll, votes.data or []))
     await supabase.table("poll_results_snapshot").insert(row).execute()
     logger.info(f"series: snapshot | poll={poll['id']} | edition={poll['edition']} | votes={row['total_votes']}")
     # El snapshot ya existe y no se borra: si el audit falla se reporta, no se oculta.
@@ -79,6 +87,7 @@ async def _snapshot_one(supabase, poll: dict[str, Any], actor_id: str) -> None:
             "edition": poll["edition"],
             "total_votes": row["total_votes"],
             "verified_votes": row["verified_votes"],
+            "weighting_status": (row["weighting_meta"] or {}).get("status"),
         },
         raise_on_error=True,
     )
