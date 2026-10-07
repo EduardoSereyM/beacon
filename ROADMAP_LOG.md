@@ -51,6 +51,15 @@
 - **PR 2 mergeado (#20).** **PR 3 (en revisión):** `/admin/series` (ítem «Series» en el menú del Overlord): lista con cadencia, versión y última edición, pausar/activar, y alta/baja de eventos anotados (borrado en dos pasos, sin diálogos del navegador). Crear una serie sigue siendo por API (`POST /admin/polls/series`): un editor de preguntas en UI duplicaría el de `/admin/polls` (1.100 líneas); conviene extraerlo antes. F4 queda completa salvo ese editor.
 - **Deuda:** `admin/layout.tsx` autoriza solo con `localStorage` (rol del usuario guardado en el navegador); la seguridad real la pone el backend (`require_admin_role`), pero el layout no verifica contra el servidor. Además `frontend` no tiene corredor de tests; la lógica de `lib/series.ts` se validó con un script ad hoc.
 
+### F5 — Ponderación de resultados (2026-10-07, PR 1 de 3: núcleo puro)
+- **Decisión:** ponderar desde el inicio (raking por región/zona, sexo y grupo de edad hacia marginales del INE, población de 18 años o más), **con compuertas automáticas**: hoy hay 4 votantes verificados y ponderar sería estadísticamente vacío, así que la vista ponderada solo se publica cuando los datos la sostienen.
+- **Compuertas (`core/weighting/config.py`, v1):** ≥ 200 votantes con todos los datos demográficos; ≥ 5 por categoría; n efectivo (Kish) ≥ 100 tras ponderar; el ajuste debe converger con pesos recortados a [0,3 ; 3,0]. Si falla alguna: `unavailable` con los motivos en lenguaje claro; nunca una cifra.
+- **No se publica margen de error** (muestra no probabilística): se publica el n efectivo y el efecto de diseño.
+- **Qué no corrige:** la autoselección en lo que no se observa. Cadem pondera además por voto en la segunda vuelta 2025; Beacon **no recolecta** datos políticos de este tipo (sensibles; riesgo legal y de privacidad).
+- **PR 1 (este):** `app/core/weighting/` (`config`, `targets`, `raking`, `stats`, `eligibility`, `engine`) + 18 tests sintéticos. Función pura, sin I/O, sin cambios de API.
+- **PR 2:** marginales reales del INE (proyecciones 2026, versionadas, con fuente), migración 027 (`results_weighted` y metadatos en el snapshot), tercer grupo `weighted` en `/series/{slug}/trend`, cambio de configuración auditado.
+- **PR 3:** botón «Ponderado» (deshabilitado con el motivo), página `/metodologia` y ajuste del copy («Una persona, un voto: cada voto verificado corresponde a una identidad validada»; se retiran «es real», «grupo seleccionado» y «sin bots»).
+
 ### Rollout: Encuestas mensuales recurrentes
 - [x] 1. Confirmar `poll_votes.user_id` = uuid:
       `SELECT data_type FROM information_schema.columns WHERE table_name='poll_votes' AND column_name='user_id';`
