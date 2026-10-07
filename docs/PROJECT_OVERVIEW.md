@@ -27,7 +27,7 @@ Beacon es la primera plataforma de opinión ciudadana abierta y verificada de Ch
 
 ### Funcionalidades en Roadmap (P3/P4)
 - **P3 — Versus** — votación head-to-head entre dos entidades
-- **P3 — Series de Encuestas Recurrentes** — series mensuales (Barómetro Beacon) y semanales (Pulso Beacon, lunes 04:00 hora Chile) que se republican solas; en producción. Tendencia pública en `/series/[slug]` (gráfico SVG propio, eventos anotados, grupos con n < 30 no publican resultados). Pendiente: admin de series (PR 3), ponderación y ficha metodológica
+- **P3 — Series de Encuestas Recurrentes** — series mensuales (Barómetro Beacon) y semanales (Pulso Beacon, lunes 04:00 hora Chile) que se republican solas; en producción. Tendencia pública en `/series/[slug]` (gráfico SVG propio, eventos anotados, grupos con n < 30 no publican resultados). Admin de series en `/admin/series`; ponderación por raking hacia el Censo 2024 (zona, sexo, edad) con compuertas, que solo se publica con datos suficientes; ficha pública en `/metodologia`
 - **P3 — Propuesta Ciudadana** — usuarios verificados pueden sugerir nuevas preguntas
 - **P4 — Informes B2B** — análisis segmentado para medios y empresas (pago)
 - **P4 — Filtros Geográficos** — páginas `/politicos`, `/empresas` con región/comuna/partido

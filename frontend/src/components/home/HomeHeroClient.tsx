@@ -73,7 +73,7 @@ export default function HomeHeroClient() {
                         <br />
                         No necesitas que te elijan para que te escuchen. 
                         <br />
-                        Cada voto cuenta porque cada persona es real. Sin bots, sin multicuentas, sin panel desconocido.
+                        Verificamos la identidad de cada votante: una persona, un voto.
                     </p>
                 </div>
 

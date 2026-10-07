@@ -15,13 +15,15 @@ import {
   cadenceLabel,
   eventPointIndex,
   selectableQuestions,
+  weightingSummary,
   type Group,
   type SeriesTrend,
 } from "@/lib/series";
 
 const GROUPS: { id: Group; label: string; hint: string }[] = [
-  { id: "verified", label: "Verificados", hint: "Solo votos con identidad verificada" },
-  { id: "total", label: "Todos", hint: "Verificados y básicos" },
+  { id: "verified", label: "Verificados", hint: "Solo votos con identidad verificada, sin ponderar" },
+  { id: "weighted", label: "Ponderado", hint: "Votos verificados ajustados a la población por zona, sexo y edad" },
+  { id: "total", label: "Todos", hint: "Verificados y básicos, sin ponderar" },
 ];
 
 const card = {
@@ -40,6 +42,7 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
   const [group, setGroup] = useState<Group>("verified");
 
   const chart = useMemo(() => buildChartData(points, questionId, group), [points, questionId, group]);
+  const weighting = useMemo(() => weightingSummary(points), [points]);
   const latest = points[points.length - 1];
   const plottedEvents = events
     .map((event, index) => ({ ...event, number: index + 1, plotted: eventPointIndex(points, event.date) !== null }))
@@ -86,20 +89,37 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
               </select>
             </label>
             <div role="group" aria-label="Grupo de votantes" style={{ display: "flex", gap: 6, alignSelf: "flex-end" }}>
-              {GROUPS.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  title={g.hint}
-                  aria-pressed={group === g.id}
-                  onClick={() => setGroup(g.id)}
-                  style={{ padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${group === g.id ? "#00E5FF" : "rgba(255,255,255,0.15)"}`, background: group === g.id ? "rgba(0,229,255,0.12)" : "transparent", color: group === g.id ? "#00E5FF" : "rgba(255,255,255,0.6)" }}
-                >
-                  {g.label}
-                </button>
-              ))}
+              {GROUPS.map((g) => {
+                const locked = g.id === "weighted" && !weighting.available;
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    title={locked ? weighting.reason ?? g.hint : g.hint}
+                    aria-pressed={group === g.id}
+                    disabled={locked}
+                    onClick={() => setGroup(g.id)}
+                    style={{ padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.45 : 1, border: `1px solid ${group === g.id ? "#00E5FF" : "rgba(255,255,255,0.15)"}`, background: group === g.id ? "rgba(0,229,255,0.12)" : "transparent", color: group === g.id ? "#00E5FF" : "rgba(255,255,255,0.6)" }}
+                  >
+                    {g.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          {!weighting.available && (
+            <p style={{ fontSize: 12, color: "#D4AF37", margin: "0 0 10px", lineHeight: 1.5 }}>
+              Vista ponderada no disponible: {weighting.reason} <Link href="/metodologia#ponderacion" style={{ color: "#00E5FF" }}>Por qué →</Link>
+            </p>
+          )}
+          {group === "weighted" && weighting.latest?.status === "ok" && (
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", margin: "0 0 10px", lineHeight: 1.5 }}>
+              Ajustado por zona, sexo y edad a la población de 18 años o más (Censo 2024). Última edición: {weighting.latest.n_complete} votantes con todos los datos,
+              equivalentes a {Math.round(weighting.latest.n_eff ?? 0)} por el efecto de la ponderación.{" "}
+              <Link href="/metodologia#ponderacion" style={{ color: "#00E5FF" }}>Cómo se calcula →</Link>
+            </p>
+          )}
 
           <TrendChart points={points} chart={chart} events={events} cadence={series.cadence} />
 
@@ -145,7 +165,7 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
                         return (
                           <td key={line.key} style={{ padding: "6px 8px", color: value === null ? "rgba(255,255,255,0.35)" : "#f5f5f5" }}>
                             {value === null
-                              ? chart.ns[i] !== null && chart.ns[i]! < minN ? "n insuficiente" : "—"
+                              ? chart.ns[i] !== null ? chart.holeReason : "—"
                               : `${value.toLocaleString("es-CL", { maximumFractionDigits: 1 })}${chart.unit === "%" ? "%" : ""}`}
                           </td>
                         );
@@ -161,9 +181,11 @@ export default function SeriesTrendClient({ trend }: { trend: SeriesTrend }) {
 
       <aside style={{ marginTop: 20, fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.5)" }}>
         <strong style={{ color: "rgba(255,255,255,0.75)" }}>Cómo leer estos datos.</strong> Son respuestas de quienes participan en
-        Beacon Chile, sin ponderar: no representan a toda la población. Cada persona vota una vez por edición. Solo se
-        muestran grupos con al menos {minN} respuestas en esa pregunta; con menos, el punto queda en blanco. Si la pregunta
-        cambia, la línea se corta.
+        Beacon Chile: no son una muestra probabilística ni representan por sí solas a toda la población. «Verificados» y «Todos» no
+        están ponderados; «Ponderado» ajusta la composición por zona, sexo y edad, pero no corrige que participe quien quiere
+        participar. Cada persona vota una vez por edición. Solo se muestran grupos con al menos {minN} respuestas en esa
+        pregunta; con menos, el punto queda en blanco. Si la pregunta cambia, la línea se corta.{" "}
+        <Link href="/metodologia" style={{ color: "#00E5FF" }}>Metodología completa →</Link>
       </aside>
     </main>
   );
