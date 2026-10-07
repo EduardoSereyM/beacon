@@ -2059,7 +2059,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
         {/* ══════════════════════════════════════════
          *  COMENTARIOS / REACCIONES CIUDADANAS
          * ══════════════════════════════════════════ */}
-        <PollCommentsSection pollId={poll.id} pollSlug={poll.slug} isOpen={poll.is_open} />
+        <PollCommentsSection pollId={poll.id} />
 
       </div>
 
@@ -2069,10 +2069,7 @@ export default function EncuestaDetailClient({ params }: EncuestaPageProps) {
           open={downloadModalOpen}
           onClose={() => setDownloadModalOpen(false)}
           slug={poll.slug}
-          title={poll.title}
           questions={poll.questions || []}
-          totalVotes={poll.total_votes}
-          verifiedVotes={poll.verified_votes}
         />
       )}
     </div>

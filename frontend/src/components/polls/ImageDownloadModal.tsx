@@ -14,10 +14,7 @@ interface ImageDownloadModalProps {
   open: boolean;
   onClose: () => void;
   slug: string;
-  title: string;
   questions: Question[];
-  totalVotes: number;
-  verifiedVotes: number;
 }
 
 export default function ImageDownloadModal({

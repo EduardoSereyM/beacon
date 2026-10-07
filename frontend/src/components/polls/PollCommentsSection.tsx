@@ -47,8 +47,6 @@ function rankColor(rank: string): string {
 
 interface PollCommentsSectionProps {
   pollId: string;
-  pollSlug: string;
-  isOpen: boolean;
 }
 
 export default function PollCommentsSection({ pollId }: PollCommentsSectionProps) {

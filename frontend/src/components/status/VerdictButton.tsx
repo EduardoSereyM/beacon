@@ -19,7 +19,6 @@ type VoteStatus = "idle" | "loading" | "voted" | "error";
 interface VerdictButtonProps {
     rank: UserRank;
     onVerdict?: () => Promise<void>;
-    entityName?: string;
     voteStatus?: VoteStatus;
     voteMessage?: string;
 }
