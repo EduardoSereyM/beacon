@@ -14,14 +14,14 @@ import pytest
 
 from app.api.v1.endpoints import images
 from app.services import image_service
-from tests.test_image_service import POLL, PNG_MAGIC, _FakeSupabase, _vote
+from tests.test_image_service import POLL, PNG_MAGIC, _supabase, _vote
 
 URL = f"/images/polls/{POLL['slug']}/generate"
 
 
 @pytest.fixture
 def client(monkeypatch):
-    supabase = _FakeSupabase(polls=[POLL], votes=[_vote("Aprueba"), _vote("Desaprueba", rank="BASIC")])
+    supabase = _supabase(polls=[POLL], votes=[_vote("Aprueba"), _vote("Desaprueba", rank="BASIC")])
     monkeypatch.setattr(image_service, "get_async_supabase_client", lambda: supabase)
     app = FastAPI()
     app.include_router(images.router)
@@ -51,6 +51,7 @@ class TestGenerateEndpoint:
     def test_encuesta_inexistente_es_404_y_no_se_cachea(self, client):
         res = client.get("/images/polls/no-existe/generate", params={"question_id": "q1"})
         assert res.status_code == 404
+        assert "Poll not found" in res.json()["detail"]
         assert "cache-control" not in res.headers
 
     def test_pregunta_inexistente_es_404_y_no_se_cachea(self, client):

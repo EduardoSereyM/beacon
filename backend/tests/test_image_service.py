@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.core.polls.aggregation import aggregate_by_question
 from app.services import image_service
+from tests.fake_supabase import FakeSupabase
 from app.services.image_service import (
     _results_for_render,
     _get_font,
@@ -60,43 +61,14 @@ def _vote(option, rank="VERIFIED", question_id="q1", plain=False):
 
 # ═══ Dobles de prueba ═══
 
-class _Resp:
-    def __init__(self, data):
-        self.data = data
-
-
-class _Table:
-    def __init__(self, db, name):
-        self.db, self.name, self.filters, self.one = db, name, {}, False
-
-    def select(self, *_):
-        return self
-
-    def eq(self, key, value):
-        self.filters[key] = value
-        return self
-
-    def single(self):
-        self.one = True
-        return self
-
-    async def execute(self):
-        rows = [r for r in self.db.get(self.name, []) if all(r.get(k) == v for k, v in self.filters.items())]
-        if self.one:
-            return _Resp(rows[0] if rows else None)
-        return _Resp(rows)
-
-
-class _FakeSupabase:
-    """Solo lo que usa el servicio: polls (.single) y poll_votes (lista)."""
-
-    def __init__(self, polls=None, votes=None):
-        self.db = {"polls": polls or [], "poll_votes": votes or []}
-        self.used = False
-
-    def table(self, name):
-        self.used = True
-        return _Table(self.db, name)
+def _supabase(polls=None, votes=None):
+    """FakeSupabase compartido (fiel al cliente real: `.single()` lanza si no hay fila) con los votos
+    ligados a su encuesta por `poll_id`, como en la tabla poll_votes."""
+    polls = polls or []
+    sb = FakeSupabase(polls=polls)
+    poll_id = polls[0]["id"] if polls else None
+    sb.db["poll_votes"] = [{**v, "poll_id": poll_id} for v in (votes or [])]
+    return sb
 
 
 @pytest.fixture
@@ -104,7 +76,7 @@ def servicio(monkeypatch):
     """Instala el Supabase falso en el módulo y lo devuelve."""
 
     def instalar(supabase=None):
-        supabase = supabase or _FakeSupabase(polls=[POLL], votes=[])
+        supabase = supabase or _supabase(polls=[POLL], votes=[])
         monkeypatch.setattr(image_service, "get_async_supabase_client", lambda: supabase)
         return supabase
 
@@ -321,7 +293,7 @@ class TestRenderPollImage:
     @pytest.mark.parametrize("formato,tamano", [("1080x1080", (1080, 1080)), ("1200x630", (1200, 630))])
     async def test_png_valido_con_el_tamano_del_formato(self, servicio, formato, tamano):
         votos = [_vote("Aprueba"), _vote("Desaprueba", rank="BASIC"), _vote("Aprueba")]
-        servicio(_FakeSupabase(polls=[POLL], votes=votos))
+        servicio(_supabase(polls=[POLL], votes=votos))
         res = await render_poll_image(POLL["slug"], "q1", formato)
         img = _abrir(res["image_bytes"])
         assert img.format == "PNG" and img.mode == "RGB" and img.size == tamano
@@ -329,8 +301,25 @@ class TestRenderPollImage:
         assert set(res) == {"image_bytes", "download_name"}  # sin campos de caché
 
     @pytest.mark.asyncio
+    async def test_la_imagen_se_calcula_con_los_votos_de_su_encuesta(self, servicio, monkeypatch):
+        capturado = {}
+        real = image_service._generate_image_pillow
+
+        def espia(**kwargs):
+            capturado.update(kwargs)
+            return real(**kwargs)
+
+        monkeypatch.setattr(image_service, "_generate_image_pillow", espia)
+        sb = servicio(_supabase(polls=[POLL], votes=[_vote("Aprueba"), _vote("Desaprueba", rank="BASIC"), _vote("Aprueba")]))
+        sb.db["poll_votes"].append({**_vote("No sabe"), "poll_id": "otra-encuesta"})  # no debe contarse
+        await render_poll_image(POLL["slug"], "q1", "1080x1080")
+        assert capturado["total_votes"] == 3 and capturado["verified_votes"] == 2
+        resultados = capturado["question_results"]["results"]
+        assert [(r["option"], r["count"]) for r in resultados] == [("Aprueba", 2), ("Desaprueba", 1), ("No sabe", 0)]
+
+    @pytest.mark.asyncio
     async def test_dos_llamadas_seguidas_devuelven_una_imagen_no_vacia(self, servicio):
-        servicio(_FakeSupabase(polls=[POLL], votes=[_vote("Aprueba")]))
+        servicio(_supabase(polls=[POLL], votes=[_vote("Aprueba")]))
         primera = await render_poll_image(POLL["slug"], "q1", "1080x1080")
         segunda = await render_poll_image(POLL["slug"], "q1", "1080x1080")
         for res in (primera, segunda):
@@ -340,21 +329,21 @@ class TestRenderPollImage:
     @pytest.mark.asyncio
     async def test_pregunta_de_escala(self, servicio):
         votos = [_vote("4", question_id="q2"), _vote("5", question_id="q2", rank="BASIC")]
-        servicio(_FakeSupabase(polls=[POLL], votes=votos))
+        servicio(_supabase(polls=[POLL], votes=votos))
         res = await render_poll_image(POLL["slug"], "q2", "1080x1080")
         assert _abrir(res["image_bytes"]).size == (1080, 1080)
 
     @pytest.mark.asyncio
     async def test_encuesta_de_una_pregunta_con_votos_en_texto_plano(self, servicio):
         votos = [_vote("Aprueba", plain=True), _vote("Aprueba", plain=True, rank="BASIC")]
-        servicio(_FakeSupabase(polls=[POLL_UNA], votes=votos))
+        servicio(_supabase(polls=[POLL_UNA], votes=votos))
         res = await render_poll_image(POLL_UNA["slug"], "q1", "1200x630")
         assert _abrir(res["image_bytes"]).size == (1200, 630)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("pregunta", ["q1", "q2"])
     async def test_sin_votos_genera_la_imagen_con_0_por_ciento(self, servicio, pregunta):
-        servicio(_FakeSupabase(polls=[POLL], votes=[]))
+        servicio(_supabase(polls=[POLL], votes=[]))
         res = await render_poll_image(POLL["slug"], pregunta, "1200x630")
         assert _abrir(res["image_bytes"]).size == (1200, 630)
 
@@ -365,18 +354,20 @@ class TestRenderPollImage:
 
         monkeypatch.setattr(image_service, "urlopen", sin_red)
         poll = {**POLL, "header_image": "https://ejemplo.invalid/cabecera.png"}
-        servicio(_FakeSupabase(polls=[poll], votes=[_vote("Aprueba")]))
+        servicio(_supabase(polls=[poll], votes=[_vote("Aprueba")]))
         res = await render_poll_image(poll["slug"], "q1", "1080x1080")
         assert _abrir(res["image_bytes"]).size == (1080, 1080)
 
     @pytest.mark.asyncio
     async def test_encuesta_inexistente_lanza_value_error(self, servicio):
-        servicio(_FakeSupabase(polls=[], votes=[]))
+        # Con el cliente real, .single() lanzaría APIError aquí (el fake lo reproduce): el servicio debe
+        # traducir "sin fila" a ValueError para que el endpoint responda 404 y no 500.
+        servicio(_supabase(polls=[], votes=[]))
         with pytest.raises(ValueError, match="Poll not found"):
             await render_poll_image("no-existe", "q1", "1080x1080")
 
     @pytest.mark.asyncio
     async def test_pregunta_inexistente_lanza_value_error(self, servicio):
-        servicio(_FakeSupabase(polls=[POLL], votes=[]))
+        servicio(_supabase(polls=[POLL], votes=[]))
         with pytest.raises(ValueError, match="Question not found"):
             await render_poll_image(POLL["slug"], "no-existe", "1080x1080")

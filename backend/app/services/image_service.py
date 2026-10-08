@@ -52,8 +52,10 @@ async def render_poll_image(
     supabase = get_async_supabase_client()
 
     # Fetch poll y votos
-    poll_resp = await supabase.table("polls").select("*").eq("slug", poll_slug).single().execute()
-    poll = poll_resp.data
+    # .limit(1) y no .single(): con el cliente real, .single() lanza APIError (PGRST116) si no hay fila
+    # y el endpoint respondería 500 en vez de 404.
+    poll_resp = await supabase.table("polls").select("*").eq("slug", poll_slug).limit(1).execute()
+    poll = poll_resp.data[0] if poll_resp.data else None
     if not poll:
         raise ValueError(f"Poll not found: {poll_slug}")
 
