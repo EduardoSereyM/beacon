@@ -2,7 +2,7 @@
 BEACON PROTOCOL — Tests de humo: servicio de imagen de resultados
 =================================================================
 Cubre `render_poll_image` y sus helpers (`_wrap_text`, `_get_font`,
-`_calculate_question_results`, `_parse_format`). Sin red ni base de datos: datos
+`_results_for_render`, `_parse_format`). Sin red ni base de datos: datos
 sintéticos y un Supabase mínimo en memoria. El tamaño y el formato de la imagen
 se verifican abriendo el PNG con Pillow.
 """
@@ -13,9 +13,10 @@ import json
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
+from app.core.polls.aggregation import aggregate_by_question
 from app.services import image_service
 from app.services.image_service import (
-    _calculate_question_results,
+    _results_for_render,
     _get_font,
     _parse_format,
     _wrap_text,
@@ -188,55 +189,55 @@ class TestWrapText:
         assert lineas[0] == "corto" and lineas[-1] == "fin"
 
 
-# ═══ _calculate_question_results ═══
+# ═══ _results_for_render ═══
 
-class TestCalculateQuestionResults:
+class TestResultsForRender:
     def test_opcion_unica_cuenta_porcentajes_y_ordena_por_votos(self):
         votos = [_vote("Desaprueba"), _vote("Desaprueba"), _vote("Aprueba"), _vote("Desaprueba")]
-        res = _calculate_question_results(POLL, "q1", votos)
+        res = _results_for_render(POLL, "q1", votos)
         assert res["question_type"] == "multiple_choice" and res["question_text"] == QUESTION_MC["text"]
         assert [(r["option"], r["count"], r["pct"]) for r in res["results"]] == [
             ("Desaprueba", 3, 75.0), ("Aprueba", 1, 25.0), ("No sabe", 0, 0),
         ]
 
     def test_sin_votos_todas_las_opciones_en_cero(self):
-        res = _calculate_question_results(POLL, "q1", [])
+        res = _results_for_render(POLL, "q1", [])
         assert [r["option"] for r in res["results"]] == ["Aprueba", "Desaprueba", "No sabe"]
         assert all(r["count"] == 0 and r["pct"] == 0 for r in res["results"])
 
     def test_solo_cuenta_los_votos_de_esa_pregunta(self):
         votos = [_vote("Aprueba"), _vote("3", question_id="q2"), {"option_value": json.dumps({"q1": "Aprueba", "q2": "5"})}]
-        res = _calculate_question_results(POLL, "q1", votos)
+        res = _results_for_render(POLL, "q1", votos)
         assert res["results"][0]["option"] == "Aprueba" and res["results"][0]["count"] == 2
-        scale = _calculate_question_results(POLL, "q2", votos)
+        scale = _results_for_render(POLL, "q2", votos)
         assert sum(r["count"] for r in scale["results"]) == 2
 
     def test_una_pregunta_el_voto_en_texto_plano_cuenta(self):
         # Diseño: en una encuesta de una sola pregunta el voto es texto plano, no JSON.
         votos = [_vote("Aprueba", plain=True), _vote("Aprueba", plain=True, rank="BASIC"), _vote("Desaprueba", plain=True)]
-        res = _calculate_question_results(POLL_UNA, "q1", votos)
+        res = _results_for_render(POLL_UNA, "q1", votos)
         assert [(r["option"], r["count"]) for r in res["results"]] == [("Aprueba", 2), ("Desaprueba", 1), ("No sabe", 0)]
         assert res["results"][0]["pct"] == pytest.approx(66.7)
 
     def test_una_pregunta_de_escala_con_voto_en_texto_plano(self):
         poll = {**POLL_UNA, "questions": [QUESTION_SCALE]}
         votos = [_vote("5", plain=True), _vote("5", plain=True), _vote("1", plain=True)]
-        res = _calculate_question_results(poll, "q2", votos)
+        res = _results_for_render(poll, "q2", votos)
         assert [r["count"] for r in res["results"]] == [1, 0, 0, 0, 2]
 
     def test_multi_pregunta_un_voto_en_texto_plano_no_se_cuenta(self):
         # En una encuesta multi-pregunta el voto es siempre un JSON: un texto plano no es un voto válido.
-        res = _calculate_question_results(POLL, "q1", [_vote("Aprueba", plain=True)])
+        res = _results_for_render(POLL, "q1", [_vote("Aprueba", plain=True)])
         assert all(r["count"] == 0 and r["pct"] == 0 for r in res["results"])
 
     def test_multi_pregunta_un_json_mal_formado_se_ignora(self):
         votos = [{"option_value": '{"q1": "Aprueba"', "voter_rank": "BASIC"}, _vote("Desaprueba")]
-        res = _calculate_question_results(POLL, "q1", votos)
+        res = _results_for_render(POLL, "q1", votos)
         assert [(r["option"], r["count"]) for r in res["results"]] == [("Desaprueba", 1), ("Aprueba", 0), ("No sabe", 0)]
 
     def test_escala_incluye_todos_los_puntos_con_su_etiqueta(self):
         votos = [_vote("5", question_id="q2"), _vote("5", question_id="q2"), _vote("1", question_id="q2")]
-        res = _calculate_question_results(POLL, "q2", votos)
+        res = _results_for_render(POLL, "q2", votos)
         assert res["question_type"] == "scale"
         assert [r["option"] for r in res["results"]] == [
             "1 — Muy mala", "2 — Mala", "3 — Regular", "4 — Buena", "5 — Muy buena",
@@ -246,13 +247,71 @@ class TestCalculateQuestionResults:
 
     def test_escala_sin_etiquetas_usa_los_numeros(self):
         poll = {"questions": [{"id": "q", "text": "t", "type": "scale", "scale_points": 3}]}
-        res = _calculate_question_results(poll, "q", [])
+        res = _results_for_render(poll, "q", [])
         assert [r["option"] for r in res["results"]] == ["1 — 1", "2 — 2", "3 — 3"]
         assert all(r["pct"] == 0 for r in res["results"])
 
     def test_pregunta_inexistente_lanza_value_error(self):
         with pytest.raises(ValueError, match="Question not found"):
-            _calculate_question_results(POLL, "no-existe", [])
+            _results_for_render(POLL, "no-existe", [])
+
+
+class TestResultsForRenderMultiSeleccionYEscalas:
+    def test_una_pregunta_con_seleccion_multiple_separa_las_opciones(self):
+        # POST /polls/{id}/vote guarda la selección múltiple como "a||b".
+        votos = [_vote("Aprueba||No sabe", plain=True), _vote("Aprueba", plain=True), _vote("Desaprueba", plain=True)]
+        res = _results_for_render(POLL_UNA, "q1", votos)
+        por_opcion = {r["option"]: (r["count"], r["pct"]) for r in res["results"]}
+        assert por_opcion == {"Aprueba": (2, 66.7), "Desaprueba": (1, 33.3), "No sabe": (1, 33.3)}
+        assert res["results"][0]["option"] == "Aprueba"  # la más votada primero
+
+    def test_escala_por_extremos_usa_el_rango_de_la_pregunta(self):
+        poll = {"questions": [{"id": "q", "text": "Del 2 al 6", "type": "scale", "scale_min": 2, "scale_max": 6}]}
+        res = _results_for_render(poll, "q", [_vote("6", plain=True), _vote("2", plain=True)])
+        assert [r["option"] for r in res["results"]] == [f"{i} — {i}" for i in range(2, 7)]
+        assert res["results"][0]["count"] == 1 and res["results"][4]["count"] == 1
+
+    def test_voto_sin_valor_no_rompe_el_calculo(self):
+        votos = [{"option_value": None, "voter_rank": "BASIC"}, _vote("Aprueba", plain=True)]
+        res = _results_for_render(POLL_UNA, "q1", votos)
+        assert res["results"][0]["option"] == "Aprueba" and res["results"][0]["count"] == 1
+
+
+def _comparable(preguntas_o_resultados):
+    return [(r["count"], r["pct"]) for r in preguntas_o_resultados]
+
+
+class TestParidadConAggregateByQuestion:
+    """La imagen y el resto de la API deben decir lo mismo: ambos contadores producen los mismos números."""
+
+    ESCENARIOS = {
+        "multi-pregunta con votos JSON": (POLL, [
+            _vote("Aprueba"), _vote("Desaprueba", rank="BASIC"), _vote("Aprueba"), _vote("No sabe"),
+            _vote("4", question_id="q2"), _vote("5", question_id="q2", rank="BASIC"),
+            {"option_value": json.dumps({"q1": "Aprueba", "q2": "3"}), "voter_rank": "VERIFIED"},
+        ]),
+        "una pregunta, texto plano": (POLL_UNA, [_vote("Aprueba", plain=True), _vote("No sabe", plain=True)]),
+        "una pregunta, selección múltiple": (POLL_UNA, [_vote("Aprueba||No sabe", plain=True), _vote("Desaprueba", plain=True)]),
+        "escala por extremos": (
+            {"questions": [{"id": "e", "text": "e", "type": "scale", "scale_min": 2, "scale_max": 6}]},
+            [_vote("2", plain=True), _vote("6", plain=True), _vote("6", plain=True)],
+        ),
+        "sin votos": (POLL, []),
+    }
+
+    @pytest.mark.parametrize("nombre", list(ESCENARIOS))
+    def test_mismos_conteos_y_porcentajes_que_aggregate_by_question(self, nombre):
+        poll, votos = self.ESCENARIOS[nombre]
+        for pregunta in aggregate_by_question(poll, votos):
+            esperado = pregunta["results"]
+            obtenido = _results_for_render(poll, pregunta["question_id"], votos)["results"]
+            if pregunta["question_type"] == "scale":
+                assert _comparable(obtenido) == _comparable(esperado)  # misma posición: la escala conserva el orden
+                assert [r["option"].split(" — ")[0] for r in obtenido] == [r["option"] for r in esperado]
+            else:
+                assert {r["option"]: (r["count"], r["pct"]) for r in obtenido} == {
+                    r["option"]: (r["count"], r["pct"]) for r in esperado
+                }
 
 
 # ═══ render_poll_image ═══
