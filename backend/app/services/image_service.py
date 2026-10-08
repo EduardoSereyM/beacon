@@ -13,7 +13,6 @@ El endpoint añade `Cache-Control` para que el navegador o la CDN alivianen la c
 """
 
 import logging
-import json
 import io
 from datetime import datetime, timezone
 from typing import Literal
@@ -22,6 +21,7 @@ from urllib.request import urlopen
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from app.core.database import get_async_supabase_client
+from app.core.polls.aggregation import aggregate_by_question
 
 logger = logging.getLogger("beacon.image_generation")
 
@@ -64,7 +64,7 @@ async def render_poll_image(
     total_votes = len(votes)
 
     # Calcular resultados
-    question_results = _calculate_question_results(poll, question_id, votes)
+    question_results = _results_for_render(poll, question_id, votes)
 
     # Generar imagen
     width, height = _parse_format(format_type)
@@ -299,92 +299,37 @@ def _get_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
-def _calculate_question_results(poll: dict, question_id: str, votes: list) -> dict:
-    """Calcula resultados para una pregunta."""
-    questions = poll.get("questions", [])
-    question = next((q for q in questions if q.get("id") == question_id), None)
+def _results_for_render(poll: dict, question_id: str, votes: list) -> dict:
+    """Resultados de una pregunta en el formato que usa el render.
 
-    if not question:
+    Los cuenta `aggregate_by_question` (la misma agregación que el resto de la API: una pregunta →
+    voto en texto plano, varias → JSON, y la selección múltiple "a||b" se separa); aquí solo se les
+    da la forma del render: opción única ordenada por votos (0 % al final) y escala con su etiqueta.
+    """
+    # option_value nunca debería ser nulo, pero la agregación asume un texto.
+    votes = [{**v, "option_value": v.get("option_value") or ""} for v in votes]
+    question = next((q for q in aggregate_by_question(poll, votes) if q["question_id"] == question_id), None)
+    if question is None:
         raise ValueError(f"Question not found: {question_id}")
 
-    question_text = question.get("text", "")
-    question_type = question.get("type", "multiple_choice")
+    results = [{"option": r["option"], "count": r["count"], "pct": r["pct"]} for r in question["results"]]
 
-    # Filtrar votos. Una pregunta: el voto es texto plano. Varias: es un JSON {"id_pregunta": "respuesta"}
-    # (misma regla que POST /polls/{id}/vote y aggregate_by_question).
-    is_multi = len(questions) > 1
-    relevant_votes = []
-    for vote in votes:
-        opt_val = vote.get("option_value") or ""
-        if not is_multi:
-            relevant_votes.append({"option": opt_val, "voter_rank": vote.get("voter_rank")})
-            continue
-        if not opt_val.startswith("{"):
-            continue
-        try:
-            parsed = json.loads(opt_val)
-        except json.JSONDecodeError:
-            continue
-        if question_id in parsed:
-            relevant_votes.append({"option": parsed[question_id], "voter_rank": vote.get("voter_rank")})
-
-    option_counts = {}
-    for vote in relevant_votes:
-        opt = vote.get("option", "")
-        option_counts[opt] = option_counts.get(opt, 0) + 1
-
-    total = len(relevant_votes)
-
-    # Para escala: incluir TODAS las opciones
-    if question_type == "scale":
-        scale_points = question.get("scale_points", 5)
-        scale_labels = question.get("scale_labels", [])
-
-        if not scale_labels or len(scale_labels) < scale_points:
-            scale_labels = [str(i) for i in range(1, scale_points + 1)]
-
-        results = []
-        for i in range(1, scale_points + 1):
-            count = option_counts.get(str(i), 0)
-            pct = round((count / total * 100), 1) if total > 0 else 0
-            label = scale_labels[i - 1] if i <= len(scale_labels) else str(i)
-
-            results.append({
-                "option": f"{i} — {label}",
-                "count": count,
-                "pct": pct,
-            })
-
-        return {
-            "question_id": question_id,
-            "question_text": question_text,
-            "question_type": question_type,
-            "results": results,
-        }
+    if question["question_type"] == "scale":
+        labels = question.get("scale_labels") or []
+        use_labels = len(labels) >= len(results)
+        results = [
+            {**r, "option": f"{r['option']} — {labels[i] if use_labels else r['option']}"}
+            for i, r in enumerate(results)
+        ]
     else:
-        # Multiple choice: mostrar TODAS las opciones disponibles
-        all_options = question.get("options", [])
+        results.sort(key=lambda r: r["count"], reverse=True)  # estable: empates en el orden de las opciones
 
-        results = []
-        for opt in all_options:
-            count = option_counts.get(opt, 0)
-            pct = round((count / total * 100), 1) if total > 0 else 0
-
-            results.append({
-                "option": opt,
-                "count": count,
-                "pct": pct,
-            })
-
-        # Ordenar por votos descendente (0% al final)
-        results.sort(key=lambda x: x["count"], reverse=True)
-
-        return {
-            "question_id": question_id,
-            "question_text": question_text,
-            "question_type": question_type,
-            "results": results,
-        }
+    return {
+        "question_id": question_id,
+        "question_text": question["question_text"],
+        "question_type": question["question_type"],
+        "results": results,
+    }
 
 
 def _parse_format(format_type: str) -> tuple:

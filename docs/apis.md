@@ -1721,7 +1721,7 @@ Ranking de usuarios por votos en encuestas, filtrable por período.
 
 **Errores:** 404 si la encuesta o la pregunta no existen; 400 si `poll_slug` o `question_id` vienen vacíos; 500 ante un fallo al generar. La imagen no incluye QR.
 
-**Cómo se cuentan los votos:** en una encuesta de **una** pregunta el voto es texto plano; en una **multi-pregunta** es un JSON `{"id_pregunta": "respuesta"}`, y un texto plano no es un voto válido (igual que `POST /polls/{id}/vote` y la agregación de resultados).
+**Cómo se cuentan los votos:** en una encuesta de **una** pregunta el voto es texto plano; en una **multi-pregunta** es un JSON `{"id_pregunta": "respuesta"}`, y un texto plano no es un voto válido. Los números salen de `aggregate_by_question`, la misma agregación del resto de la API (igual que `POST /polls/{id}/vote`); la selección múltiple `"a||b"` suma a cada opción.
 
 ---
 
