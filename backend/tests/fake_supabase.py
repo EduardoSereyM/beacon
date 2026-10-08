@@ -1,11 +1,18 @@
 """
 Cliente Supabase falso en memoria para tests unitarios (sin red ni .env real).
 Soporta la parte de la API async que usan los endpoints de polls/series:
-select/eq/ilike/lt/in_/is_/not_.is_/limit/order/maybe_single/insert/update/delete, defaults de columnas
+select/eq/ilike/lt/in_/is_/not_.is_/limit/order/single/maybe_single/insert/update/delete, defaults de columnas
 y restricciones únicas (error con código 23505, como Postgres).
+
+Fiel al cliente real (supabase==2.9.1, postgrest 0.17.2):
+- `.maybe_single()` devuelve None (no un resultado vacío) si no hay fila.
+- `.single()` lanza `APIError` (PGRST116) si no hay exactamente una fila, igual que PostgREST (406).
+  Por eso el código nuevo usa `.limit(1)` y trata `data` vacía como "no encontrado".
 """
 
 from typing import Any
+
+from postgrest.exceptions import APIError
 
 UNIQUE = {
     "polls": [("series_id", "edition"), ("slug",)],
@@ -35,7 +42,7 @@ class _Not:
 class Query:
     def __init__(self, db, table):
         self.db, self.table = db, table
-        self.filters, self.op, self.payload, self.single = {}, "select", None, False
+        self.filters, self.op, self.payload, self.maybe, self.strict_single = {}, "select", None, False, False
         self.ilikes = {}
         self.preds = []
 
@@ -74,7 +81,12 @@ class Query:
         return self
 
     def maybe_single(self):
-        self.single = True
+        self.maybe = True
+        return self
+
+    def single(self):
+        """`.single()` del cliente real: lanza si no hay exactamente una fila."""
+        self.strict_single = True
         return self
 
     def insert(self, payload):
@@ -116,7 +128,16 @@ class Query:
                 r.update(self.payload)
         elif self.op == "delete":
             self.db[self.table] = [r for r in rows if r not in matched]
-        if self.single:
+        if self.strict_single:
+            if len(matched) != 1:
+                raise APIError({
+                    "message": "JSON object requested, multiple (or no) rows returned",
+                    "code": "PGRST116",
+                    "details": f"The result contains {len(matched)} rows",
+                    "hint": None,
+                })
+            return Result(matched[0])
+        if self.maybe:
             # El cliente real devuelve None (no un resultado vacío) si maybe_single() no encuentra fila.
             return Result(matched[0]) if matched else None
         return Result(matched)
