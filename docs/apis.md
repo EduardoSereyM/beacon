@@ -1706,6 +1706,25 @@ Ranking de usuarios por votos en encuestas, filtrable por período.
 
 ---
 
+### Imagen de resultados (`/images`)
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/images/polls/{poll_slug}/generate` | — (el frontend envía el JWT si hay sesión; no cambia el resultado) | PNG con los resultados de una pregunta, para compartir |
+
+| Query param | Tipo | Descripción |
+|-------------|------|-------------|
+| `question_id` | string (requerido) | Pregunta a renderizar |
+| `format` | `1080x1080` (defecto) \| `1200x630` | Tamaño de la imagen; otro valor → 422 |
+
+**Respuesta 200:** el archivo `image/png` (`Content-Disposition: attachment; filename=beacon-{slug}-q{id}-{timestamp}.png`). Siempre se genera en la petición: **no hay caché en el servidor**. Lleva `Cache-Control: public, max-age=300` para que el navegador o la CDN alivianen la carga (los votos nuevos pueden tardar hasta 5 minutos en verse). Las respuestas de error no llevan esa cabecera.
+
+**Errores:** 404 si la encuesta o la pregunta no existen; 400 si `poll_slug` o `question_id` vienen vacíos; 500 ante un fallo al generar. La imagen no incluye QR.
+
+**Cómo se cuentan los votos:** en una encuesta de **una** pregunta el voto es texto plano; en una **multi-pregunta** es un JSON `{"id_pregunta": "respuesta"}`, y un texto plano no es un voto válido (igual que `POST /polls/{id}/vote` y la agregación de resultados).
+
+---
+
 ### Series de encuestas recurrentes (`/admin/polls/series`)
 
 Plantillas que se republican solas cada mes o cada semana (`cadence`). Cada edición es una fila normal de `polls` enlazada por `series_id` (migraciones 024 y 025). **La 025 debe aplicarse antes del merge que despliega el backend.**

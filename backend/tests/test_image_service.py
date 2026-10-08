@@ -1,10 +1,10 @@
 """
 BEACON PROTOCOL — Tests de humo: servicio de imagen de resultados
 =================================================================
-Cubre `generate_and_cache_poll_image` y sus helpers (`_wrap_text`, `_get_font`,
+Cubre `render_poll_image` y sus helpers (`_wrap_text`, `_get_font`,
 `_calculate_question_results`, `_parse_format`). Sin red ni base de datos: datos
-sintéticos, un Supabase mínimo en memoria y un Redis falso. El tamaño y el formato
-de la imagen se verifican abriendo el PNG con Pillow.
+sintéticos y un Supabase mínimo en memoria. El tamaño y el formato de la imagen
+se verifican abriendo el PNG con Pillow.
 """
 
 import io
@@ -19,7 +19,7 @@ from app.services.image_service import (
     _get_font,
     _parse_format,
     _wrap_text,
-    generate_and_cache_poll_image,
+    render_poll_image,
 )
 
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -46,9 +46,14 @@ POLL = {
 }
 
 
-def _vote(option, rank="VERIFIED", question_id="q1", legacy=False):
-    """Voto como lo guarda poll_votes: JSON por pregunta (o texto plano en votos antiguos)."""
-    value = option if legacy else json.dumps({question_id: option})
+# Una sola pregunta: el voto se guarda como texto plano (POST /polls/{id}/vote).
+POLL_UNA = {**POLL, "id": "poll-2", "slug": "encuesta-una-pregunta", "questions": [QUESTION_MC]}
+
+
+def _vote(option, rank="VERIFIED", question_id="q1", plain=False):
+    """Voto como lo guarda poll_votes: JSON {id_pregunta: respuesta} en encuestas multi-pregunta;
+    texto plano (plain=True) en las de una sola pregunta."""
+    value = option if plain else json.dumps({question_id: option})
     return {"option_value": value, "voter_rank": rank}
 
 
@@ -93,36 +98,14 @@ class _FakeSupabase:
         return _Table(self.db, name)
 
 
-class _FakeRedis:
-    def __init__(self, cached=None, fail=False):
-        self.cached, self.fail, self.sets = cached, fail, []
-
-    async def cache_get(self, key):
-        if self.fail:
-            raise ConnectionError("redis caído")
-        return self.cached
-
-    async def cache_set(self, key, value, expire=3600):
-        if self.fail:
-            raise ConnectionError("redis caído")
-        self.sets.append((key, value, expire))
-
-
 @pytest.fixture
 def servicio(monkeypatch):
-    """Instala Supabase y Redis falsos en el módulo; devuelve (supabase, redis, instalar)."""
-    estado = {}
+    """Instala el Supabase falso en el módulo y lo devuelve."""
 
-    def instalar(supabase=None, redis=None):
-        estado["supabase"] = supabase or _FakeSupabase(polls=[POLL], votes=[])
-        estado["redis"] = redis or _FakeRedis()
-
-        async def _get_redis():
-            return estado["redis"]
-
-        monkeypatch.setattr(image_service, "get_async_supabase_client", lambda: estado["supabase"])
-        monkeypatch.setattr(image_service, "get_redis", _get_redis)
-        return estado["supabase"], estado["redis"]
+    def instalar(supabase=None):
+        supabase = supabase or _FakeSupabase(polls=[POLL], votes=[])
+        monkeypatch.setattr(image_service, "get_async_supabase_client", lambda: supabase)
+        return supabase
 
     return instalar
 
@@ -228,12 +211,28 @@ class TestCalculateQuestionResults:
         scale = _calculate_question_results(POLL, "q2", votos)
         assert sum(r["count"] for r in scale["results"]) == 2
 
-    def test_voto_en_texto_plano_hoy_no_se_cuenta(self):
-        # Caracterización del comportamiento actual, no un contrato deseado: el `except` que pretende contar
-        # votos antiguos en texto plano nunca se ejecuta (el `else None` evita que json.loads falle), así que
-        # esos votos quedan fuera. Si se decide contarlos, este test se actualiza.
-        res = _calculate_question_results(POLL, "q1", [_vote("Aprueba", legacy=True)])
+    def test_una_pregunta_el_voto_en_texto_plano_cuenta(self):
+        # Diseño: en una encuesta de una sola pregunta el voto es texto plano, no JSON.
+        votos = [_vote("Aprueba", plain=True), _vote("Aprueba", plain=True, rank="BASIC"), _vote("Desaprueba", plain=True)]
+        res = _calculate_question_results(POLL_UNA, "q1", votos)
+        assert [(r["option"], r["count"]) for r in res["results"]] == [("Aprueba", 2), ("Desaprueba", 1), ("No sabe", 0)]
+        assert res["results"][0]["pct"] == pytest.approx(66.7)
+
+    def test_una_pregunta_de_escala_con_voto_en_texto_plano(self):
+        poll = {**POLL_UNA, "questions": [QUESTION_SCALE]}
+        votos = [_vote("5", plain=True), _vote("5", plain=True), _vote("1", plain=True)]
+        res = _calculate_question_results(poll, "q2", votos)
+        assert [r["count"] for r in res["results"]] == [1, 0, 0, 0, 2]
+
+    def test_multi_pregunta_un_voto_en_texto_plano_no_se_cuenta(self):
+        # En una encuesta multi-pregunta el voto es siempre un JSON: un texto plano no es un voto válido.
+        res = _calculate_question_results(POLL, "q1", [_vote("Aprueba", plain=True)])
         assert all(r["count"] == 0 and r["pct"] == 0 for r in res["results"])
+
+    def test_multi_pregunta_un_json_mal_formado_se_ignora(self):
+        votos = [{"option_value": '{"q1": "Aprueba"', "voter_rank": "BASIC"}, _vote("Desaprueba")]
+        res = _calculate_question_results(POLL, "q1", votos)
+        assert [(r["option"], r["count"]) for r in res["results"]] == [("Desaprueba", 1), ("Aprueba", 0), ("No sabe", 0)]
 
     def test_escala_incluye_todos_los_puntos_con_su_etiqueta(self):
         votos = [_vote("5", question_id="q2"), _vote("5", question_id="q2"), _vote("1", question_id="q2")]
@@ -256,73 +255,49 @@ class TestCalculateQuestionResults:
             _calculate_question_results(POLL, "no-existe", [])
 
 
-# ═══ generate_and_cache_poll_image ═══
+# ═══ render_poll_image ═══
 
-class TestGenerateAndCachePollImage:
+class TestRenderPollImage:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("formato,tamano", [("1080x1080", (1080, 1080)), ("1200x630", (1200, 630))])
     async def test_png_valido_con_el_tamano_del_formato(self, servicio, formato, tamano):
         votos = [_vote("Aprueba"), _vote("Desaprueba", rank="BASIC"), _vote("Aprueba")]
         servicio(_FakeSupabase(polls=[POLL], votes=votos))
-        res = await generate_and_cache_poll_image(POLL["slug"], "q1", formato)
+        res = await render_poll_image(POLL["slug"], "q1", formato)
         img = _abrir(res["image_bytes"])
         assert img.format == "PNG" and img.mode == "RGB" and img.size == tamano
-        assert res["cached"] is False
         assert res["download_name"].startswith(f"beacon-{POLL['slug']}-qq1-") and res["download_name"].endswith(".png")
+        assert set(res) == {"image_bytes", "download_name"}  # sin campos de caché
+
+    @pytest.mark.asyncio
+    async def test_dos_llamadas_seguidas_devuelven_una_imagen_no_vacia(self, servicio):
+        servicio(_FakeSupabase(polls=[POLL], votes=[_vote("Aprueba")]))
+        primera = await render_poll_image(POLL["slug"], "q1", "1080x1080")
+        segunda = await render_poll_image(POLL["slug"], "q1", "1080x1080")
+        for res in (primera, segunda):
+            assert len(res["image_bytes"]) > 0
+            assert _abrir(res["image_bytes"]).size == (1080, 1080)
 
     @pytest.mark.asyncio
     async def test_pregunta_de_escala(self, servicio):
         votos = [_vote("4", question_id="q2"), _vote("5", question_id="q2", rank="BASIC")]
         servicio(_FakeSupabase(polls=[POLL], votes=votos))
-        res = await generate_and_cache_poll_image(POLL["slug"], "q2", "1080x1080")
+        res = await render_poll_image(POLL["slug"], "q2", "1080x1080")
         assert _abrir(res["image_bytes"]).size == (1080, 1080)
+
+    @pytest.mark.asyncio
+    async def test_encuesta_de_una_pregunta_con_votos_en_texto_plano(self, servicio):
+        votos = [_vote("Aprueba", plain=True), _vote("Aprueba", plain=True, rank="BASIC")]
+        servicio(_FakeSupabase(polls=[POLL_UNA], votes=votos))
+        res = await render_poll_image(POLL_UNA["slug"], "q1", "1200x630")
+        assert _abrir(res["image_bytes"]).size == (1200, 630)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("pregunta", ["q1", "q2"])
     async def test_sin_votos_genera_la_imagen_con_0_por_ciento(self, servicio, pregunta):
         servicio(_FakeSupabase(polls=[POLL], votes=[]))
-        res = await generate_and_cache_poll_image(POLL["slug"], pregunta, "1200x630")
+        res = await render_poll_image(POLL["slug"], pregunta, "1200x630")
         assert _abrir(res["image_bytes"]).size == (1200, 630)
-
-    @pytest.mark.asyncio
-    async def test_guarda_en_cache_solo_metadatos_por_24_horas(self, servicio):
-        _, redis = servicio(_FakeSupabase(polls=[POLL], votes=[_vote("Aprueba")]))
-        res = await generate_and_cache_poll_image(POLL["slug"], "q1", "1080x1080")
-        assert len(redis.sets) == 1
-        clave, valor, expira = redis.sets[0]
-        assert clave == f"image:poll:{POLL['slug']}:qq1:1080x1080" and expira == 86400
-        assert json.loads(valor)["download_name"] == res["download_name"]
-        assert "image_bytes" not in json.loads(valor)
-
-    @pytest.mark.asyncio
-    async def test_acierto_de_cache_no_toca_la_base(self, servicio):
-        cacheado = json.dumps({"download_name": "beacon-x.png", "generated_at": "2026-10-07T00-00-00"})
-        supabase, _ = servicio(_FakeSupabase(polls=[POLL]), _FakeRedis(cached=cacheado))
-        res = await generate_and_cache_poll_image(POLL["slug"], "q1", "1080x1080")
-        assert res["cached"] is True and res["download_name"] == "beacon-x.png"
-        assert supabase.used is False
-
-    @pytest.mark.asyncio
-    @pytest.mark.xfail(strict=True, reason="Defecto conocido: la caché guarda solo metadatos, así que un acierto de "
-                                           "caché no trae image_bytes y el endpoint serviría un archivo vacío. "
-                                           "Quitar este xfail cuando se corrija.")
-    async def test_acierto_de_cache_debe_traer_la_imagen(self, servicio):
-        cacheado = json.dumps({"download_name": "beacon-x.png", "generated_at": "2026-10-07T00-00-00"})
-        servicio(_FakeSupabase(polls=[POLL]), _FakeRedis(cached=cacheado))
-        res = await generate_and_cache_poll_image(POLL["slug"], "q1", "1080x1080")
-        assert res.get("image_bytes")
-
-    @pytest.mark.asyncio
-    async def test_cache_corrupta_se_ignora_y_se_genera(self, servicio):
-        servicio(_FakeSupabase(polls=[POLL], votes=[]), _FakeRedis(cached="{no es json"))
-        res = await generate_and_cache_poll_image(POLL["slug"], "q1", "1080x1080")
-        assert res["cached"] is False and _abrir(res["image_bytes"]).size == (1080, 1080)
-
-    @pytest.mark.asyncio
-    async def test_redis_caido_no_impide_generar(self, servicio):
-        servicio(_FakeSupabase(polls=[POLL], votes=[]), _FakeRedis(fail=True))
-        res = await generate_and_cache_poll_image(POLL["slug"], "q1", "1200x630")
-        assert res["cached"] is False and _abrir(res["image_bytes"]).size == (1200, 630)
 
     @pytest.mark.asyncio
     async def test_imagen_de_cabecera_inaccesible_no_rompe_la_generacion(self, servicio, monkeypatch):
@@ -332,17 +307,17 @@ class TestGenerateAndCachePollImage:
         monkeypatch.setattr(image_service, "urlopen", sin_red)
         poll = {**POLL, "header_image": "https://ejemplo.invalid/cabecera.png"}
         servicio(_FakeSupabase(polls=[poll], votes=[_vote("Aprueba")]))
-        res = await generate_and_cache_poll_image(poll["slug"], "q1", "1080x1080")
+        res = await render_poll_image(poll["slug"], "q1", "1080x1080")
         assert _abrir(res["image_bytes"]).size == (1080, 1080)
 
     @pytest.mark.asyncio
     async def test_encuesta_inexistente_lanza_value_error(self, servicio):
         servicio(_FakeSupabase(polls=[], votes=[]))
         with pytest.raises(ValueError, match="Poll not found"):
-            await generate_and_cache_poll_image("no-existe", "q1", "1080x1080")
+            await render_poll_image("no-existe", "q1", "1080x1080")
 
     @pytest.mark.asyncio
     async def test_pregunta_inexistente_lanza_value_error(self, servicio):
         servicio(_FakeSupabase(polls=[POLL], votes=[]))
         with pytest.raises(ValueError, match="Question not found"):
-            await generate_and_cache_poll_image(POLL["slug"], "no-existe", "1080x1080")
+            await render_poll_image(POLL["slug"], "no-existe", "1080x1080")

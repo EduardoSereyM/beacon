@@ -5,12 +5,11 @@ Generación de imágenes PNG para compartir resultados de encuestas.
 
 Flujo:
   1. Fetch poll + votos de Supabase
-  2. Check caché Redis
-  3. Si cached: return URL
-  4. Si no: generar PNG con Pillow
-  5. Upload a Supabase Storage
-  6. Cache URL en Redis (86400s = 1 día)
-  7. Return { image_url, download_name }
+  2. Calcular los resultados de la pregunta
+  3. Generar el PNG con Pillow (siempre; no hay caché)
+  4. Return { image_bytes, download_name }
+
+El endpoint añade `Cache-Control` para que el navegador o la CDN alivianen la carga.
 """
 
 import logging
@@ -23,7 +22,6 @@ from urllib.request import urlopen
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from app.core.database import get_async_supabase_client
-from app.core.redis_client import get_redis
 
 logger = logging.getLogger("beacon.image_generation")
 
@@ -40,39 +38,18 @@ COLORS = {
 }
 
 
-async def generate_and_cache_poll_image(
+async def render_poll_image(
     poll_slug: str,
     question_id: str,
     format_type: Literal["1080x1080", "1200x630"] = "1080x1080",
 ) -> dict:
     """
-    Genera o cachea imagen de resultado de encuesta.
+    Genera la imagen PNG con los resultados de una pregunta de una encuesta.
 
-    Flujo:
-      1. Check Redis cache
-      2. Si hit: return cached URL
-      3. Si miss: generar con Pillow
-      4. Upload a Supabase Storage
-      5. Cache URL en Redis (86400s)
-      6. Return { image_url, download_name }
+    Siempre genera la imagen (no hay caché). Devuelve
+    { image_bytes, download_name }. Lanza ValueError si la encuesta o la pregunta no existen.
     """
-    redis = await get_redis()
     supabase = get_async_supabase_client()
-
-    cache_key = f"image:poll:{poll_slug}:q{question_id}:{format_type}"
-
-    # Check caché
-    try:
-        cached_data = await redis.cache_get(cache_key)
-        if cached_data:
-            try:
-                cached_json = json.loads(cached_data) if isinstance(cached_data, str) else cached_data
-                logger.info("Cache hit: %s", cache_key)
-                return {**cached_json, "cached": True}
-            except (json.JSONDecodeError, TypeError):
-                logger.warning("Cache corrupted: %s", cache_key)
-    except Exception as e:
-        logger.warning("Redis unavailable: %s", str(e))
 
     # Fetch poll y votos
     poll_resp = await supabase.table("polls").select("*").eq("slug", poll_slug).single().execute()
@@ -100,28 +77,11 @@ async def generate_and_cache_poll_image(
         total_votes=total_votes,
     )
 
-    # Preparar respuesta (retornar bytes directamente)
     timestamp = datetime.now(timezone.utc).isoformat().replace(":", "-")
     download_name = f"beacon-{poll_slug}-q{question_id}-{timestamp}.png"
 
-    response = {
-        "image_bytes": image_bytes,
-        "download_name": download_name,
-        "cached": False,
-    }
-
-    # Cache en Redis (solo metadata)
-    cache_data = {
-        "download_name": download_name,
-        "generated_at": timestamp,
-    }
-    try:
-        await redis.cache_set(cache_key, json.dumps(cache_data), expire=86400)
-    except Exception as e:
-        logger.warning("Could not cache: %s", str(e))
-
-    logger.info("Image generated: %s", cache_key)
-    return response
+    logger.info("Image generated: poll=%s q=%s format=%s", poll_slug, question_id, format_type)
+    return {"image_bytes": image_bytes, "download_name": download_name}
 
 
 def _generate_image_pillow(
@@ -350,17 +310,23 @@ def _calculate_question_results(poll: dict, question_id: str, votes: list) -> di
     question_text = question.get("text", "")
     question_type = question.get("type", "multiple_choice")
 
-    # Filtrar votos
+    # Filtrar votos. Una pregunta: el voto es texto plano. Varias: es un JSON {"id_pregunta": "respuesta"}
+    # (misma regla que POST /polls/{id}/vote y aggregate_by_question).
+    is_multi = len(questions) > 1
     relevant_votes = []
     for vote in votes:
-        opt_val = vote.get("option_value", "")
+        opt_val = vote.get("option_value") or ""
+        if not is_multi:
+            relevant_votes.append({"option": opt_val, "voter_rank": vote.get("voter_rank")})
+            continue
+        if not opt_val.startswith("{"):
+            continue
         try:
-            parsed = json.loads(opt_val) if opt_val.startswith("{") else None
-            if parsed and question_id in parsed:
-                relevant_votes.append({"option": parsed[question_id], "voter_rank": vote.get("voter_rank")})
-        except (json.JSONDecodeError, TypeError):
-            if not opt_val.startswith("{"):
-                relevant_votes.append({"option": opt_val, "voter_rank": vote.get("voter_rank")})
+            parsed = json.loads(opt_val)
+        except json.JSONDecodeError:
+            continue
+        if question_id in parsed:
+            relevant_votes.append({"option": parsed[question_id], "voter_rank": vote.get("voter_rank")})
 
     option_counts = {}
     for vote in relevant_votes:

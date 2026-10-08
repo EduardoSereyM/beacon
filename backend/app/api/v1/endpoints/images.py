@@ -8,12 +8,9 @@ GET /api/v1/images/polls/{poll_slug}/generate
     - question_id: ID de la pregunta (requerido)
     - format: "1080x1080" | "1200x630" (default: 1080x1080)
 
-Retorna:
-  {
-    "image_url": "https://storage.supabase.co/...",
-    "download_name": "beacon-{slug}-q{id}-{timestamp}.png",
-    "cached": true|false
-  }
+Retorna el PNG (image/png) como archivo descargable (Content-Disposition: attachment).
+La imagen se genera en cada petición (no hay caché en el servidor); la respuesta lleva
+`Cache-Control: public, max-age=300` para que el navegador o la CDN alivianen la carga.
 """
 
 import logging
@@ -24,7 +21,10 @@ from fastapi.responses import StreamingResponse
 from datetime import datetime, timezone
 import io
 
-from app.services.image_service import generate_and_cache_poll_image
+from app.services.image_service import render_poll_image
+
+# La imagen refleja los votos al momento de generarla: 5 minutos de caché compartida bastan para aliviar la carga.
+CACHE_CONTROL = "public, max-age=300"
 
 logger = logging.getLogger("beacon.images_endpoint")
 
@@ -42,15 +42,10 @@ async def generate_poll_image(
 
     Flujo:
       1. Validar parámetros
-      2. Check caché Redis
-      3. Si cached: return URL
-      4. Si no: generar con Pillow + upload a Storage
-      5. Cache por 24h
-      6. Return download link
+      2. Generar la imagen con Pillow (siempre)
+      3. Devolver el PNG con `Cache-Control: public, max-age=300`
 
-    Latencia esperada:
-      - Primera generación: ~800ms
-      - Desde caché: ~50ms
+    Latencia esperada: ~0,6–1,5 s por imagen.
     """
     try:
         # Validar parámetros
@@ -65,8 +60,8 @@ async def generate_poll_image(
 
         logger.info("Generando imagen: poll=%s q=%s format=%s", poll_slug, question_id, format)
 
-        # Generar o cachear (retorna dict con image_bytes y metadata)
-        result = await generate_and_cache_poll_image(poll_slug, question_id, format)
+        # Generar (retorna dict con image_bytes y download_name)
+        result = await render_poll_image(poll_slug, question_id, format)
 
         # Retornar como archivo descargable
         image_bytes = result.get("image_bytes")
@@ -75,7 +70,10 @@ async def generate_poll_image(
         return StreamingResponse(
             io.BytesIO(image_bytes),
             media_type="image/png",
-            headers={"Content-Disposition": f"attachment; filename={download_name}"},
+            headers={
+                "Content-Disposition": f"attachment; filename={download_name}",
+                "Cache-Control": CACHE_CONTROL,
+            },
         )
 
     except ValueError as e:
